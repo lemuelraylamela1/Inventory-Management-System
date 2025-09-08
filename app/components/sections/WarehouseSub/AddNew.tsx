@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { useForm } from "react-hook-form";
+
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+
 import Image from "next/image";
 
 import { Upload, X, FileText, Settings, Eye } from "lucide-react";

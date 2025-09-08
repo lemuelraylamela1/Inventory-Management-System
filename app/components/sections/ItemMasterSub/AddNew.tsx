@@ -1,9 +1,9 @@
 "use client";
 
 import React, { useState, useCallback } from "react";
-import { useForm } from "react-hook-form";
+
 import { useRouter } from "next/navigation";
-import { motion } from "framer-motion";
+
 import Image from "next/image";
 
 import { Upload, X, FileText, Settings, Eye } from "lucide-react";
@@ -401,7 +401,13 @@ export default function AddNew({
                         <Card key={index} className="p-2">
                           <CardContent className="p-0">
                             <div className="aspect-square bg-muted rounded-md flex items-center justify-center mb-2">
-                              <Image className="h-8 w-8 text-muted-foreground" />
+                              <Image
+                                className="h-8 w-8 text-muted-foreground"
+                                src={file.name}
+                                alt={file.name}
+                                width={300}
+                                height={300}
+                              />
                             </div>
                             <p className="text-xs truncate">{file.name}</p>
                             <p className="text-xs text-muted-foreground">
