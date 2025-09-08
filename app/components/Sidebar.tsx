@@ -1,0 +1,182 @@
+"use client";
+
+import React, { useState } from "react";
+import { Button } from "./ui/button";
+import { ScrollArea } from "./ui/scroll-area";
+import { Separator } from "./ui/separator";
+import {
+  Collapsible,
+  CollapsibleContent,
+  CollapsibleTrigger,
+} from "./ui/collapsible";
+import {
+  LayoutDashboard,
+  ShoppingCart,
+  Package,
+  BarChart3,
+  Settings,
+  ChevronDown,
+  ChevronRight,
+  Users,
+  Building2,
+  UserCheck,
+  Shapes,
+  Package2,
+  DollarSign,
+  UserCircle,
+  Truck,
+  Receipt,
+  Ruler,
+  Warehouse,
+  LogOut,
+  Menu,
+  X,
+} from "lucide-react";
+
+interface SidebarProps {
+  userRole: "admin" | "user";
+  activeSection: string;
+  onSectionChange: (section: string) => void;
+  onLogout: () => void;
+  isOpen: boolean;
+  onToggle: () => void;
+}
+
+export function Sidebar({
+  userRole,
+  activeSection,
+  onSectionChange,
+  onLogout,
+  isOpen,
+  onToggle,
+}: SidebarProps) {
+  const [openSubMenus, setOpenSubMenus] = useState<string[]>([]);
+
+  const toggleSubMenu = (menu: string) => {
+    setOpenSubMenus((prev) =>
+      prev.includes(menu)
+        ? prev.filter((item) => item !== menu)
+        : [...prev, menu]
+    );
+  };
+
+  const mainMenuItems = [
+    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
+    { id: "sales", label: "Sales", icon: ShoppingCart },
+    { id: "purchase", label: "Purchase", icon: Package },
+    { id: "inventory", label: "Inventory", icon: Package2 },
+    { id: "reports", label: "Reports", icon: BarChart3 },
+    { id: "users", label: "User Management", icon: Users, adminOnly: true },
+  ];
+
+  const maintenanceItems = [
+    { id: "bank", label: "Bank", icon: Building2 },
+    { id: "customer", label: "Customer", icon: Users },
+    { id: "customer-type", label: "Customer Type", icon: UserCheck },
+    { id: "item-class", label: "Item Class", icon: Shapes },
+    { id: "item-master", label: "Item Master", icon: Package },
+    { id: "price-list", label: "Price List", icon: DollarSign },
+    { id: "sales-person", label: "Sales Person", icon: UserCircle },
+    { id: "supplier", label: "Supplier", icon: Truck },
+    { id: "tax", label: "Tax", icon: Receipt },
+    { id: "unit-measure", label: "Unit of Measure", icon: Ruler },
+    { id: "warehouse", label: "Warehouse", icon: Warehouse },
+  ];
+
+  const filteredMainMenuItems = mainMenuItems.filter(
+    (item) => !item.adminOnly || userRole === "admin"
+  );
+
+  return (
+    <>
+      {/* Mobile overlay */}
+      {isOpen && (
+        <div
+          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+          onClick={onToggle}
+        />
+      )}
+
+      {/* Sidebar */}
+      <div
+        className={`
+        fixed left-0 top-0 z-50 h-full w-64 bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out
+        ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
+        lg:static lg:z-auto
+      `}>
+        <div className="flex items-center justify-between p-4 border-b">
+          <h2 className="text-lg font-semibold">IMS</h2>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onToggle}
+            className="lg:hidden">
+            <X className="h-4 w-4" />
+          </Button>
+        </div>
+
+        <ScrollArea className="h-[calc(100vh-140px)]">
+          <div className="p-4">
+            <nav className="space-y-2">
+              {filteredMainMenuItems.map((item) => (
+                <Button
+                  key={item.id}
+                  variant={activeSection === item.id ? "default" : "ghost"}
+                  className="w-full justify-start"
+                  onClick={() => {
+                    onSectionChange(item.id);
+                    if (window.innerWidth < 1024) onToggle();
+                  }}>
+                  <item.icon className="mr-2 h-4 w-4" />
+                  {item.label}
+                </Button>
+              ))}
+
+              <Collapsible
+                open={openSubMenus.includes("maintenance")}
+                onOpenChange={() => toggleSubMenu("maintenance")}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-start">
+                    <Settings className="mr-2 h-4 w-4" />
+                    Maintenance
+                    {openSubMenus.includes("maintenance") ? (
+                      <ChevronDown className="ml-auto h-4 w-4" />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <CollapsibleContent className="space-y-1 ml-4 mt-1">
+                  {maintenanceItems.map((item) => (
+                    <Button
+                      key={item.id}
+                      variant={activeSection === item.id ? "default" : "ghost"}
+                      size="sm"
+                      className="w-full justify-start"
+                      onClick={() => {
+                        onSectionChange(item.id);
+                        if (window.innerWidth < 1024) onToggle();
+                      }}>
+                      <item.icon className="mr-2 h-3 w-3" />
+                      {item.label}
+                    </Button>
+                  ))}
+                </CollapsibleContent>
+              </Collapsible>
+            </nav>
+          </div>
+        </ScrollArea>
+
+        <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
+          <Button
+            variant="ghost"
+            className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+            onClick={onLogout}>
+            <LogOut className="mr-2 h-4 w-4" />
+            Logout
+          </Button>
+        </div>
+      </div>
+    </>
+  );
+}
