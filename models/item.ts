@@ -26,7 +26,7 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IItem extends Document {
-  createdDT?: Date;
+  createdDT?: string;
   item_code: string;
   item_name: string;
   item_description: string;

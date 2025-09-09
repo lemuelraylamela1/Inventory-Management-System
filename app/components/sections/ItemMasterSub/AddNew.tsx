@@ -106,6 +106,7 @@ export default function AddNew({
       weight: weight ? parseFloat(weight) : 0,
     };
 
+    console.log("Creating item:", payload);
     try {
       const res = await fetch("http://localhost:3000/api/items", {
         method: "POST",
@@ -180,62 +181,6 @@ export default function AddNew({
             <TabsContent value="upload" className="space-y-6 mt-0">
               {/* Image Upload Area */}
               <div className="space-y-2">
-                {/* <Label>Images</Label>
-                <div
-                  className={`relative border-2 border-dashed rounded-lg p-6 transition-colors ${
-                    dragActive
-                      ? "border-primary bg-primary/5"
-                      : "border-border hover:border-primary/50"
-                  }`}
-                  onDragEnter={handleDragEnter}
-                  onDragLeave={handleDragLeave}
-                  onDragOver={handleDragOver}
-                  onDrop={handleDrop}>
-                  {!uploadedFiles.length ? (
-                    <>
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={(e) => handleFileSelect(e.target.files)}
-                        className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                      />
-                      <div className="text-center">
-                        <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                          <Image className="h-6 w-6 text-muted-foreground" />
-                        </div>
-                        <div className="space-y-2">
-                          <p className="text-sm">
-                            <span className="font-medium text-primary">
-                              Click to upload
-                            </span>{" "}
-                            or drag and drop
-                          </p>
-                          <p className="text-xs text-muted-foreground">
-                            PNG, JPG, GIF up to 10MB
-                          </p>
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <div className="relative w-full h-48 overflow-hidden rounded-lg">
-                      <Image
-                        src={URL.createObjectURL(uploadedFiles[0])}
-                        alt={uploadedFiles[0].name}
-                        fill
-                        className="object-cover"
-                        sizes="100vw"
-                        priority
-                      />
-                      <button
-                        type="button"
-                        onClick={() => removeFile(0)}
-                        className="absolute top-2 right-2 bg-white rounded-full p-1 shadow hover:bg-red-100">
-                        <X className="h-4 w-4 text-red-600" />
-                      </button>
-                    </div>
-                  )}
-                </div> */}
                 <ImageUploader onSelect={(file) => setSelectedFile(file)} />
               </div>
 

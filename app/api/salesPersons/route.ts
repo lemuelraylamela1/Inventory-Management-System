@@ -1,12 +1,12 @@
 import connectMongoDB from "../../../libs/mongodb";
-import SalesPerson from "../../../models/salesperson";
+import SalesPerson from "../../../models/salesPerson";
 import { NextResponse, NextRequest } from "next/server";
 
 interface SalesPersonPayload {
-  createdDT: string;
-  salesperson_code: string;
-  salesperson_name: string;
-  salesperson_region: string;
+  salesPersonCode: string;
+  salesPersonName: string;
+  emailAddress: string;
+  status: string;
 }
 
 interface BulkPayload {
@@ -26,18 +26,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const {
-      createdDT,
-      salesperson_code,
-      salesperson_name,
-      salesperson_region,
-    } = body as SalesPersonPayload;
+    const { salesPersonCode, salesPersonName, emailAddress, status } =
+      body as SalesPersonPayload;
 
     await SalesPerson.create({
-      createdDT,
-      salesperson_code,
-      salesperson_name,
-      salesperson_region,
+      salesPersonCode,
+      salesPersonName,
+      emailAddress,
+      status,
     });
 
     return NextResponse.json(
@@ -56,7 +52,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   await connectMongoDB();
   const salespersons = await SalesPerson.find();
-  return NextResponse.json({ salespersons });
+  return NextResponse.json({ salesPersons: salespersons });
 }
 
 // Optional DELETE handler — uncomment and use if needed

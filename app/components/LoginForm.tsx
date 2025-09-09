@@ -114,15 +114,6 @@ export function LoginForm({ onLogin }: LoginFormProps) {
               {loading ? "Signing in..." : "Sign In"}
             </Button>
           </form>
-          <div className="mt-6 p-4 bg-blue-50 rounded-lg">
-            <p className="text-sm text-blue-800 mb-2">Demo Credentials:</p>
-            <p className="text-xs text-blue-600">
-              Admin: admin@inventory.com / admin123
-            </p>
-            <p className="text-xs text-blue-600">
-              User: user@inventory.com / user123
-            </p>
-          </div>
         </CardContent>
       </Card>
     </div>

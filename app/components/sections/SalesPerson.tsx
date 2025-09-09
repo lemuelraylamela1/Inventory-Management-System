@@ -1,4 +1,6 @@
-import React, { useState, useMemo } from "react";
+"use client";
+import React, { useState, useEffect, useMemo } from "react";
+
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import {
@@ -52,121 +54,70 @@ import {
   CardDescription,
 } from "../ui/card";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
-
-interface SalesPerson {
-  id: string;
-  creationDate: string;
-  salesPersonCode: string;
-  salesPersonName: string;
-  emailAddress: string;
-  status: "active" | "inactive";
-}
-
-// Mock data
-const initialSalesPersons: SalesPerson[] = [
-  {
-    id: "1",
-    creationDate: "2024-01-15",
-    salesPersonCode: "SP001",
-    salesPersonName: "John Smith",
-    emailAddress: "john.smith@company.com",
-    status: "active",
-  },
-  {
-    id: "2",
-    creationDate: "2024-01-20",
-    salesPersonCode: "SP002",
-    salesPersonName: "Sarah Johnson",
-    emailAddress: "sarah.johnson@company.com",
-    status: "active",
-  },
-  {
-    id: "3",
-    creationDate: "2024-02-01",
-    salesPersonCode: "SP003",
-    salesPersonName: "Mike Davis",
-    emailAddress: "mike.davis@company.com",
-    status: "inactive",
-  },
-  {
-    id: "4",
-    creationDate: "2024-02-10",
-    salesPersonCode: "SP004",
-    salesPersonName: "Emily Wilson",
-    emailAddress: "emily.wilson@company.com",
-    status: "active",
-  },
-  {
-    id: "5",
-    creationDate: "2024-02-15",
-    salesPersonCode: "SP005",
-    salesPersonName: "Robert Brown",
-    emailAddress: "robert.brown@company.com",
-    status: "active",
-  },
-  {
-    id: "6",
-    creationDate: "2024-03-01",
-    salesPersonCode: "SP006",
-    salesPersonName: "Lisa Anderson",
-    emailAddress: "lisa.anderson@company.com",
-    status: "inactive",
-  },
-  {
-    id: "7",
-    creationDate: "2024-03-05",
-    salesPersonCode: "SP007",
-    salesPersonName: "David Miller",
-    emailAddress: "david.miller@company.com",
-    status: "active",
-  },
-  {
-    id: "8",
-    creationDate: "2024-03-10",
-    salesPersonCode: "SP008",
-    salesPersonName: "Jennifer Taylor",
-    emailAddress: "jennifer.taylor@company.com",
-    status: "active",
-  },
-];
-
-const ITEMS_PER_PAGE = 5;
+import type { SalesPersonType } from "./type";
 
 export default function SalesPerson() {
-  const [salesPersons, setSalesPersons] =
-    useState<SalesPerson[]>(initialSalesPersons);
+  const [salesPerson, setSalesPerson] = useState<SalesPersonType[]>([]);
+  const [salesPersons, setSalesPersons] = useState<SalesPersonType[]>([]);
+
+  const [rowsPerPage, setRowsPerPage] = useState<number>(10);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingSalesPerson, setEditingSalesPerson] =
-    useState<SalesPerson | null>(null);
+    useState<SalesPersonType | null>(null);
   const [formData, setFormData] = useState({
     salesPersonCode: "",
     salesPersonName: "",
     emailAddress: "",
-    status: "active" as "active" | "inactive",
+    status: "",
   });
 
-  // Filter and paginate data
-  const filteredSalesPersons = useMemo(() => {
-    return salesPersons.filter(
-      (person) =>
-        person.salesPersonName
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        person.salesPersonCode
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase()) ||
-        person.emailAddress.toLowerCase().includes(searchTerm.toLowerCase())
-    );
-  }, [salesPersons, searchTerm]);
+  const fetchSalesPerson = async () => {
+    try {
+      const res = await fetch("http://localhost:3000/api/salesPersons", {
+        cache: "no-store",
+      });
+      if (!res.ok) throw new Error("Failed to fetch items");
 
-  const totalPages = Math.ceil(filteredSalesPersons.length / ITEMS_PER_PAGE);
-  const startIndex = (currentPage - 1) * ITEMS_PER_PAGE;
-  const paginatedSalesPersons = filteredSalesPersons.slice(
-    startIndex,
-    startIndex + ITEMS_PER_PAGE
+      const data = await res.json();
+      const salesPerson = Array.isArray(data) ? data : data.salesPersons;
+      setSalesPerson(Array.isArray(salesPerson) ? salesPerson : []);
+    } catch (error) {
+      console.error("Error loading salesPerson:", error);
+      setSalesPerson([]);
+    }
+  };
+
+  useEffect(() => {
+    fetchSalesPerson(); // initial fetch
+
+    const interval = setInterval(() => {
+      fetchSalesPerson();
+    }, 3000); // every 3 seconds
+
+    return () => clearInterval(interval); // cleanup
+  }, []);
+
+  // Filter and paginate data
+  const filteredItems = salesPerson.filter((salesPerson) => {
+    const term = searchTerm.toLowerCase();
+    const matchesCode = salesPerson.salesPersonCode
+      ?.toLowerCase()
+      .includes(term);
+    const matchesName = salesPerson.salesPersonName
+      ?.toLowerCase()
+      .includes(term);
+
+    return matchesCode || matchesName;
+  });
+
+  const totalPages = Math.ceil(filteredItems.length / rowsPerPage);
+  const paginatedItems = filteredItems.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
   );
 
   // Reset to first page when search changes
@@ -174,13 +125,37 @@ export default function SalesPerson() {
     setCurrentPage(1);
   }, [searchTerm]);
 
-  const handleCreate = () => {
-    const newSalesPerson: SalesPerson = {
-      id: Date.now().toString(),
-      creationDate: new Date().toISOString().split("T")[0],
-      ...formData,
+  const handleCreate = async () => {
+    const payload = {
+      createdDT: new Date(),
+      salesPersonCode: formData.salesPersonCode,
+      salesPersonName: formData.salesPersonName,
+      emailAddress: formData.emailAddress,
+      status: formData.status,
     };
-    setSalesPersons([...salesPersons, newSalesPerson]);
+
+    try {
+      const res = await fetch("http://localhost:3000/api/salesPersons", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
+
+      const result = await res.json();
+      console.log("Create result:", result);
+
+      if (!res.ok)
+        throw new Error(result.message || "Failed to create sales person");
+
+      // Update local state with optimistic UI
+      setSalesPersons((prev) => [
+        ...prev,
+        { ...payload, _id: Date.now().toString() },
+      ]);
+    } catch (error) {
+      console.error("Error creating sales person:", error);
+    }
+
     setFormData({
       salesPersonCode: "",
       salesPersonName: "",
@@ -190,7 +165,7 @@ export default function SalesPerson() {
     setIsCreateDialogOpen(false);
   };
 
-  const handleEdit = (person: SalesPerson) => {
+  const handleEdit = (person: SalesPersonType) => {
     setEditingSalesPerson(person);
     setFormData({
       salesPersonCode: person.salesPersonCode,
@@ -201,16 +176,41 @@ export default function SalesPerson() {
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingSalesPerson) return;
 
-    setSalesPersons(
-      salesPersons.map((person) =>
-        person.id === editingSalesPerson.id
-          ? { ...person, ...formData }
-          : person
-      )
-    );
+    const updatedSalesPerson: SalesPersonType = {
+      ...editingSalesPerson,
+      salesPersonCode: formData.salesPersonCode,
+      salesPersonName: formData.salesPersonName,
+      emailAddress: formData.emailAddress,
+      status: formData.status,
+    };
+
+    try {
+      const res = await fetch(
+        `http://localhost:3000/api/salesPersons/${updatedSalesPerson._id}`,
+        {
+          method: "PUT",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify(updatedSalesPerson),
+        }
+      );
+
+      if (!res.ok) throw new Error("Failed to update sales person");
+
+      const updated = await res.json();
+
+      // Update local state
+      setSalesPersons((prev) =>
+        prev.map((p) => (p._id === updated.id ? updated : p))
+      );
+    } catch (error) {
+      console.error("Error updating sales person:", error);
+    }
+
     setEditingSalesPerson(null);
     setFormData({
       salesPersonCode: "",
@@ -221,8 +221,19 @@ export default function SalesPerson() {
     setIsEditDialogOpen(false);
   };
 
-  const handleDelete = (id: string) => {
-    setSalesPersons(salesPersons.filter((person) => person.id !== id));
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`http://localhost:3000/api/salesPersons/${id}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete sales person");
+
+      // Update local state after successful deletion
+      setSalesPersons((prev) => prev.filter((person) => person._id !== id));
+    } catch (error) {
+      console.error("Error deleting sales person:", error);
+    }
   };
 
   const formatDate = (dateString: string) => {
@@ -353,7 +364,7 @@ export default function SalesPerson() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedSalesPersons.length === 0 ? (
+                {paginatedItems.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={6}
@@ -362,9 +373,18 @@ export default function SalesPerson() {
                     </TableCell>
                   </TableRow>
                 ) : (
-                  paginatedSalesPersons.map((person) => (
-                    <TableRow key={person.id}>
-                      <TableCell>{formatDate(person.creationDate)}</TableCell>
+                  paginatedItems.map((person) => (
+                    <TableRow key={person._id}>
+                      <TableCell>
+                        {new Date(person.createdDT).toLocaleDateString(
+                          "en-US",
+                          {
+                            year: "numeric",
+                            month: "long",
+                            day: "numeric",
+                          }
+                        )}
+                      </TableCell>
                       <TableCell>{person.salesPersonCode}</TableCell>
                       <TableCell>{person.salesPersonName}</TableCell>
                       <TableCell>{person.emailAddress}</TableCell>
@@ -379,14 +399,17 @@ export default function SalesPerson() {
                       <TableCell>
                         <div className="flex gap-2">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleEdit(person)}>
                             <Edit className="w-4 h-4" />
                           </Button>
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
-                              <Button variant="outline" size="sm">
+                              <Button
+                                variant="ghost"
+                                className="h-8 w-8 p-0 text-destructive hover:text-destructive"
+                                size="sm">
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </AlertDialogTrigger>
@@ -404,7 +427,7 @@ export default function SalesPerson() {
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => handleDelete(person.id)}>
+                                  onClick={() => handleDelete(person._id)}>
                                   Delete
                                 </AlertDialogAction>
                               </AlertDialogFooter>
@@ -466,11 +489,11 @@ export default function SalesPerson() {
           )}
 
           {/* Results count */}
-          <div className="text-sm text-muted-foreground text-center">
-            Showing {startIndex + 1} to{" "}
+          {/* <div className="text-xs text-muted-foreground text-right px-4 py-2">
+            Page {currentPage} of {totalPages} — Showing {startIndex + 1} to{" "}
             {Math.min(startIndex + ITEMS_PER_PAGE, filteredSalesPersons.length)}{" "}
             of {filteredSalesPersons.length} results
-          </div>
+          </div> */}
         </CardContent>
       </Card>
 
@@ -538,6 +561,50 @@ export default function SalesPerson() {
             <Button onClick={handleUpdate}>Update</Button>
           </div>
         </DialogContent>
+        <div className="flex items-center justify-between mt-4">
+          {/* Rows per page selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-gray-600">
+              SalesPersons per page:
+            </span>
+            <Select
+              value={String(rowsPerPage)}
+              onValueChange={(val) => {
+                setRowsPerPage(Number(val));
+                setCurrentPage(1); // reset to first page
+              }}>
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Pagination controls */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((prev) => prev - 1)}>
+              Previous
+            </Button>
+            <span className="text-sm text-gray-600">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage((prev) => prev + 1)}>
+              Next
+            </Button>
+          </div>
+        </div>
       </Dialog>
     </div>
   );

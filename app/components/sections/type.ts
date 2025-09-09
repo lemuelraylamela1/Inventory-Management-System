@@ -17,8 +17,19 @@ export type ItemType = {
 
 export type WarehouseType = {
   _id: string;
-  createdDT: string;
+  createdDT: Date;
   warehouse_code: string;
   warehouse_name: string;
   warehouse_location: string;
+};
+
+export type SalesPersonType = {
+  _id: string;
+  createdDT: Date;
+  salesPersonCode: string;
+  salesPersonName: string;
+  emailAddress: string;
+  status: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 };

@@ -146,7 +146,7 @@ export default function WarehouseList() {
                         await Promise.all(
                           selectedWarehouses.map((warehouse) =>
                             fetch(
-                              `http://localhost:3000/api/warehouse/${warehouse._id}`,
+                              `http://localhost:3000/api/warehouses/${warehouse._id}`,
                               {
                                 method: "DELETE",
                               }

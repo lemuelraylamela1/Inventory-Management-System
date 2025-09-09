@@ -9,11 +9,10 @@ interface Params {
 }
 
 interface SalesPersonPayload {
-  salesperson_code: string;
-  salesperson_name: string;
-  salesperson_email: string;
-  salesperson_status: string;
-  salesperson_region: string;
+  salesPersonCode: string;
+  salesPersonName: string;
+  emailAddress: string;
+  status: string;
 }
 
 export async function PUT(request: NextRequest, { params }: Params) {
