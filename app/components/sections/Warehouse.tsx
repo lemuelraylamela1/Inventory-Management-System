@@ -39,15 +39,11 @@ export default function WarehouseList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
-  const [viewingWarehouse, setViewingWarehouse] =
-    useState<WarehouseType | null>(null);
-  const [isViewWarehouseOpen, setIsViewWarehouseOpen] = useState(false);
+
   const [selectedWarehouses, setSelectedWarehouses] = useState<WarehouseType[]>(
     []
   );
-  const [isEditOpen, setIsEditOpen] = useState(false);
-  const [selectedWarehouse, setSelectedWarehouse] =
-    useState<WarehouseType | null>(null);
+
   const [editingWarehouse, setEditingWarehouse] =
     useState<WarehouseType | null>(null);
   const [isEditWarehouseOpen, setIsEditWarehouseOpen] = useState(false);
@@ -91,10 +87,6 @@ export default function WarehouseList() {
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
-
-  function handleWarehouseDeleted(id: string) {
-    setWarehouse((prev) => prev.filter((warehouse) => warehouse._id !== id));
-  }
 
   return (
     <div className="space-y-6">

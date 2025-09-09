@@ -75,7 +75,7 @@ export default function ItemsList() {
 
     const interval = setInterval(() => {
       fetchItems();
-    }, 1000); // 3 seconds = 3000 milliseconds
+    }, 1000); // 3 seconds = 1000 milliseconds
 
     return () => clearInterval(interval); // cleanup on unmount
   }, []);
@@ -390,21 +390,6 @@ export default function ItemsList() {
             </div>
           </div>
         </CardContent>
-
-        {/* {isViewItemOpen && viewingItem && (
-          <ViewItem
-            item={viewingItem}
-            onClose={() => setIsViewItemOpen(false)}
-            onEdit={(item) => {
-              setViewingItem(null);
-              setTimeout(() => {
-                setEditingItem(item);
-                setIsNewOrderOpen(true);
-              }, 0);
-            }}
-          />
-          
-        )} */}
 
         {/* View Dialog */}
         <ViewItem

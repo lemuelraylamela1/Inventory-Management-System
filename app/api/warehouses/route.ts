@@ -1,14 +1,24 @@
 import connectMongoDB from "../../../libs/mongodb";
 import Warehouse from "../../../models/warehouse";
-import { NextResponse } from "next/server";
+import { NextResponse, NextRequest } from "next/server";
 
-export async function POST(request) {
-  const body = await request.json();
+interface WarehousePayload {
+  createdDT: string;
+  warehouse_code: string;
+  warehouse_name: string;
+  warehouse_location: string;
+}
+
+interface BulkPayload {
+  warehouses: WarehousePayload[];
+}
+
+export async function POST(request: NextRequest) {
+  const body: WarehousePayload | BulkPayload = await request.json();
   await connectMongoDB();
 
   try {
-    // Bulk insert if body contains an array of items
-    if (Array.isArray(body.warehouses)) {
+    if ("warehouses" in body && Array.isArray(body.warehouses)) {
       await Warehouse.insertMany(body.warehouses);
       return NextResponse.json(
         { message: "Bulk upload successful" },
@@ -17,7 +27,7 @@ export async function POST(request) {
     }
 
     const { createdDT, warehouse_code, warehouse_name, warehouse_location } =
-      body;
+      body as WarehousePayload;
 
     await Warehouse.create({
       createdDT,
@@ -42,9 +52,16 @@ export async function GET() {
   return NextResponse.json({ warehouses });
 }
 
-// export async function DELETE(request) {
-//   const id = request.nextUrl.searchParams.get("id");
-//   await connectMongoDB();
-//   await Topic.findByIdAndDelete(id);
-//   return NextResponse.json({ message: "Topic deleted" }, { status: 200 });
-// }
+// Optional DELETE handler — uncomment and use if needed
+/*
+export async function DELETE(request: NextRequest) {
+  const id = request.nextUrl.searchParams.get("id");
+  if (!id) {
+    return NextResponse.json({ message: "Missing warehouse ID" }, { status: 400 });
+  }
+
+  await connectMongoDB();
+  await Warehouse.findByIdAndDelete(id);
+  return NextResponse.json({ message: "Warehouse deleted" }, { status: 200 });
+}
+*/
