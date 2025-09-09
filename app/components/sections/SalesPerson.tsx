@@ -54,8 +54,9 @@ import {
   CardTitle,
   CardDescription,
 } from "../ui/card";
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
 import type { SalesPersonType } from "./type";
+import ViewSalesPerson from "./SalesPersonSub/ViewSalesPerson";
 
 export default function SalesPerson() {
   const [salesPerson, setSalesPerson] = useState<SalesPersonType[]>([]);
@@ -68,6 +69,13 @@ export default function SalesPerson() {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+  const [selectAll, setSelectAll] = useState(false);
+  const [viewModalData, setViewModalData] = useState<SalesPersonType | null>(
+    null
+  );
+  const [viewingItem, setViewingItem] = useState<SalesPersonType | null>(null);
+  const [isViewItemOpen, setIsViewItemOpen] = useState(false);
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [editingSalesPerson, setEditingSalesPerson] =
@@ -128,6 +136,15 @@ export default function SalesPerson() {
   React.useEffect(() => {
     setCurrentPage(1);
   }, [searchTerm]);
+
+  useEffect(() => {
+    const allSelected =
+      paginatedItems.length > 0 &&
+      paginatedItems.every((item) =>
+        selectedSalesPersons.some((i) => i._id === item._id)
+      );
+    setSelectAll(allSelected);
+  }, [selectedSalesPersons, paginatedItems]);
 
   const handleCreate = async () => {
     const payload = {
@@ -238,14 +255,6 @@ export default function SalesPerson() {
     } catch (error) {
       console.error("Error deleting sales person:", error);
     }
-  };
-
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
   };
 
   return (
@@ -402,16 +411,12 @@ export default function SalesPerson() {
                     <div className="flex items-center gap-2">
                       <input
                         type="checkbox"
-                        checked={
-                          paginatedItems.length > 0 &&
-                          paginatedItems.every((salesPerson) =>
-                            selectedSalesPersons.some(
-                              (i) => i._id === salesPerson._id
-                            )
-                          )
-                        }
+                        checked={selectAll}
                         onChange={(e) => {
-                          if (e.target.checked) {
+                          const checked = e.target.checked;
+                          setSelectAll(checked);
+
+                          if (checked) {
                             const newSelections = [
                               ...selectedSalesPersons,
                               ...paginatedItems.filter(
@@ -446,62 +451,51 @@ export default function SalesPerson() {
               </TableHeader>
               <TableBody>
                 {paginatedItems.length === 0 ? (
-                  <TableRow
-                    key={salesPerson._id}
-                    className={
-                      selectedSalesPersons.includes(salesPerson._id)
-                        ? "bg-blue-50"
-                        : ""
-                    }>
-                    <TableCell>
-                      <input
-                        type="checkbox"
-                        checked={
-                          paginatedItems.length > 0 &&
-                          paginatedItems.every((salesPerson) =>
-                            selectedSalesPersons.some(
-                              (i) => i._id === salesPerson._id
-                            )
-                          )
-                        }
-                        onChange={(e) => {
-                          if (e.target.checked) {
-                            const newSelections = [
-                              ...selectedSalesPersons,
-                              ...paginatedItems.filter(
-                                (item) =>
-                                  !selectedSalesPersons.some(
-                                    (i) => i._id === item._id
-                                  )
-                              ),
-                            ];
-                            setselectedSalesPersons(newSelections);
-                          } else {
-                            const remaining = selectedSalesPersons.filter(
-                              (i) =>
-                                !paginatedItems.some((p) => p._id === i._id)
-                            );
-                            setselectedSalesPersons(remaining);
-                          }
-                        }}
-                        className="accent-blue-600"
-                      />
-
-                      <span className="text-sm font-medium text-gray-700">
-                        Creation Date
-                      </span>
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="text-center text-gray-500">
+                      No salespersons found.
                     </TableCell>
-                    <TableCell>Sales Person Code</TableCell>
-                    <TableCell>Sales Person Name</TableCell>
-                    <TableCell>Email Address</TableCell>
-                    <TableCell>Status</TableCell>
-                    <TableCell>Actions</TableCell>
                   </TableRow>
                 ) : (
-                  paginatedItems.map((person) => (
-                    <TableRow key={person._id}>
+                  paginatedItems.map((salesPerson) => (
+                    <TableRow
+                      key={salesPerson._id}
+                      className={
+                        selectedSalesPersons.some(
+                          (i) => i._id === salesPerson._id
+                        )
+                          ? "bg-blue-50"
+                          : ""
+                      }>
                       <TableCell>
-                        {new Date(person.createdDT).toLocaleDateString(
+                        {selectAll && (
+                          <input
+                            type="checkbox"
+                            checked={selectedSalesPersons.some(
+                              (i) => i._id === salesPerson._id
+                            )}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              if (checked) {
+                                setselectedSalesPersons((prev) => {
+                                  if (
+                                    prev.some((p) => p._id === salesPerson._id)
+                                  )
+                                    return prev;
+                                  return [...prev, salesPerson];
+                                });
+                              } else {
+                                setselectedSalesPersons((prev) =>
+                                  prev.filter((i) => i._id !== salesPerson._id)
+                                );
+                              }
+                            }}
+                            className="accent-blue-600 mr-2"
+                          />
+                        )}
+                        {new Date(salesPerson.createdDT).toLocaleDateString(
                           "en-US",
                           {
                             year: "numeric",
@@ -510,25 +504,32 @@ export default function SalesPerson() {
                           }
                         )}
                       </TableCell>
-                      <TableCell>{person.salesPersonCode}</TableCell>
-                      <TableCell>{person.salesPersonName}</TableCell>
-                      <TableCell>{person.emailAddress}</TableCell>
+
+                      <TableCell>{salesPerson.salesPersonCode}</TableCell>
+                      <TableCell>{salesPerson.salesPersonName}</TableCell>
+                      <TableCell>{salesPerson.emailAddress}</TableCell>
                       <TableCell>
                         <Badge
                           variant={
-                            person.status === "active" ? "default" : "secondary"
+                            salesPerson.status === "active"
+                              ? "default"
+                              : "secondary"
                           }>
-                          {person.status}
+                          {salesPerson.status}
                         </Badge>
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">
                           <Button
                             variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(person)}>
-                            <Edit className="w-4 h-4" />
+                            onClick={() => {
+                              setViewingItem(salesPerson);
+                              setIsViewItemOpen(true);
+                            }}
+                            className="gap-2">
+                            <Eye className="h-4 w-4" />
                           </Button>
+
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
@@ -545,14 +546,14 @@ export default function SalesPerson() {
                                 </AlertDialogTitle>
                                 <AlertDialogDescription>
                                   Are you sure you want to delete{" "}
-                                  {person.salesPersonName}? This action cannot
-                                  be undone.
+                                  {salesPerson.salesPersonName}? This action
+                                  cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
                                 <AlertDialogCancel>Cancel</AlertDialogCancel>
                                 <AlertDialogAction
-                                  onClick={() => handleDelete(person._id)}>
+                                  onClick={() => handleDelete(salesPerson._id)}>
                                   Delete
                                 </AlertDialogAction>
                               </AlertDialogFooter>
@@ -612,13 +613,6 @@ export default function SalesPerson() {
               </Pagination>
             </div>
           )}
-
-          {/* Results count */}
-          {/* <div className="text-xs text-muted-foreground text-right px-4 py-2">
-            Page {currentPage} of {totalPages} — Showing {startIndex + 1} to{" "}
-            {Math.min(startIndex + ITEMS_PER_PAGE, filteredSalesPersons.length)}{" "}
-            of {filteredSalesPersons.length} results
-          </div> */}
         </CardContent>
       </Card>
 
@@ -730,6 +724,13 @@ export default function SalesPerson() {
             </Button>
           </div>
         </div>
+        <ViewSalesPerson
+          isOpen={isViewItemOpen}
+          onOpenChange={setIsViewItemOpen}
+          salesPerson={viewingItem}
+          onDelete={handleDelete}
+          onEditRequest={handleEdit}
+        />
       </Dialog>
     </div>
   );
