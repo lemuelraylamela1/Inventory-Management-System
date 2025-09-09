@@ -3,6 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Checkbox } from "@radix-ui/react-checkbox";
 import {
   Table,
   TableBody,
@@ -61,6 +62,9 @@ export default function SalesPerson() {
   const [salesPersons, setSalesPersons] = useState<SalesPersonType[]>([]);
 
   const [rowsPerPage, setRowsPerPage] = useState<number>(10);
+  const [selectedSalesPersons, setselectedSalesPersons] = useState<
+    SalesPersonType[]
+  >([]);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -115,7 +119,7 @@ export default function SalesPerson() {
   });
 
   const totalPages = Math.ceil(filteredItems.length / rowsPerPage);
-  const paginatedItems = filteredItems.slice(
+  const paginatedItems: SalesPersonType[] = filteredItems.slice(
     (currentPage - 1) * rowsPerPage,
     currentPage * rowsPerPage
   );
@@ -352,10 +356,87 @@ export default function SalesPerson() {
 
           {/* Table */}
           <div className="border rounded-lg">
+            {selectedSalesPersons.length > 0 && (
+              <div className="flex items-center justify-between mb-4">
+                <span className="text-sm text-gray-600">
+                  ✅ {selectedSalesPersons.length} item(s) selected
+                </span>
+                <div className="flex gap-2">
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={async () => {
+                      try {
+                        await Promise.all(
+                          selectedSalesPersons.map((salesPerson) =>
+                            fetch(
+                              `http://localhost:3000/api/salesPersons/${salesPerson._id}`,
+                              {
+                                method: "DELETE",
+                              }
+                            )
+                          )
+                        );
+                        setselectedSalesPersons([]);
+                        fetchSalesPerson();
+                      } catch (err) {
+                        console.error("Bulk delete failed:", err);
+                      }
+                    }}>
+                    Delete Selected
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setselectedSalesPersons([])}
+                    className="text-red-600 hover:text-red-700">
+                    Clear Selection
+                  </Button>
+                </div>
+              </div>
+            )}
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Creation Date</TableHead>
+                  <TableHead>
+                    <div className="flex items-center gap-2">
+                      <input
+                        type="checkbox"
+                        checked={
+                          paginatedItems.length > 0 &&
+                          paginatedItems.every((salesPerson) =>
+                            selectedSalesPersons.some(
+                              (i) => i._id === salesPerson._id
+                            )
+                          )
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            const newSelections = [
+                              ...selectedSalesPersons,
+                              ...paginatedItems.filter(
+                                (item) =>
+                                  !selectedSalesPersons.some(
+                                    (i) => i._id === item._id
+                                  )
+                              ),
+                            ];
+                            setselectedSalesPersons(newSelections);
+                          } else {
+                            const remaining = selectedSalesPersons.filter(
+                              (i) =>
+                                !paginatedItems.some((p) => p._id === i._id)
+                            );
+                            setselectedSalesPersons(remaining);
+                          }
+                        }}
+                        className="accent-blue-600"
+                      />
+                      <span className="text-sm font-medium text-gray-700">
+                        Creation Date
+                      </span>
+                    </div>
+                  </TableHead>
                   <TableHead>Sales Person Code</TableHead>
                   <TableHead>Sales Person Name</TableHead>
                   <TableHead>Email Address</TableHead>
@@ -365,12 +446,56 @@ export default function SalesPerson() {
               </TableHeader>
               <TableBody>
                 {paginatedItems.length === 0 ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={6}
-                      className="text-center py-8 text-muted-foreground">
-                      No sales persons found
+                  <TableRow
+                    key={salesPerson._id}
+                    className={
+                      selectedSalesPersons.includes(salesPerson._id)
+                        ? "bg-blue-50"
+                        : ""
+                    }>
+                    <TableCell>
+                      <input
+                        type="checkbox"
+                        checked={
+                          paginatedItems.length > 0 &&
+                          paginatedItems.every((salesPerson) =>
+                            selectedSalesPersons.some(
+                              (i) => i._id === salesPerson._id
+                            )
+                          )
+                        }
+                        onChange={(e) => {
+                          if (e.target.checked) {
+                            const newSelections = [
+                              ...selectedSalesPersons,
+                              ...paginatedItems.filter(
+                                (item) =>
+                                  !selectedSalesPersons.some(
+                                    (i) => i._id === item._id
+                                  )
+                              ),
+                            ];
+                            setselectedSalesPersons(newSelections);
+                          } else {
+                            const remaining = selectedSalesPersons.filter(
+                              (i) =>
+                                !paginatedItems.some((p) => p._id === i._id)
+                            );
+                            setselectedSalesPersons(remaining);
+                          }
+                        }}
+                        className="accent-blue-600"
+                      />
+
+                      <span className="text-sm font-medium text-gray-700">
+                        Creation Date
+                      </span>
                     </TableCell>
+                    <TableCell>Sales Person Code</TableCell>
+                    <TableCell>Sales Person Name</TableCell>
+                    <TableCell>Email Address</TableCell>
+                    <TableCell>Status</TableCell>
+                    <TableCell>Actions</TableCell>
                   </TableRow>
                 ) : (
                   paginatedItems.map((person) => (
