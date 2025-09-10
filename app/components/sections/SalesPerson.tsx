@@ -82,8 +82,12 @@ export default function SalesPerson() {
     useState<SalesPersonType | null>(null);
   const [formData, setFormData] = useState({
     salesPersonCode: "",
-    salesPersonName: "",
+    firstName: "",
+    lastName: "",
     emailAddress: "",
+    contactNumber: "",
+    address: "",
+    TIN: "",
     status: "",
   });
 
@@ -119,8 +123,10 @@ export default function SalesPerson() {
     const matchesCode = salesPerson.salesPersonCode
       ?.toLowerCase()
       .includes(term);
-    const matchesName = salesPerson.salesPersonName
-      ?.toLowerCase()
+    const matchesName = `${salesPerson.firstName ?? ""} ${
+      salesPerson.lastName ?? ""
+    }`
+      .toLowerCase()
       .includes(term);
 
     return matchesCode || matchesName;
@@ -150,8 +156,12 @@ export default function SalesPerson() {
     const payload = {
       createdDT: new Date(),
       salesPersonCode: formData.salesPersonCode,
-      salesPersonName: formData.salesPersonName,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
       emailAddress: formData.emailAddress,
+      contactNumber: formData.contactNumber,
+      address: formData.address,
+      TIN: formData.TIN,
       status: formData.status,
     };
 
@@ -179,10 +189,15 @@ export default function SalesPerson() {
 
     setFormData({
       salesPersonCode: "",
-      salesPersonName: "",
+      firstName: "",
+      lastName: "",
       emailAddress: "",
+      contactNumber: "",
+      address: "",
+      TIN: "",
       status: "active",
     });
+
     setIsCreateDialogOpen(false);
   };
 
@@ -190,8 +205,12 @@ export default function SalesPerson() {
     setEditingSalesPerson(person);
     setFormData({
       salesPersonCode: person.salesPersonCode,
-      salesPersonName: person.salesPersonName,
+      firstName: person.firstName,
+      lastName: person.lastName,
       emailAddress: person.emailAddress,
+      contactNumber: person.contactNumber,
+      address: person.address,
+      TIN: person.TIN,
       status: person.status,
     });
     setIsEditDialogOpen(true);
@@ -203,8 +222,12 @@ export default function SalesPerson() {
     const updatedSalesPerson: SalesPersonType = {
       ...editingSalesPerson,
       salesPersonCode: formData.salesPersonCode,
-      salesPersonName: formData.salesPersonName,
+      firstName: formData.firstName,
+      lastName: formData.lastName,
       emailAddress: formData.emailAddress,
+      contactNumber: formData.contactNumber,
+      address: formData.address,
+      TIN: formData.TIN,
       status: formData.status,
     };
 
@@ -226,7 +249,7 @@ export default function SalesPerson() {
 
       // Update local state
       setSalesPersons((prev) =>
-        prev.map((p) => (p._id === updated.id ? updated : p))
+        prev.map((p) => (p._id === updated._id ? updated : p))
       );
     } catch (error) {
       console.error("Error updating sales person:", error);
@@ -235,8 +258,12 @@ export default function SalesPerson() {
     setEditingSalesPerson(null);
     setFormData({
       salesPersonCode: "",
-      salesPersonName: "",
+      firstName: "",
+      lastName: "",
       emailAddress: "",
+      contactNumber: "",
+      address: "",
+      TIN: "",
       status: "active",
     });
     setIsEditDialogOpen(false);
@@ -286,10 +313,12 @@ export default function SalesPerson() {
                   Add Sales Person
                 </Button>
               </DialogTrigger>
+
               <DialogContent>
                 <DialogHeader>
                   <DialogTitle>Add New Sales Person</DialogTitle>
                 </DialogHeader>
+
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
                     <Label htmlFor="create-code">Sales Person Code</Label>
@@ -305,20 +334,36 @@ export default function SalesPerson() {
                       placeholder="SP001"
                     />
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="create-name">Sales Person Name</Label>
-                    <Input
-                      id="create-name"
-                      value={formData.salesPersonName}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          salesPersonName: e.target.value,
-                        })
-                      }
-                      placeholder="John Smith"
-                    />
+
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-first-name">First Name</Label>
+                      <Input
+                        id="create-first-name"
+                        value={formData.firstName}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            firstName: e.target.value,
+                          })
+                        }
+                        placeholder="John"
+                      />
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-last-name">Last Name</Label>
+                      <Input
+                        id="create-last-name"
+                        value={formData.lastName}
+                        onChange={(e) =>
+                          setFormData({ ...formData, lastName: e.target.value })
+                        }
+                        placeholder="Smith"
+                      />
+                    </div>
                   </div>
+
                   <div className="grid gap-2">
                     <Label htmlFor="create-email">Email Address</Label>
                     <Input
@@ -334,6 +379,46 @@ export default function SalesPerson() {
                       placeholder="john.smith@company.com"
                     />
                   </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="create-contact">Contact Number</Label>
+                    <Input
+                      id="create-contact"
+                      value={formData.contactNumber}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          contactNumber: e.target.value,
+                        })
+                      }
+                      placeholder="+63 912 345 6789"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="create-address">Address</Label>
+                    <Input
+                      id="create-address"
+                      value={formData.address}
+                      onChange={(e) =>
+                        setFormData({ ...formData, address: e.target.value })
+                      }
+                      placeholder="123 Mabini St., Bacoor, Cavite"
+                    />
+                  </div>
+
+                  <div className="grid gap-2">
+                    <Label htmlFor="create-tin">TIN</Label>
+                    <Input
+                      id="create-tin"
+                      value={formData.TIN}
+                      onChange={(e) =>
+                        setFormData({ ...formData, TIN: e.target.value })
+                      }
+                      placeholder="123-456-789-000"
+                    />
+                  </div>
+
                   <div className="grid gap-2">
                     <Label htmlFor="create-status">Status</Label>
                     <Select
@@ -351,6 +436,7 @@ export default function SalesPerson() {
                     </Select>
                   </div>
                 </div>
+
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="outline"
@@ -506,7 +592,9 @@ export default function SalesPerson() {
                       </TableCell>
 
                       <TableCell>{salesPerson.salesPersonCode}</TableCell>
-                      <TableCell>{salesPerson.salesPersonName}</TableCell>
+                      <TableCell>
+                        {salesPerson.firstName || salesPerson.lastName || "—"}
+                      </TableCell>
                       <TableCell>{salesPerson.emailAddress}</TableCell>
                       <TableCell>
                         <Badge
@@ -546,8 +634,12 @@ export default function SalesPerson() {
                                 </AlertDialogTitle>
                                 <AlertDialogDescription>
                                   Are you sure you want to delete{" "}
-                                  {salesPerson.salesPersonName}? This action
-                                  cannot be undone.
+                                  {salesPerson.firstName && salesPerson.lastName
+                                    ? `${salesPerson.firstName} ${salesPerson.lastName}`
+                                    : salesPerson.firstName ||
+                                      salesPerson.lastName ||
+                                      "this sales person"}
+                                  ? This action cannot be undone.
                                 </AlertDialogDescription>
                               </AlertDialogHeader>
                               <AlertDialogFooter>
@@ -633,13 +725,45 @@ export default function SalesPerson() {
                 }
               />
             </div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-2">
+                <Label htmlFor="edit-first-name">First Name</Label>
+                <Input
+                  id="edit-first-name"
+                  value={formData.firstName}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      firstName: e.target.value,
+                    })
+                  }
+                  placeholder="Juan"
+                />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="edit-last-name">Last Name</Label>
+                <Input
+                  id="edit-last-name"
+                  value={formData.lastName}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      lastName: e.target.value,
+                    })
+                  }
+                  placeholder="Dela Cruz"
+                />
+              </div>
+            </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-name">Sales Person Name</Label>
+              <Label htmlFor="edit-contactNumber">Contact Number</Label>
               <Input
-                id="edit-name"
-                value={formData.salesPersonName}
+                id="edit-email"
+                type="contact number"
+                value={formData.contactNumber}
                 onChange={(e) =>
-                  setFormData({ ...formData, salesPersonName: e.target.value })
+                  setFormData({ ...formData, contactNumber: e.target.value })
                 }
               />
             </div>
@@ -651,6 +775,17 @@ export default function SalesPerson() {
                 value={formData.emailAddress}
                 onChange={(e) =>
                   setFormData({ ...formData, emailAddress: e.target.value })
+                }
+              />
+            </div>
+            <div className="grid gap-2">
+              <Label htmlFor="edit-tin">TIN</Label>
+              <Input
+                id="edit-tin"
+                type="tin"
+                value={formData.TIN}
+                onChange={(e) =>
+                  setFormData({ ...formData, TIN: e.target.value })
                 }
               />
             </div>

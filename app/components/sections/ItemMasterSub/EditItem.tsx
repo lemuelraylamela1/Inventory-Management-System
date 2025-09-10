@@ -177,25 +177,43 @@ export default function EditItem({
                       setFormData({ ...formData, imageFile: file });
                     }
                   }}>
-                  {formData.imageFile ? (
-                    <Image
-                      src={URL.createObjectURL(formData.imageFile)}
-                      alt="Preview"
-                      fill
-                      className="object-cover rounded-md"
-                    />
-                  ) : formData.imageUrl ? (
-                    <Image
-                      src={formData.imageUrl}
-                      alt="Current image"
-                      fill
-                      className="object-cover rounded-md"
-                    />
-                  ) : (
-                    <p className="text-sm text-muted-foreground italic">
-                      Click or drag an image here
-                    </p>
-                  )}
+                  <div className="relative w-full h-48 rounded-md overflow-hidden border">
+                    {formData.imageFile ? (
+                      <>
+                        <Image
+                          src={URL.createObjectURL(formData.imageFile)}
+                          alt="Preview"
+                          fill
+                          className="object-cover rounded-md"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleDeleteImage}
+                          className="absolute top-2 right-2 bg-white rounded-full p-1 shadow hover:bg-red-100">
+                          <X className="h-4 w-4 text-red-600" />
+                        </button>
+                      </>
+                    ) : formData.imageUrl ? (
+                      <>
+                        <Image
+                          src={formData.imageUrl}
+                          alt="Current image"
+                          fill
+                          className="object-cover rounded-md"
+                        />
+                        <button
+                          type="button"
+                          onClick={handleDeleteImage}
+                          className="absolute top-2 right-2 bg-white rounded-full p-1 shadow hover:bg-red-100">
+                          <X className="h-4 w-4 text-red-600" />
+                        </button>
+                      </>
+                    ) : (
+                      <p className="text-sm text-muted-foreground italic flex items-center justify-center h-full">
+                        Click or drag an image here
+                      </p>
+                    )}
+                  </div>
                 </label>
 
                 {/* Hidden File Input */}
@@ -244,6 +262,46 @@ export default function EditItem({
                   className="w-full border rounded px-3 py-2"
                   placeholder="Enter item name"
                 />
+              </div>
+            </div>
+
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="purchase-price">Purchase Price</Label>
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">₱</span>
+                  <input
+                    type="number"
+                    value={formData.purchasePrice ?? ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        purchasePrice: parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full border rounded px-3 py-2"
+                    placeholder="0.00"
+                  />
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="purchase-price">Sales Price</Label>
+                <div className="flex items-center space-x-2">
+                  <span className="text-lg">₱</span>
+                  <input
+                    type="number"
+                    value={formData.salesPrice ?? ""}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        salesPrice: parseFloat(e.target.value),
+                      })
+                    }
+                    className="w-full border rounded px-3 py-2"
+                    placeholder="0.00"
+                  />
+                </div>
               </div>
             </div>
 
@@ -311,7 +369,7 @@ export default function EditItem({
             </div>
 
             {/* Dimensions */}
-            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-muted-foreground">
                   Length
@@ -346,6 +404,8 @@ export default function EditItem({
                   placeholder="Enter width"
                 />
               </div>
+            </div>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <label className="block text-sm font-medium text-muted-foreground">
                   Height

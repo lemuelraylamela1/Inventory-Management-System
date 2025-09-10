@@ -91,7 +91,25 @@ export default function ViewSalesPerson({
                     <span className="font-medium text-muted-foreground">
                       Name
                     </span>
-                    <span>{salesPerson.salesPersonName ?? "N/A"}</span>
+                    <span>
+                      {salesPerson.firstName && salesPerson.lastName
+                        ? `${salesPerson.firstName} ${salesPerson.lastName}`
+                        : salesPerson.firstName ||
+                          salesPerson.lastName ||
+                          "N/A"}
+                    </span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-muted-foreground">
+                      Contact Number
+                    </span>
+                    <span>{salesPerson.contactNumber ?? "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-muted-foreground">
+                      Address
+                    </span>
+                    <span>{salesPerson.address ?? "N/A"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-muted-foreground">
@@ -101,13 +119,19 @@ export default function ViewSalesPerson({
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-muted-foreground">
+                      TIN
+                    </span>
+                    <span>{salesPerson.TIN ?? "N/A"}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="font-medium text-muted-foreground">
                       Status
                     </span>
                     <span>{salesPerson.status ?? "N/A"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-muted-foreground">
-                      Created
+                      Created Date
                     </span>
                     <span>
                       {salesPerson.createdDT

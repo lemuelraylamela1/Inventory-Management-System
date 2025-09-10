@@ -125,14 +125,17 @@ export default function ItemsList() {
                 <Plus className="h-4 w-4" />
                 Add New
               </Button>
-              <AddNew
-                isOpen={dialogOpen}
-                onOpenChange={setDialogOpen}
-                onSuccess={() => {
-                  setDialogOpen(false);
-                  fetchItems(); // ✅ Refresh list
-                }}
-              />
+
+              {dialogOpen && (
+                <AddNew
+                  isOpen={dialogOpen}
+                  onOpenChange={setDialogOpen}
+                  onSuccess={() => {
+                    setDialogOpen(false);
+                    fetchItems(); // ✅ Refresh list
+                  }}
+                />
+              )}
             </div>
           </div>
         </CardHeader>

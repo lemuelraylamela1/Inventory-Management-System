@@ -3,8 +3,10 @@ export type ItemType = {
   item_code: string;
   item_name: string;
   item_description: string;
-  item_category: string;
+  purchasePrice: number;
+  salesPrice: number;
   item_status: string;
+  item_category: string;
   length: number;
   width: number;
   height: number;
@@ -27,8 +29,12 @@ export type SalesPersonType = {
   _id: string;
   createdDT: Date;
   salesPersonCode: string;
-  salesPersonName: string;
+  firstName: string;
+  lastName: string;
   emailAddress: string;
+  contactNumber: string;
+  address: string;
+  TIN: string;
   status: string;
   createdAt?: Date;
   updatedAt?: Date;

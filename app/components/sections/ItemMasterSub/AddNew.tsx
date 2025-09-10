@@ -1,14 +1,14 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useEffect } from "react";
 
 import { useRouter } from "next/navigation";
 
 import Image from "next/image";
 
-import { Upload, X, FileText, Settings, Eye } from "lucide-react";
+import { Eye } from "lucide-react";
 import ImageUploader from "./ImageUploader";
-import { uploadToCloudinary } from "../../../../libs/cloudinary/uploadToCloudinary";
+
 import {
   Select,
   SelectContent,
@@ -27,7 +27,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "../../ui/dialog";
 import { Card, CardContent } from "../../ui/card";
 
@@ -41,29 +40,106 @@ export default function AddNew({
   onSuccess?: () => void;
 }) {
   const router = useRouter();
-
   const [item_code, setItemCode] = useState("");
   const [item_name, setItemName] = useState("");
   const [item_description, setItemDescription] = useState("");
+  const [purchasePrice, setPurchasePrice] = useState("");
+  const [salesPrice, setSalesPrice] = useState("");
   const [item_category, setItemCategory] = useState("");
-  const [item_status, setItemStatus] = useState("");
-  const [imageUrl, setImageUrl] = useState("");
-
+  const [item_status, setItemStatus] = useState("ACTIVE");
   const [weight, setWeight] = useState("");
   const [length, setLength] = useState("");
   const [width, setWidth] = useState("");
   const [height, setHeight] = useState("");
   const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [isUploading, setIsUploading] = useState(false);
   const [uploadedFiles, setUploadedFiles] = useState<File[]>([]);
-  const [dragActive, setDragActive] = useState(false);
+  const [fieldErrors, setFieldErrors] = useState<Record<string, string>>({});
+  const [error, setError] = useState("");
+  const [isFormOpen, setIsFormOpen] = useState(false);
+
+  useEffect(() => {
+    return () => {
+      resetFormState();
+    };
+  }, []);
+
+  const resetFormState = () => {
+    setItemCode("");
+    setItemName("");
+    setItemDescription("");
+    setItemCategory("");
+    setItemStatus("");
+    setLength("");
+    setWidth("");
+    setHeight("");
+    setWeight("");
+    setPurchasePrice("");
+    setSalesPrice("");
+    setSelectedFile(null);
+    setUploadedFiles([]);
+    setError("");
+    setFieldErrors({});
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
+    const validateFields = (): Record<string, string> => {
+      const errors: Record<string, string> = {};
 
+      if (!item_code.trim()) errors.item_code = "Item code is required.";
+      if (!item_name.trim()) errors.item_name = "Item name is required.";
+      if (!item_description.trim())
+        errors.item_description = "Description is required.";
+
+      if (!purchasePrice || parseFloat(purchasePrice) <= 0)
+        errors.purchasePrice = "Purchase price must be greater than 0.";
+
+      if (!salesPrice || parseFloat(salesPrice) <= 0)
+        errors.salesPrice = "Selling price must be greater than 0.";
+
+      if (!item_status) errors.item_status = "Status is required.";
+      if (!item_category) errors.item_category = "Category is required.";
+
+      if (!length.trim()) {
+        errors.length = "Length is required.";
+      } else if (!/^\d*\.?\d*$/.test(length)) {
+        errors.length = "Only numeric values allowed.";
+      }
+
+      if (!width.trim()) {
+        errors.width = "Width is required.";
+      } else if (!/^\d*\.?\d*$/.test(width)) {
+        errors.width = "Only numeric values allowed.";
+      }
+
+      if (!height.trim()) {
+        errors.height = "Height is required.";
+      } else if (!/^\d*\.?\d*$/.test(height)) {
+        errors.height = "Only numeric values allowed.";
+      }
+
+      if (!weight.trim()) {
+        errors.weight = "Weight is required.";
+      } else if (!/^\d*\.?\d*$/.test(weight)) {
+        errors.weight = "Only numeric values allowed.";
+      }
+
+      return errors;
+    };
+
+    e.preventDefault();
     setIsSubmitting(true);
+    setError(""); // Clear previous error
+
+    const errors = validateFields();
+    if (Object.keys(errors).length > 0) {
+      setFieldErrors(errors); // ✅ no type mismatch
+      setError("Please fill out all required fields correctly.");
+      setIsSubmitting(false);
+      return;
+    }
+
+    setFieldErrors({});
 
     let imageUrl = "";
 
@@ -76,10 +152,10 @@ export default function AddNew({
 
       const formData = new FormData();
       formData.append("file", selectedFile);
-      formData.append("upload_preset", uploadPreset); // ✅ use variable
+      formData.append("upload_preset", uploadPreset);
 
       const res = await fetch(
-        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`, // ✅ use backticks
+        `https://api.cloudinary.com/v1_1/${cloudName}/image/upload`,
         {
           method: "POST",
           body: formData,
@@ -97,6 +173,12 @@ export default function AddNew({
       item_code,
       item_name,
       item_description,
+      purchasePrice: purchasePrice
+        ? parseFloat(parseFloat(purchasePrice).toFixed(2))
+        : 0.0,
+      salesPrice: salesPrice
+        ? parseFloat(parseFloat(salesPrice).toFixed(2))
+        : 0.0,
       item_category,
       item_status,
       imageUrl,
@@ -107,6 +189,7 @@ export default function AddNew({
     };
 
     console.log("Creating item:", payload);
+
     try {
       const res = await fetch("http://localhost:3000/api/items", {
         method: "POST",
@@ -120,9 +203,10 @@ export default function AddNew({
         if (typeof onSuccess === "function") {
           onSuccess();
         }
+
         setTimeout(() => {
           router.push("/");
-        }, 300); // ✅ Give time for dialog to close
+        }, 300);
 
         // ✅ Reset form fields
         setItemCode("");
@@ -134,8 +218,10 @@ export default function AddNew({
         setWidth("");
         setHeight("");
         setWeight("");
+        setPurchasePrice("");
+        setSalesPrice("");
         setSelectedFile(null);
-        setUploadedFiles([]); // if you're tracking uploaded files separately
+        setUploadedFiles([]);
       } else {
         throw new Error("Failed to create item");
       }
@@ -176,8 +262,27 @@ export default function AddNew({
               Accounting Details
             </TabsTrigger>
           </TabsList>
-
-          <form onSubmit={handleSubmit} className="mt-6">
+          {error && (
+            <div
+              className="flex items-start gap-2 bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-md shadow-sm"
+              role="alert">
+              <svg
+                className="w-5 h-5 mt-0.5 text-red-500 shrink-0"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01M4.93 4.93a10 10 0 0114.14 0M4.93 19.07a10 10 0 010-14.14"
+                />
+              </svg>
+              <span className="text-sm leading-relaxed">{error}</span>
+            </div>
+          )}
+          <form onSubmit={handleSubmit} className="mt-6" noValidate>
             <TabsContent value="upload" className="space-y-6 mt-0">
               {/* Image Upload Area */}
               <div className="space-y-2">
@@ -186,43 +291,151 @@ export default function AddNew({
 
               {/* Form Fields */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="item-code">Item Code</Label>
+                <div
+                  className={`w-full ${
+                    !item_code.trim() ? "border-red-500" : ""
+                  }`}>
+                  <Label htmlFor="item-code">
+                    Item Code<span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="item-code"
                     value={item_code}
                     onChange={(e) => setItemCode(e.target.value)}
                     placeholder="Enter item code"
-                    className="w-full"
+                    className={`w-full ${
+                      fieldErrors.item_code ? "border-red-500 ring-red-500" : ""
+                    }`}
                   />
+                  {fieldErrors.item_code && (
+                    <p className="text-sm text-red-500 mt-1">
+                      Item code is required.
+                    </p>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="item-name">Item Name</Label>
+                <div
+                  className={`w-full ${
+                    !item_name.trim() ? "border-red-500" : ""
+                  }`}>
+                  <Label htmlFor="item-name">
+                    Item Name<span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="item-name"
                     value={item_name}
                     onChange={(e) => setItemName(e.target.value)}
                     placeholder="Enter item name"
-                    className="w-full"
+                    className={`w-full ${
+                      fieldErrors.item_name ? "border-red-500 ring-red-500" : ""
+                    }`}
                   />
+                  {fieldErrors.item_name && (
+                    <p className="text-sm text-red-500 mt-1">
+                      Item name is required.
+                    </p>
+                  )}
+                </div>
+                <div
+                  className={`w-full ${
+                    !purchasePrice.trim() ? "border-red-500" : ""
+                  }`}>
+                  <Label htmlFor="item-price">
+                    Purchase Price<span className="text-red-500">*</span>
+                  </Label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">₱</span>
+                    <Input
+                      id="item-purchase-price"
+                      type="number"
+                      step="0.01"
+                      value={purchasePrice}
+                      onChange={(e) => setPurchasePrice(e.target.value)}
+                      placeholder="0.00"
+                      className={`w-full ${
+                        fieldErrors.purchasePrice
+                          ? "border-red-500 ring-red-500"
+                          : ""
+                      }`}
+                    />
+                  </div>
+                  {fieldErrors.purchasePrice && (
+                    <p className="text-sm text-red-500 mt-1">
+                      Purchase price is required.
+                    </p>
+                  )}
+                </div>
+                <div
+                  className={`w-full ${
+                    !salesPrice.trim() ? "border-red-500" : ""
+                  }`}>
+                  <Label htmlFor="item-price">
+                    Sales Price<span className="text-red-500">*</span>
+                  </Label>
+                  <div className="flex items-center space-x-2">
+                    <span className="text-lg">₱</span>
+                    <Input
+                      id="item-sales-price"
+                      type="number"
+                      step="0.01"
+                      value={salesPrice}
+                      onChange={(e) => setSalesPrice(e.target.value)}
+                      placeholder="0.00"
+                      className={`w-full ${
+                        fieldErrors.salesPrice
+                          ? "border-red-500 ring-red-500"
+                          : ""
+                      }`}
+                    />
+                  </div>
+                  {fieldErrors.salesPrice && (
+                    <p className="text-sm text-red-500 mt-1">
+                      Selling price is required.
+                    </p>
+                  )}
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="item-description">Item Description</Label>
+              <div
+                className={`w-full ${
+                  !item_description.trim() ? "border-red-500" : ""
+                }`}>
+                <Label htmlFor="item-description">
+                  Item Description<span className="text-red-500">*</span>
+                </Label>
                 <Textarea
                   id="item-description"
                   value={item_description}
                   onChange={(e) => setItemDescription(e.target.value)}
                   placeholder="Enter item description"
+                  className={`w-full ${
+                    fieldErrors.item_description
+                      ? "border-red-500 ring-red-500"
+                      : ""
+                  }`}
                 />
+                {fieldErrors.item_description && (
+                  <p className="text-sm text-red-500 mt-1">
+                    Description is required.
+                  </p>
+                )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="item-category">Category</Label>
+                <div
+                  className={`w-full ${
+                    !item_category.trim() ? "border-red-500" : ""
+                  }`}>
+                  <Label htmlFor="item-category">
+                    Category<span className="text-red-500">*</span>
+                  </Label>
                   <Select value={item_category} onValueChange={setItemCategory}>
-                    <SelectTrigger id="item-category" className="w-full">
+                    <SelectTrigger
+                      id="item-category"
+                      className={`w-full ${
+                        fieldErrors.item_category
+                          ? "border-red-500 ring-red-500"
+                          : ""
+                      }`}>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
                     <SelectContent>
@@ -233,12 +446,28 @@ export default function AddNew({
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                  {fieldErrors.item_category && (
+                    <p className="text-sm text-red-500 mt-1">
+                      Category is required.
+                    </p>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="item-status">Status</Label>
+                <div
+                  className={`w-full ${
+                    !item_status.trim() ? "border-red-500" : ""
+                  }`}>
+                  <Label htmlFor="item-status">
+                    Status<span className="text-red-500">*</span>
+                  </Label>
                   <Select value={item_status} onValueChange={setItemStatus}>
-                    <SelectTrigger id="item-status" className="w-full">
+                    <SelectTrigger
+                      id="item-status"
+                      className={`w-full ${
+                        fieldErrors.item_status
+                          ? "border-red-500 ring-red-500"
+                          : ""
+                      }`}>
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
@@ -256,50 +485,161 @@ export default function AddNew({
                       </SelectItem>
                     </SelectContent>
                   </Select>
+                  {fieldErrors.item_status && (
+                    <p className="text-sm text-red-500 mt-1">
+                      Status is required.
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="length">Length</Label>
+                <div
+                  className={`w-full ${
+                    !length.trim() ? "border-red-500" : ""
+                  }`}>
+                  <Label htmlFor="length">
+                    Length<span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="length"
                     value={length}
-                    onChange={(e) => setLength(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (/^\d*\.?\d*$/.test(value)) {
+                        setLength(value);
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          length: !value.trim() ? "Length is required." : "",
+                        }));
+                      } else {
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          length: "Only numeric values are allowed.",
+                        }));
+                      }
+                    }}
                     placeholder="Enter length"
+                    className={`w-full ${
+                      fieldErrors.length ? "border-red-500 ring-red-500" : ""
+                    }`}
                   />
+                  {fieldErrors.length && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {fieldErrors.length}
+                    </p>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="width">Width</Label>
+                <div
+                  className={`w-full ${!width.trim() ? "border-red-500" : ""}`}>
+                  <Label htmlFor="width">
+                    Width<span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="width"
                     value={width}
-                    onChange={(e) => setWidth(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (/^\d*\.?\d*$/.test(value)) {
+                        setWidth(value);
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          width: !value.trim() ? "Width is required." : "",
+                        }));
+                      } else {
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          width: "Only numeric values are allowed.",
+                        }));
+                      }
+                    }}
                     placeholder="Enter width"
+                    className={`w-full ${
+                      fieldErrors.width ? "border-red-500 ring-red-500" : ""
+                    }`}
                   />
+                  {fieldErrors.width && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {fieldErrors.width}
+                    </p>
+                  )}
                 </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="height">Height</Label>
+                <div
+                  className={`w-full ${
+                    !height.trim() ? "border-red-500" : ""
+                  }`}>
+                  <Label htmlFor="height">
+                    Height<span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="height"
                     value={height}
-                    onChange={(e) => setHeight(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (/^\d*\.?\d*$/.test(value)) {
+                        setHeight(value);
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          height: !value.trim() ? "Height is required." : "",
+                        }));
+                      } else {
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          height: "Only numeric values are allowed.",
+                        }));
+                      }
+                    }}
                     placeholder="Enter height"
+                    className={`w-full ${
+                      fieldErrors.height ? "border-red-500 ring-red-500" : ""
+                    }`}
                   />
+                  {fieldErrors.height && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {fieldErrors.height}
+                    </p>
+                  )}
                 </div>
 
-                <div className="space-y-2">
-                  <Label htmlFor="item-weight">Weight</Label>
+                <div
+                  className={`w-full ${
+                    !weight.trim() ? "border-red-500" : ""
+                  }`}>
+                  <Label htmlFor="item-weight">
+                    Weight<span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="item-weight"
                     value={weight}
-                    onChange={(e) => setWeight(e.target.value)}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      if (/^\d*\.?\d*$/.test(value)) {
+                        setWeight(value);
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          weight: !value.trim() ? "Weight is required." : "",
+                        }));
+                      } else {
+                        setFieldErrors((prev) => ({
+                          ...prev,
+                          weight: "Only numeric values are allowed.",
+                        }));
+                      }
+                    }}
                     placeholder="Enter weight"
+                    className={`w-full ${
+                      fieldErrors.weight ? "border-red-500 ring-red-500" : ""
+                    }`}
                   />
+                  {fieldErrors.weight && (
+                    <p className="text-sm text-red-500 mt-1">
+                      {fieldErrors.weight}
+                    </p>
+                  )}
                 </div>
               </div>
             </TabsContent>
@@ -423,15 +763,10 @@ export default function AddNew({
               </Button>
               <Button
                 type="submit"
-                disabled={isSubmitting || isUploading}
+                disabled={isSubmitting}
                 className="min-w-[100px]">
-                {isSubmitting
-                  ? "Submitting..."
-                  : isUploading
-                  ? "Uploading..."
-                  : "Submit"}
+                {isSubmitting ? "Submitting..." : "Submit"}
               </Button>
-              {error && <p className="text-red-500 text-sm">{error}</p>}
             </div>
           </form>
         </Tabs>

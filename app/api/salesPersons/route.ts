@@ -4,8 +4,12 @@ import { NextResponse, NextRequest } from "next/server";
 
 interface SalesPersonPayload {
   salesPersonCode: string;
-  salesPersonName: string;
+  firstName: string;
+  lastName: string;
   emailAddress: string;
+  contactNumber: string;
+  address: string;
+  TIN: string;
   status: string;
 }
 
@@ -26,13 +30,25 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const { salesPersonCode, salesPersonName, emailAddress, status } =
-      body as SalesPersonPayload;
+    const {
+      salesPersonCode,
+      firstName,
+      lastName,
+      emailAddress,
+      contactNumber,
+      address,
+      TIN,
+      status,
+    } = body as SalesPersonPayload;
 
     await SalesPerson.create({
       salesPersonCode,
-      salesPersonName,
+      firstName,
+      lastName,
       emailAddress,
+      contactNumber,
+      address,
+      TIN,
       status,
     });
 
@@ -54,17 +70,3 @@ export async function GET() {
   const salespersons = await SalesPerson.find();
   return NextResponse.json({ salesPersons: salespersons });
 }
-
-// Optional DELETE handler — uncomment and use if needed
-/*
-export async function DELETE(request: NextRequest) {
-  const id = request.nextUrl.searchParams.get("id");
-  if (!id) {
-    return NextResponse.json({ message: "Missing salesperson ID" }, { status: 400 });
-  }
-
-  await connectMongoDB();
-  await SalesPerson.findByIdAndDelete(id);
-  return NextResponse.json({ message: "SalesPerson deleted" }, { status: 200 });
-}
-*/

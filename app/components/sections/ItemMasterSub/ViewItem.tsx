@@ -141,6 +141,7 @@ export default function ViewItem({
                         {item.item_code ?? "N/A"}
                       </span>
                     </div>
+
                     <div className="flex justify-between">
                       <span className="font-medium text-muted-foreground">
                         Name
@@ -149,14 +150,29 @@ export default function ViewItem({
                         {item.item_name ?? "N/A"}
                       </span>
                     </div>
+
                     <div className="flex justify-between">
                       <span className="font-medium text-muted-foreground">
-                        Category
+                        Purchase Price
                       </span>
                       <span className="text-right">
-                        {item.item_category ?? "N/A"}
+                        {typeof item.purchasePrice === "number"
+                          ? `₱${item.purchasePrice.toFixed(2)}`
+                          : "N/A"}
                       </span>
                     </div>
+
+                    <div className="flex justify-between">
+                      <span className="font-medium text-muted-foreground">
+                        Sales Price
+                      </span>
+                      <span className="text-right">
+                        {typeof item.salesPrice === "number"
+                          ? `₱${item.salesPrice.toFixed(2)}`
+                          : "N/A"}
+                      </span>
+                    </div>
+
                     <div>
                       <span className="font-medium text-muted-foreground block mb-1">
                         Description
@@ -182,6 +198,14 @@ export default function ViewItem({
                         Status
                       </span>
                       <span>{item.item_status ?? "N/A"}</span>
+                    </div>
+                    <div className="flex justify-between">
+                      <span className="font-medium text-muted-foreground">
+                        Category
+                      </span>
+                      <span className="text-right">
+                        {item.item_category ?? "N/A"}
+                      </span>
                     </div>
                     <div className="flex justify-between">
                       <span className="font-medium text-muted-foreground">

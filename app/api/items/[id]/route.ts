@@ -12,6 +12,8 @@ interface ItemPayload {
   item_code: string;
   item_name: string;
   item_description: string;
+  purchasePrice: number;
+  salesPrice: number;
   item_category: string;
   item_status: string;
   imageUrl?: string;

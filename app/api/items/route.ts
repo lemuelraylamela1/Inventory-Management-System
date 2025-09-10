@@ -8,6 +8,8 @@ interface ItemPayload {
   item_code: string;
   item_name: string;
   item_description: string;
+  purchasePrice: number;
+  salesPrice: number;
   item_category: string;
   item_status: string;
   imageUrl?: string;
@@ -39,6 +41,8 @@ export async function POST(request: NextRequest) {
       item_code,
       item_name,
       item_description,
+      purchasePrice,
+      salesPrice,
       item_category,
       item_status,
       imageUrl,
@@ -53,6 +57,8 @@ export async function POST(request: NextRequest) {
       item_code,
       item_name,
       item_description,
+      purchasePrice,
+      salesPrice,
       item_category,
       item_status,
       imageUrl,
@@ -62,11 +68,14 @@ export async function POST(request: NextRequest) {
       width,
     });
 
-    return NextResponse.json({ message: "Item created" }, { status: 201 });
-  } catch (error) {
-    console.error("Error creating item(s):", error);
     return NextResponse.json(
-      { message: "Failed to create item(s)" },
+      { message: "Item created successfully" },
+      { status: 201 }
+    );
+  } catch (error) {
+    console.error("Error creating item:", error);
+    return NextResponse.json(
+      { message: "Failed to create item" },
       { status: 500 }
     );
   }
