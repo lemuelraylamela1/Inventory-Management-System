@@ -3,7 +3,7 @@ import React, { useState, useEffect, useMemo } from "react";
 
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Checkbox } from "@radix-ui/react-checkbox";
+import { toast } from "sonner";
 import {
   Table,
   TableBody,
@@ -61,7 +61,9 @@ import ViewSalesPerson from "./SalesPersonSub/ViewSalesPerson";
 export default function SalesPerson() {
   const [salesPerson, setSalesPerson] = useState<SalesPersonType[]>([]);
   const [salesPersons, setSalesPersons] = useState<SalesPersonType[]>([]);
-
+  const [formErrors, setFormErrors] = useState<
+    Partial<Record<keyof typeof formData, string>>
+  >({});
   const [rowsPerPage, setRowsPerPage] = useState<number>(10);
   const [selectedSalesPersons, setselectedSalesPersons] = useState<
     SalesPersonType[]
@@ -153,6 +155,64 @@ export default function SalesPerson() {
   }, [selectedSalesPersons, paginatedItems]);
 
   const handleCreate = async () => {
+    const errors: Partial<Record<keyof typeof formData, string>> = {};
+
+    // 🔍 Required field checks
+    if (!formData.salesPersonCode.trim()) {
+      errors.salesPersonCode = "Sales person code is required.";
+    }
+
+    if (!formData.firstName.trim()) {
+      errors.firstName = "First name is required.";
+    }
+
+    if (!formData.lastName.trim()) {
+      errors.lastName = "Last name is required.";
+    }
+
+    if (!formData.emailAddress.trim()) {
+      errors.emailAddress = "Email address is required.";
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.emailAddress)) {
+        errors.emailAddress = "Enter a valid email address.";
+      }
+    }
+
+    if (!formData.contactNumber.trim()) {
+      errors.contactNumber = "Contact number is required.";
+    } else {
+      const phoneRegex = /^\+?\d{10,15}$/;
+      if (!phoneRegex.test(formData.contactNumber)) {
+        errors.contactNumber = "Enter a valid contact number.";
+      }
+    }
+
+    if (!formData.address.trim()) {
+      errors.address = "Address is required.";
+    }
+
+    if (!formData.TIN.trim()) {
+      errors.TIN = "TIN is required.";
+    } else {
+      const tinRegex = /^\d{3}-\d{3}-\d{3}-\d{3}$/;
+      if (!tinRegex.test(formData.TIN)) {
+        errors.TIN = "Enter a valid TIN (e.g. 123-456-789-000).";
+      }
+    }
+
+    if (!formData.status || !["active", "inactive"].includes(formData.status)) {
+      errors.status = "Please select a valid status.";
+    }
+
+    // ⛔ Block submission if there are errors
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      toast.error("Please correct the highlighted fields.");
+      return;
+    }
+
+    // ✅ Proceed with submission
     const payload = {
       createdDT: new Date(),
       salesPersonCode: formData.salesPersonCode,
@@ -178,27 +238,31 @@ export default function SalesPerson() {
       if (!res.ok)
         throw new Error(result.message || "Failed to create sales person");
 
-      // Update local state with optimistic UI
       setSalesPersons((prev) => [
         ...prev,
         { ...payload, _id: Date.now().toString() },
       ]);
+
+      toast.success("Sales person created successfully");
+
+      // ✅ Reset form only after success
+      setFormData({
+        salesPersonCode: "",
+        firstName: "",
+        lastName: "",
+        emailAddress: "",
+        contactNumber: "",
+        address: "",
+        TIN: "",
+        status: "active",
+      });
+
+      setFormErrors({});
+      setIsCreateDialogOpen(false);
     } catch (error) {
       console.error("Error creating sales person:", error);
+      toast.error("Failed to create sales person");
     }
-
-    setFormData({
-      salesPersonCode: "",
-      firstName: "",
-      lastName: "",
-      emailAddress: "",
-      contactNumber: "",
-      address: "",
-      TIN: "",
-      status: "active",
-    });
-
-    setIsCreateDialogOpen(false);
   };
 
   const handleEdit = (person: SalesPersonType) => {
@@ -319,6 +383,36 @@ export default function SalesPerson() {
                   <DialogTitle>Add New Sales Person</DialogTitle>
                 </DialogHeader>
 
+                {Object.keys(formErrors).length > 0 && (
+                  <div
+                    className="flex items-start gap-2 bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-md shadow-sm mb-4"
+                    role="alert">
+                    <svg
+                      className="w-5 h-5 mt-0.5 text-red-500 shrink-0"
+                      xmlns="http://www.w3.org/2000/svg"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor">
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M12 9v2m0 4h.01M4.93 4.93a10 10 0 0114.14 0M4.93 19.07a10 10 0 010-14.14"
+                      />
+                    </svg>
+                    <div className="text-sm leading-relaxed">
+                      <strong className="block font-medium mb-1">
+                        Please correct the following:
+                      </strong>
+                      <ul className="list-disc list-inside space-y-1">
+                        {Object.entries(formErrors).map(([field, message]) => (
+                          <li key={field}>{message}</li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+                )}
+
                 <div className="grid gap-4 py-4">
                   <div className="grid gap-2">
                     <Label htmlFor="create-code">Sales Person Code</Label>
@@ -332,7 +426,17 @@ export default function SalesPerson() {
                         })
                       }
                       placeholder="SP001"
+                      className={`w-full ${
+                        formErrors.salesPersonCode
+                          ? "border-red-500 ring-red-500"
+                          : ""
+                      }`}
                     />
+                    {formErrors.firstName && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {formErrors.firstName}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid gap-4 md:grid-cols-2">
@@ -348,7 +452,17 @@ export default function SalesPerson() {
                           })
                         }
                         placeholder="John"
+                        className={`w-full ${
+                          formErrors.firstName
+                            ? "border-red-500 ring-red-500"
+                            : ""
+                        }`}
                       />
+                      {formErrors.firstName && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {formErrors.firstName}
+                        </p>
+                      )}
                     </div>
 
                     <div className="grid gap-2">
@@ -361,6 +475,11 @@ export default function SalesPerson() {
                         }
                         placeholder="Smith"
                       />
+                      {formErrors.firstName && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {formErrors.firstName}
+                        </p>
+                      )}
                     </div>
                   </div>
 
@@ -377,7 +496,20 @@ export default function SalesPerson() {
                         })
                       }
                       placeholder="john.smith@company.com"
+                      className={
+                        formErrors.emailAddress
+                          ? "border-red-500 ring-red-500"
+                          : ""
+                      }
                     />
+                    {formErrors.emailAddress && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {formErrors.emailAddress ===
+                        "Enter a valid email address."
+                          ? "Enter a valid email address."
+                          : formErrors.emailAddress}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid gap-2">
@@ -392,7 +524,17 @@ export default function SalesPerson() {
                         })
                       }
                       placeholder="+63 912 345 6789"
+                      className={
+                        formErrors.contactNumber
+                          ? "border-red-500 ring-red-500"
+                          : ""
+                      }
                     />
+                    {formErrors.contactNumber && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {formErrors.contactNumber}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid gap-2">
@@ -404,7 +546,15 @@ export default function SalesPerson() {
                         setFormData({ ...formData, address: e.target.value })
                       }
                       placeholder="123 Mabini St., Bacoor, Cavite"
+                      className={
+                        formErrors.address ? "border-red-500 ring-red-500" : ""
+                      }
                     />
+                    {formErrors.address && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {formErrors.address}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid gap-2">
@@ -416,7 +566,15 @@ export default function SalesPerson() {
                         setFormData({ ...formData, TIN: e.target.value })
                       }
                       placeholder="123-456-789-000"
+                      className={
+                        formErrors.TIN ? "border-red-500 ring-red-500" : ""
+                      }
                     />
+                    {formErrors.TIN && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {formErrors.TIN}
+                      </p>
+                    )}
                   </div>
 
                   <div className="grid gap-2">
@@ -426,7 +584,10 @@ export default function SalesPerson() {
                       onValueChange={(value: "active" | "inactive") =>
                         setFormData({ ...formData, status: value })
                       }>
-                      <SelectTrigger>
+                      <SelectTrigger
+                        className={
+                          formErrors.status ? "border-red-500 ring-red-500" : ""
+                        }>
                         <SelectValue />
                       </SelectTrigger>
                       <SelectContent>
@@ -434,6 +595,11 @@ export default function SalesPerson() {
                         <SelectItem value="inactive">Inactive</SelectItem>
                       </SelectContent>
                     </Select>
+                    {formErrors.status && (
+                      <p className="text-sm text-red-500 mt-1">
+                        {formErrors.status}
+                      </p>
+                    )}
                   </div>
                 </div>
 

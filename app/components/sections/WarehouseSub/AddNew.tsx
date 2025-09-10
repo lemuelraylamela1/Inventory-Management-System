@@ -45,11 +45,31 @@ export default function AddNew({
   const [warehouse_code, setWarehouseCode] = useState("");
   const [warehouse_name, setWarehouseName] = useState("");
   const [warehouse_location, setWarehouseLocation] = useState("");
-
+  const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
+    const validateFields = (): Record<string, string> => {
+      const errors: Record<string, string> = {};
+
+      // 🧾 Item Code
+      if (!warehouse_code.trim()) {
+        errors.warehouse_code = "Item code is required.";
+      }
+
+      // 🧾 Item Name
+      if (!warehouse_name.trim()) {
+        errors.warehouse_name = "Item name is required.";
+      }
+
+      // 📍 Location (assuming item_description is used for location details)
+      if (!warehouse_location.trim()) {
+        errors.warehouse_location = "Location is required.";
+      }
+
+      return errors;
+    };
     e.preventDefault();
 
     setIsSubmitting(true);
@@ -110,32 +130,65 @@ export default function AddNew({
               <Input
                 id="warehouse-code"
                 value={warehouse_code}
-                onChange={(e) => setWarehouseCode(e.target.value)}
+                onChange={(e) => {
+                  setFormErrors((prev) => ({ ...prev, warehouse_code: "" })); // Clear error on change
+                  setWarehouseCode(e.target.value);
+                }}
                 placeholder="Enter code"
-                className="w-full"
+                className={`w-full ${
+                  formErrors.warehouse_code ? "border-red-500 ring-red-500" : ""
+                }`}
               />
+              {formErrors.warehouse_code && (
+                <p className="text-sm text-red-500 mt-1">
+                  {formErrors.warehouse_code}
+                </p>
+              )}
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="item-name">Name</Label>
+              <Label htmlFor="warehouse-name">Name</Label>
               <Input
                 id="warehouse-name"
                 value={warehouse_name}
-                onChange={(e) => setWarehouseName(e.target.value)}
-                placeholder="Enter name"
-                className="w-full"
+                onChange={(e) => {
+                  setFormErrors((prev) => ({ ...prev, warehouse_name: "" }));
+                  setWarehouseName(e.target.value);
+                }}
+                placeholder="Enter warehouse name"
+                className={`w-full ${
+                  formErrors.warehouse_name ? "border-red-500 ring-red-500" : ""
+                }`}
               />
+              {formErrors.warehouse_name && (
+                <p className="text-sm text-red-500 mt-1">
+                  {formErrors.warehouse_name}
+                </p>
+              )}
             </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="warehouse-description">Location</Label>
-            <Textarea
+            <Label htmlFor="warehouse-location">Location</Label>
+            <Input
               id="warehouse-location"
               value={warehouse_location}
-              onChange={(e) => setWarehouseLocation(e.target.value)}
-              placeholder="Enter location"
+              onChange={(e) => {
+                setFormErrors((prev) => ({ ...prev, warehouse_location: "" }));
+                setWarehouseLocation(e.target.value);
+              }}
+              placeholder="Enter warehouse location"
+              className={`w-full ${
+                formErrors.warehouse_location
+                  ? "border-red-500 ring-red-500"
+                  : ""
+              }`}
             />
+            {formErrors.warehouse_location && (
+              <p className="text-sm text-red-500 mt-1">
+                {formErrors.warehouse_location}
+              </p>
+            )}
           </div>
 
           {/* Action Buttons */}
