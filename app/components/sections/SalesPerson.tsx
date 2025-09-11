@@ -550,10 +550,15 @@ export default function SalesPerson() {
                           setFormData({ ...formData, lastName: e.target.value })
                         }
                         placeholder="Smith"
+                        className={`w-full ${
+                          formErrors.lastName
+                            ? "border-red-500 ring-red-500"
+                            : ""
+                        }`}
                       />
-                      {formErrors.firstName && (
+                      {formErrors.lastName && (
                         <p className="text-sm text-red-500 mt-1">
-                          {formErrors.firstName}
+                          {formErrors.lastName}
                         </p>
                       )}
                     </div>

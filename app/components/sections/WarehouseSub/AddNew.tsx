@@ -37,6 +37,22 @@ export default function AddNew({
     warehouse_name: "",
     warehouse_location: "",
   });
+  const [showAlert, setShowAlert] = useState(false);
+
+  const handleDialogToggle = (open: boolean) => {
+    onOpenChange(open);
+
+    if (!open) {
+      setFormErrors({});
+      setFormData({
+        warehouse_code: "",
+        warehouse_name: "",
+        warehouse_location: "",
+      });
+      setError(null);
+      setShowAlert(false); // ✅ Reset alert visibility
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -105,7 +121,7 @@ export default function AddNew({
     }
   };
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
+    <Dialog open={isOpen} onOpenChange={handleDialogToggle}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
@@ -147,7 +163,7 @@ export default function AddNew({
                 id="code"
                 value={formData.warehouse_code}
                 onChange={(e) => {
-                  setFormErrors((prev) => ({ ...prev, warehouse_code: "" }));
+                  setFormErrors({});
                   setFormData((prev) => ({
                     ...prev,
                     warehouse_code: e.target.value,
@@ -166,23 +182,23 @@ export default function AddNew({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="warehouse-name">Warehouse Name</Label>
               <Input
-                id="name"
+                id="warehouse-name"
                 value={formData.warehouse_name}
                 onChange={(e) => {
-                  setFormErrors((prev) => ({ ...prev, warehouse_name: "" }));
+                  setFormErrors({});
                   setFormData((prev) => ({
                     ...prev,
-                    warehouse_name: e.target.value,
+                    warehouse_code: e.target.value,
                   }));
                 }}
-                placeholder="Enter name"
+                placeholder="Main Distribution Center"
                 className={`w-full ${
                   formErrors.warehouse_name ? "border-red-500 ring-red-500" : ""
                 }`}
               />
-              {formErrors.warehouse_name && (
+              {showAlert && formErrors.warehouse_name && (
                 <p className="text-sm text-red-500 mt-1">
                   {formErrors.warehouse_name}
                 </p>
@@ -196,7 +212,7 @@ export default function AddNew({
               id="location"
               value={formData.warehouse_location}
               onChange={(e) => {
-                setFormErrors((prev) => ({ ...prev, warehouse_location: "" }));
+                setFormErrors({});
                 setFormData((prev) => ({
                   ...prev,
                   warehouse_location: e.target.value,

@@ -156,7 +156,7 @@ export default function EditWarehouseDialog({
                 id="code"
                 value={formData.warehouse_code}
                 onChange={(e) => {
-                  setFormErrors((prev) => ({ ...prev, warehouse_code: "" }));
+                  setFormErrors({});
                   setFormData((prev) => ({
                     ...prev,
                     warehouse_code: e.target.value,
@@ -180,7 +180,7 @@ export default function EditWarehouseDialog({
                 id="name"
                 value={formData.warehouse_name}
                 onChange={(e) => {
-                  setFormErrors((prev) => ({ ...prev, warehouse_name: "" }));
+                  setFormErrors({});
                   setFormData((prev) => ({
                     ...prev,
                     warehouse_name: e.target.value,
@@ -204,10 +204,7 @@ export default function EditWarehouseDialog({
                 id="location"
                 value={formData.warehouse_location}
                 onChange={(e) => {
-                  setFormErrors((prev) => ({
-                    ...prev,
-                    warehouse_location: "",
-                  }));
+                  setFormErrors({});
                   setFormData((prev) => ({
                     ...prev,
                     warehouse_location: e.target.value,
