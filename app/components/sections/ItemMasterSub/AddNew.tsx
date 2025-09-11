@@ -421,23 +421,22 @@ export default function AddNew({
                 )}
               </div>
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div
-                  className={`w-full ${
-                    !item_category.trim() ? "border-red-500" : ""
-                  }`}>
+                <div className="w-full space-y-1">
                   <Label htmlFor="item-category">
                     Category<span className="text-red-500">*</span>
                   </Label>
+
                   <Select value={item_category} onValueChange={setItemCategory}>
                     <SelectTrigger
                       id="item-category"
-                      className={`w-full ${
+                      className={`w-full border rounded px-3 py-2 text-sm text-left transition-colors ${
                         fieldErrors.item_category
-                          ? "border-red-500 ring-red-500"
-                          : ""
+                          ? "border-red-500 ring-1 ring-red-500"
+                          : "border-gray-300 focus:ring-2 focus:ring-blue-500"
                       }`}>
                       <SelectValue placeholder="Select category" />
                     </SelectTrigger>
+
                     <SelectContent>
                       <SelectItem value="JELLY">Jelly</SelectItem>
                       <SelectItem value="CHOCOLATE">Chocolate</SelectItem>
@@ -446,6 +445,7 @@ export default function AddNew({
                       </SelectItem>
                     </SelectContent>
                   </Select>
+
                   {fieldErrors.item_category && (
                     <p className="text-sm text-red-500 mt-1">
                       Category is required.

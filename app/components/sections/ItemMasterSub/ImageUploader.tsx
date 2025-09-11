@@ -7,6 +7,7 @@ import Image from "next/image";
 interface ImageUploaderProps {
   onSelect: (file: File | null) => void;
   defaultImageUrl?: string;
+  initialImageUrl?: string;
 }
 
 export default function ImageUploader({ onSelect }: ImageUploaderProps) {

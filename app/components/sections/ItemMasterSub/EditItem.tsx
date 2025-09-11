@@ -11,6 +11,19 @@ import {
 import type { ItemType } from "../type";
 import Image from "next/image";
 import { Edit } from "lucide-react";
+import { Input } from "../../ui/input";
+import { Label } from "../../ui/label";
+import { Textarea } from "../../ui/textarea";
+import { Button } from "../../ui/button";
+import ImageUploader from "./ImageUploader";
+
+import {
+  Select,
+  SelectTrigger,
+  SelectValue,
+  SelectContent,
+  SelectItem,
+} from "../../ui/select";
 
 const initialFormState: ItemType = {
   item_code: "",
@@ -25,7 +38,7 @@ const initialFormState: ItemType = {
   height: 0,
   weight: 0,
   imageUrl: "",
-  imageFile: undefined,
+  imageFile: null,
   imagePublicId: "",
   _id: "",
   createdDT: new Date().toISOString(),
@@ -48,12 +61,45 @@ export default function EditItem({
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSaving, setIsSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [showAlert, setShowAlert] = useState(false);
 
   useEffect(() => {
     if (item) {
       setFormData({ ...initialFormState, ...item });
     }
   }, [item]);
+
+  const handleDialogToggle = (open: boolean) => {
+    onOpenChange(open);
+
+    if (!open) {
+      // ✅ Reset errors and transient state
+      setFormErrors({});
+      setError(null); // if you're using a general error message
+      setShowAlert(false); // if you're using alert visibility control
+
+      // Optional: reset form fields
+      setFormData({
+        item_code: "",
+        item_name: "",
+        item_description: "",
+        item_status: "",
+        item_category: "",
+        purchasePrice: 0,
+        salesPrice: 0,
+        length: 0,
+        width: 0,
+        height: 0,
+        weight: 0,
+        imageFile: null,
+        imageUrl: "",
+        _id: "",
+        createdDT: new Date().toISOString(),
+        imagePublicId: "",
+      });
+    }
+  };
 
   async function handleImageUpload(file: File): Promise<string | null> {
     setUploading(true);
@@ -201,7 +247,7 @@ export default function EditItem({
       setFormData({
         ...formData,
         imageUrl: "",
-        imageFile: undefined,
+        imageFile: null,
         imagePublicId: "",
       });
 
@@ -212,122 +258,389 @@ export default function EditItem({
   }
 
   return (
-    <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="fixed z-50 bg-white max-w-2xl rounded-lg shadow-xl">
+    <Dialog open={isOpen} onOpenChange={handleDialogToggle}>
+      <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>
-            <div className="flex items-center gap-2">
-              <Edit className="h-5 w-5" />
-              Edit Item
-            </div>
+          <DialogTitle className="flex items-center gap-2">
+            <Edit className="h-5 w-5" />
+            Edit Item
           </DialogTitle>
         </DialogHeader>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-          {(
-            [
-              "item_code",
-              "item_name",
-              "item_description",
-              "item_status",
-              "item_category",
-            ] as (keyof ItemType)[]
-          ).map((field) => (
-            <div
-              key={field}
-              className={field === "item_description" ? "md:col-span-2" : ""}>
-              <label className="block text-sm font-medium mb-1 capitalize">
-                {field.replace("item_", "").replace(/([A-Z])/g, " $1")}
-              </label>
-              <input
-                className="w-full border px-3 py-2 rounded"
-                value={formData[field] as string}
-                onChange={(e) =>
-                  setFormData({ ...formData, [field]: e.target.value })
-                }
-              />
-              {formErrors[field] && (
-                <p className="text-red-500 text-sm">{formErrors[field]}</p>
-              )}
-            </div>
-          ))}
-
-          {(
-            [
-              "purchasePrice",
-              "salesPrice",
-              "length",
-              "width",
-              "height",
-              "weight",
-            ] as (keyof ItemType)[]
-          ).map((field) => (
-            <div key={field}>
-              <label className="block text-sm font-medium mb-1">{field}</label>
-              <input
-                type="number"
-                className="w-full border px-3 py-2 rounded"
-                value={formData[field] as number}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    [field]: parseFloat(e.target.value) || 0,
-                  })
-                }
-              />
-              {formErrors[field] && (
-                <p className="text-red-500 text-sm">{formErrors[field]}</p>
-              )}
-            </div>
-          ))}
-
+          {/* Image Preview */}
           <div className="md:col-span-2 space-y-2">
-            {formData.imageUrl && (
-              <div className="relative">
-                <Image
-                  src={formData.imageUrl}
-                  alt="Preview"
-                  width={800}
-                  height={600}
-                  className="w-full h-auto rounded object-cover"
-                  priority // optional: improves loading for above-the-fold images
-                />
-                <button
-                  type="button"
-                  className="absolute top-2 right-2 bg-red-500 text-white px-2 py-1 text-sm rounded"
-                  onClick={handleDeleteImage}>
-                  Delete Image
-                </button>
-              </div>
-            )}
+            <label htmlFor="image-upload" className="cursor-pointer block">
+              {formData.imageUrl ? (
+                <div className="relative w-full h-64 rounded-md overflow-hidden border border-gray-200 shadow-sm">
+                  <Image
+                    src={formData.imageUrl}
+                    alt="Current item"
+                    fill
+                    className="object-cover w-full h-full"
+                  />
+
+                  {/* Overlay */}
+                  <div className="absolute inset-0 bg-black/10 hover:bg-black/20 transition-opacity flex items-center justify-center">
+                    <p className="text-white text-sm font-medium">
+                      Click to change image
+                    </p>
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center justify-center h-64 bg-muted rounded-md border border-dashed">
+                  <p className="text-gray-500 italic">Click to upload image</p>
+                </div>
+              )}
+            </label>
 
             <input
+              id="image-upload"
               type="file"
               accept="image/*"
-              onChange={(e) =>
-                setFormData({
-                  ...formData,
-                  imageFile: e.target.files?.[0] || undefined,
-                })
-              }
+              className="hidden"
+              onChange={(e) => {
+                const file = e.target.files?.[0];
+                if (file) {
+                  const previewUrl = URL.createObjectURL(file);
+                  setFormData({
+                    ...formData,
+                    imageFile: file,
+                    imageUrl: previewUrl,
+                  });
+                }
+              }}
             />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4 md:col-span-2">
+            {/* Item Code */}
+            <div className="w-full space-y-1">
+              <Label htmlFor="item-code">
+                Item Code<span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="item-code"
+                value={formData.item_code}
+                onChange={(e) =>
+                  setFormData({ ...formData, item_code: e.target.value })
+                }
+                placeholder="Enter item code"
+                className={`w-full border rounded px-3 py-2 text-sm ${
+                  formErrors.item_code
+                    ? "border-red-500 ring-1 ring-red-500"
+                    : "border-gray-300"
+                }`}
+              />
+              {formErrors.item_code && (
+                <p className="text-sm text-red-500 mt-1">
+                  Item code is required.
+                </p>
+              )}
+            </div>
+
+            {/* Item Name */}
+            <div className="w-full space-y-1">
+              <Label htmlFor="item-name">
+                Item Name<span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="item-name"
+                value={formData.item_name}
+                onChange={(e) =>
+                  setFormData({ ...formData, item_name: e.target.value })
+                }
+                placeholder="Enter item name"
+                className={`w-full border rounded px-3 py-2 text-sm ${
+                  formErrors.item_name
+                    ? "border-red-500 ring-1 ring-red-500"
+                    : "border-gray-300"
+                }`}
+              />
+              {formErrors.item_name && (
+                <p className="text-sm text-red-500 mt-1">
+                  Item name is required.
+                </p>
+              )}
+            </div>
+
+            {/* Purchase Price */}
+            <div className="w-full space-y-1">
+              <Label htmlFor="item-purchase-price">
+                Purchase Price<span className="text-red-500">*</span>
+              </Label>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">₱</span>
+                <Input
+                  id="item-purchase-price"
+                  type="number"
+                  step="0.01"
+                  value={formData.purchasePrice}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      purchasePrice: parseFloat(e.target.value),
+                    })
+                  }
+                  placeholder="0.00"
+                  className={`w-full border rounded px-3 py-2 text-sm ${
+                    formErrors.purchasePrice
+                      ? "border-red-500 ring-1 ring-red-500"
+                      : "border-gray-300"
+                  }`}
+                />
+              </div>
+              {formErrors.purchasePrice && (
+                <p className="text-sm text-red-500 mt-1">
+                  Purchase price is required.
+                </p>
+              )}
+            </div>
+
+            {/* Sales Price */}
+            <div className="w-full space-y-1">
+              <Label htmlFor="item-sales-price">
+                Sales Price<span className="text-red-500">*</span>
+              </Label>
+              <div className="flex items-center space-x-2">
+                <span className="text-lg">₱</span>
+                <Input
+                  id="item-sales-price"
+                  type="number"
+                  step="0.01"
+                  value={formData.salesPrice}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      salesPrice: parseFloat(e.target.value),
+                    })
+                  }
+                  placeholder="0.00"
+                  className={`w-full border rounded px-3 py-2 text-sm ${
+                    formErrors.salesPrice
+                      ? "border-red-500 ring-1 ring-red-500"
+                      : "border-gray-300"
+                  }`}
+                />
+              </div>
+              {formErrors.salesPrice && (
+                <p className="text-sm text-red-500 mt-1">
+                  Selling price is required.
+                </p>
+              )}
+            </div>
+          </div>
+
+          <div className="w-full md:col-span-2 space-y-1">
+            <Label htmlFor="item-description">
+              Item Description<span className="text-red-500">*</span>
+            </Label>
+            <Textarea
+              id="item-description"
+              value={formData.item_description}
+              onChange={(e) =>
+                setFormData({ ...formData, item_description: e.target.value })
+              }
+              placeholder="Enter item description"
+              className={`w-full border rounded px-3 py-2 text-sm resize-none ${
+                formErrors.item_description
+                  ? "border-red-500 ring-1 ring-red-500"
+                  : "border-gray-300"
+              }`}
+              rows={4}
+            />
+            {formErrors.item_description && (
+              <p className="text-sm text-red-500 mt-1">
+                Description is required.
+              </p>
+            )}
+          </div>
+
+          <div className="w-full space-y-1">
+            <Label htmlFor="item-category">
+              Category<span className="text-red-500">*</span>
+            </Label>
+
+            <Select
+              value={formData.item_category}
+              onValueChange={(value) =>
+                setFormData({ ...formData, item_category: value })
+              }>
+              <SelectTrigger
+                id="item-category"
+                className={`w-full border rounded px-3 py-2 text-sm text-left transition-colors ${
+                  !formData.item_category.trim()
+                    ? "border-red-500 ring-1 ring-red-500"
+                    : "border-gray-300 focus:ring-2 focus:ring-blue-500"
+                }`}>
+                <SelectValue placeholder="Select category" />
+              </SelectTrigger>
+
+              <SelectContent className="bg-white border border-gray-200 rounded shadow-md z-50">
+                <SelectItem value="JELLY">Jelly</SelectItem>
+                <SelectItem value="CHOCOLATE">Chocolate</SelectItem>
+                <SelectItem value="IMPORTED CANDIES">
+                  Imported Candies
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            {!formData.item_category.trim() && (
+              <p className="text-sm text-red-500 mt-1">Category is required.</p>
+            )}
+          </div>
+
+          <div className="w-full space-y-1">
+            <Label htmlFor="item-status">
+              Status<span className="text-red-500">*</span>
+            </Label>
+
+            <Select
+              value={formData.item_status}
+              onValueChange={(value) =>
+                setFormData({ ...formData, item_status: value })
+              }>
+              <SelectTrigger
+                id="item-status"
+                className={`w-full border rounded px-3 py-2 text-sm text-left transition-colors ${
+                  formErrors.item_status
+                    ? "border-red-500 ring-1 ring-red-500"
+                    : "border-gray-300 focus:ring-2 focus:ring-blue-500"
+                }`}>
+                <SelectValue placeholder="Select status" />
+              </SelectTrigger>
+
+              <SelectContent className="bg-white border border-gray-200 rounded shadow-md z-50">
+                <SelectItem
+                  value="ACTIVE"
+                  className="flex items-center gap-2 text-green-700">
+                  <span className="w-2 h-2 rounded-full bg-green-500" />
+                  Active
+                </SelectItem>
+                <SelectItem
+                  value="INACTIVE"
+                  className="flex items-center gap-2 text-red-700">
+                  <span className="w-2 h-2 rounded-full bg-red-500" />
+                  Inactive
+                </SelectItem>
+              </SelectContent>
+            </Select>
+
+            {formErrors.item_status && (
+              <p className="text-sm text-red-500 mt-1">Status is required.</p>
+            )}
+          </div>
+
+          <div className="w-full space-y-1">
+            <Label htmlFor="item-length">
+              Length<span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="item-length"
+              type="number"
+              step="0.01"
+              value={formData.length}
+              onChange={(e) =>
+                setFormData({ ...formData, length: parseFloat(e.target.value) })
+              }
+              placeholder="Enter length"
+              className={`w-full border rounded px-3 py-2 text-sm ${
+                formErrors.length
+                  ? "border-red-500 ring-1 ring-red-500"
+                  : "border-gray-300"
+              }`}
+            />
+            {formErrors.length && (
+              <p className="text-sm text-red-500 mt-1">Length is required.</p>
+            )}
+          </div>
+
+          <div className="w-full space-y-1">
+            <Label htmlFor="item-width">
+              Width<span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="item-width"
+              type="number"
+              step="0.01"
+              value={formData.width}
+              onChange={(e) =>
+                setFormData({ ...formData, width: parseFloat(e.target.value) })
+              }
+              placeholder="Enter width"
+              className={`w-full border rounded px-3 py-2 text-sm ${
+                formErrors.width
+                  ? "border-red-500 ring-1 ring-red-500"
+                  : "border-gray-300"
+              }`}
+            />
+            {formErrors.width && (
+              <p className="text-sm text-red-500 mt-1">Width is required.</p>
+            )}
+          </div>
+
+          <div className="w-full space-y-1">
+            <Label htmlFor="item-height">
+              Height<span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="item-height"
+              type="number"
+              step="0.01"
+              value={formData.height}
+              onChange={(e) =>
+                setFormData({ ...formData, height: parseFloat(e.target.value) })
+              }
+              placeholder="Enter height"
+              className={`w-full border rounded px-3 py-2 text-sm ${
+                formErrors.height
+                  ? "border-red-500 ring-1 ring-red-500"
+                  : "border-gray-300"
+              }`}
+            />
+            {formErrors.height && (
+              <p className="text-sm text-red-500 mt-1">Height is required.</p>
+            )}
+          </div>
+
+          <div className="w-full space-y-1">
+            <Label htmlFor="item-weight">
+              Weight<span className="text-red-500">*</span>
+            </Label>
+            <Input
+              id="item-weight"
+              type="number"
+              step="0.01"
+              value={formData.weight}
+              onChange={(e) =>
+                setFormData({ ...formData, weight: parseFloat(e.target.value) })
+              }
+              placeholder="Enter weight"
+              className={`w-full border rounded px-3 py-2 text-sm ${
+                formErrors.weight
+                  ? "border-red-500 ring-1 ring-red-500"
+                  : "border-gray-300"
+              }`}
+            />
+            {formErrors.weight && (
+              <p className="text-sm text-red-500 mt-1">Weight is required.</p>
+            )}
           </div>
         </div>
 
-        <div className="flex justify-end space-x-4 pt-4">
-          <button
+        <div className="flex justify-end gap-3 pt-6 border-t mt-6">
+          <Button
             type="button"
-            className="px-4 py-2 bg-gray-300 rounded hover:bg-gray-400"
+            variant="outline"
             onClick={() => onOpenChange(false)}>
             Cancel
-          </button>
-          <button
-            type="button"
-            className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 disabled:opacity-50"
+          </Button>
+          <Button
+            type="submit"
             onClick={handleSave}
             disabled={isSaving || uploading}>
             {isSaving ? "Saving..." : "Save"}
-          </button>
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

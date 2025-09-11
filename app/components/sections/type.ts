@@ -13,7 +13,7 @@ export type ItemType = {
   weight: number;
   createdDT: string;
   imageUrl: string;
-  imageFile?: File;
+  imageFile: File | null;
   imagePublicId?: string;
 };
 
