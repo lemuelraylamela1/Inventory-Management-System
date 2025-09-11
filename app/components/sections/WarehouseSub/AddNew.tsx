@@ -1,24 +1,13 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState } from "react";
 
 import { useRouter } from "next/navigation";
 
-import Image from "next/image";
-
-import { Upload, X, FileText, Settings, Eye } from "lucide-react";
-
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "../../ui/select";
 import { Input } from "../../ui/input";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "../../ui/tabs";
+
 import { Button } from "../../ui/button";
-import { Textarea } from "../../ui/textarea";
+
 import { Label } from "../../ui/label";
 
 import {
@@ -26,10 +15,7 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "../../ui/dialog";
-import { Card, CardContent } from "../../ui/card";
-// import { Switch } from "../../ui/switch";
 
 export default function AddNew({
   isOpen,
@@ -42,43 +28,45 @@ export default function AddNew({
 }) {
   const router = useRouter();
 
-  const [warehouse_code, setWarehouseCode] = useState("");
-  const [warehouse_name, setWarehouseName] = useState("");
-  const [warehouse_location, setWarehouseLocation] = useState("");
   const [formErrors, setFormErrors] = useState<Record<string, string>>({});
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [formData, setFormData] = useState({
+    warehouse_code: "",
+    warehouse_name: "",
+    warehouse_location: "",
+  });
+
   const handleSubmit = async (e: React.FormEvent) => {
-    const validateFields = (): Record<string, string> => {
-      const errors: Record<string, string> = {};
-
-      // 🧾 Item Code
-      if (!warehouse_code.trim()) {
-        errors.warehouse_code = "Item code is required.";
-      }
-
-      // 🧾 Item Name
-      if (!warehouse_name.trim()) {
-        errors.warehouse_name = "Item name is required.";
-      }
-
-      // 📍 Location (assuming item_description is used for location details)
-      if (!warehouse_location.trim()) {
-        errors.warehouse_location = "Location is required.";
-      }
-
-      return errors;
-    };
     e.preventDefault();
+
+    const errors: Partial<Record<keyof typeof formData, string>> = {};
+
+    if (!formData.warehouse_code.trim()) {
+      errors.warehouse_code = "Code is required.";
+    }
+
+    if (!formData.warehouse_name.trim()) {
+      errors.warehouse_name = "Name is required.";
+    }
+
+    if (!formData.warehouse_location.trim()) {
+      errors.warehouse_location = "Location is required.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      return;
+    }
 
     setIsSubmitting(true);
 
     const payload = {
       createdDT: new Date().toISOString(),
-      warehouse_code,
-      warehouse_name,
-      warehouse_location,
+      warehouse_code: formData.warehouse_code,
+      warehouse_name: formData.warehouse_name,
+      warehouse_location: formData.warehouse_location,
     };
 
     try {
@@ -94,14 +82,18 @@ export default function AddNew({
         if (typeof onSuccess === "function") {
           onSuccess();
         }
+
         setTimeout(() => {
           router.push("/");
         }, 300); // ✅ Give time for dialog to close
 
         // ✅ Reset form fields
-        setWarehouseCode("");
-        setWarehouseName("");
-        setWarehouseLocation("");
+        setFormData({
+          warehouse_code: "",
+          warehouse_name: "",
+          warehouse_location: "",
+        });
+        setFormErrors({});
       } else {
         throw new Error("Failed to create warehouse");
       }
@@ -112,7 +104,6 @@ export default function AddNew({
       setIsSubmitting(false);
     }
   };
-
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="max-w-3xl max-h-[90vh] overflow-y-auto">
@@ -122,17 +113,45 @@ export default function AddNew({
           </DialogTitle>
         </DialogHeader>
 
+        {Object.keys(formErrors).length > 0 && (
+          <div
+            className="flex items-start gap-2 bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-md shadow-sm mb-4"
+            role="alert">
+            <svg
+              className="w-5 h-5 mt-0.5 text-red-500 shrink-0"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01M4.93 4.93a10 10 0 0114.14 0M4.93 19.07a10 10 0 010-14.14"
+              />
+            </svg>
+            <div className="text-sm leading-relaxed">
+              <strong className="block font-medium mb-1">
+                Fill out the required fields.
+              </strong>
+            </div>
+          </div>
+        )}
+
         <form onSubmit={handleSubmit} className="mt-6">
           {/* Form Fields */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div className="space-y-2">
-              <Label htmlFor="warehouse-code">Code</Label>
+              <Label htmlFor="code">Code</Label>
               <Input
-                id="warehouse-code"
-                value={warehouse_code}
+                id="code"
+                value={formData.warehouse_code}
                 onChange={(e) => {
-                  setFormErrors((prev) => ({ ...prev, warehouse_code: "" })); // Clear error on change
-                  setWarehouseCode(e.target.value);
+                  setFormErrors((prev) => ({ ...prev, warehouse_code: "" }));
+                  setFormData((prev) => ({
+                    ...prev,
+                    warehouse_code: e.target.value,
+                  }));
                 }}
                 placeholder="Enter code"
                 className={`w-full ${
@@ -147,15 +166,18 @@ export default function AddNew({
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="warehouse-name">Name</Label>
+              <Label htmlFor="name">Name</Label>
               <Input
-                id="warehouse-name"
-                value={warehouse_name}
+                id="name"
+                value={formData.warehouse_name}
                 onChange={(e) => {
                   setFormErrors((prev) => ({ ...prev, warehouse_name: "" }));
-                  setWarehouseName(e.target.value);
+                  setFormData((prev) => ({
+                    ...prev,
+                    warehouse_name: e.target.value,
+                  }));
                 }}
-                placeholder="Enter warehouse name"
+                placeholder="Enter name"
                 className={`w-full ${
                   formErrors.warehouse_name ? "border-red-500 ring-red-500" : ""
                 }`}
@@ -169,15 +191,18 @@ export default function AddNew({
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="warehouse-location">Location</Label>
+            <Label htmlFor="location">Location</Label>
             <Input
-              id="warehouse-location"
-              value={warehouse_location}
+              id="location"
+              value={formData.warehouse_location}
               onChange={(e) => {
                 setFormErrors((prev) => ({ ...prev, warehouse_location: "" }));
-                setWarehouseLocation(e.target.value);
+                setFormData((prev) => ({
+                  ...prev,
+                  warehouse_location: e.target.value,
+                }));
               }}
-              placeholder="Enter warehouse location"
+              placeholder="Enter location"
               className={`w-full ${
                 formErrors.warehouse_location
                   ? "border-red-500 ring-red-500"

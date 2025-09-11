@@ -93,6 +93,26 @@ export default function SalesPerson() {
     status: "",
   });
 
+  const initialFormState = {
+    salesPersonCode: "",
+    firstName: "",
+    lastName: "",
+    emailAddress: "",
+    contactNumber: "",
+    address: "",
+    TIN: "",
+    status: "active",
+  };
+
+  const handleDialogToggle = (isOpen: boolean) => {
+    setIsCreateDialogOpen(isOpen);
+
+    if (!isOpen) {
+      setFormErrors({});
+      setFormData(initialFormState); // ← optional: reset to defaults
+    }
+  };
+
   const fetchSalesPerson = async () => {
     try {
       const res = await fetch("http://localhost:3000/api/salesPersons", {
@@ -281,6 +301,61 @@ export default function SalesPerson() {
   };
 
   const handleUpdate = async () => {
+    const errors: Partial<Record<keyof typeof formData, string>> = {};
+
+    if (!formData.salesPersonCode.trim()) {
+      errors.salesPersonCode = "Sales person code is required.";
+    }
+
+    if (!formData.firstName.trim()) {
+      errors.firstName = "First name is required.";
+    }
+
+    if (!formData.lastName.trim()) {
+      errors.lastName = "Last name is required.";
+    }
+
+    if (!formData.emailAddress.trim()) {
+      errors.emailAddress = "Email address is required.";
+    } else {
+      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+      if (!emailRegex.test(formData.emailAddress)) {
+        errors.emailAddress = "Enter a valid email address.";
+      }
+    }
+
+    if (!formData.contactNumber.trim()) {
+      errors.contactNumber = "Contact number is required.";
+    } else {
+      const phoneRegex = /^\+?\d{10,15}$/;
+      if (!phoneRegex.test(formData.contactNumber)) {
+        errors.contactNumber = "Enter a valid contact number.";
+      }
+    }
+
+    if (!formData.address?.trim()) {
+      errors.address = "Address is required.";
+    }
+
+    if (!formData.TIN.trim()) {
+      errors.TIN = "TIN is required.";
+    } else {
+      const tinRegex = /^\d{3}-\d{3}-\d{3}-\d{3}$/;
+      if (!tinRegex.test(formData.TIN)) {
+        errors.TIN = "Enter a valid TIN (e.g. 123-456-789-000).";
+      }
+    }
+
+    if (!formData.status || !["active", "inactive"].includes(formData.status)) {
+      errors.status = "Please select a valid status.";
+    }
+
+    if (Object.keys(errors).length > 0) {
+      setFormErrors(errors);
+      toast.error("Please correct the highlighted fields.");
+      return;
+    }
+
     if (!editingSalesPerson) return;
 
     const updatedSalesPerson: SalesPersonType = {
@@ -370,7 +445,13 @@ export default function SalesPerson() {
 
             <Dialog
               open={isCreateDialogOpen}
-              onOpenChange={setIsCreateDialogOpen}>
+              onOpenChange={(isOpen) => {
+                setIsCreateDialogOpen(isOpen);
+                if (!isOpen) {
+                  setFormData(initialFormState); // 🧹 Reset all fields
+                  setFormErrors({}); // 🧹 Clear validation errors on close
+                }
+              }}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
                   <Plus className="w-4 h-4" />
@@ -402,13 +483,8 @@ export default function SalesPerson() {
                     </svg>
                     <div className="text-sm leading-relaxed">
                       <strong className="block font-medium mb-1">
-                        Please correct the following:
+                        Fill out the required fields.
                       </strong>
-                      <ul className="list-disc list-inside space-y-1">
-                        {Object.entries(formErrors).map(([field, message]) => (
-                          <li key={field}>{message}</li>
-                        ))}
-                      </ul>
                     </div>
                   </div>
                 )}
@@ -556,50 +632,53 @@ export default function SalesPerson() {
                       </p>
                     )}
                   </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="create-tin">TIN</Label>
-                    <Input
-                      id="create-tin"
-                      value={formData.TIN}
-                      onChange={(e) =>
-                        setFormData({ ...formData, TIN: e.target.value })
-                      }
-                      placeholder="123-456-789-000"
-                      className={
-                        formErrors.TIN ? "border-red-500 ring-red-500" : ""
-                      }
-                    />
-                    {formErrors.TIN && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {formErrors.TIN}
-                      </p>
-                    )}
-                  </div>
-
-                  <div className="grid gap-2">
-                    <Label htmlFor="create-status">Status</Label>
-                    <Select
-                      value={formData.status}
-                      onValueChange={(value: "active" | "inactive") =>
-                        setFormData({ ...formData, status: value })
-                      }>
-                      <SelectTrigger
+                  <div className="grid gap-4 md:grid-cols-2">
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-tin">TIN</Label>
+                      <Input
+                        id="create-tin"
+                        value={formData.TIN}
+                        onChange={(e) =>
+                          setFormData({ ...formData, TIN: e.target.value })
+                        }
+                        placeholder="123-456-789-000"
                         className={
-                          formErrors.status ? "border-red-500 ring-red-500" : ""
+                          formErrors.TIN ? "border-red-500 ring-red-500" : ""
+                        }
+                      />
+                      {formErrors.TIN && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {formErrors.TIN}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-status">Status</Label>
+                      <Select
+                        value={formData.status}
+                        onValueChange={(value: "active" | "inactive") =>
+                          setFormData({ ...formData, status: value })
                         }>
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="active">Active</SelectItem>
-                        <SelectItem value="inactive">Inactive</SelectItem>
-                      </SelectContent>
-                    </Select>
-                    {formErrors.status && (
-                      <p className="text-sm text-red-500 mt-1">
-                        {formErrors.status}
-                      </p>
-                    )}
+                        <SelectTrigger
+                          className={
+                            formErrors.status
+                              ? "border-red-500 ring-red-500"
+                              : ""
+                          }>
+                          <SelectValue />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="active">Active</SelectItem>
+                          <SelectItem value="inactive">Inactive</SelectItem>
+                        </SelectContent>
+                      </Select>
+                      {formErrors.status && (
+                        <p className="text-sm text-red-500 mt-1">
+                          {formErrors.status}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 </div>
 
@@ -875,11 +954,44 @@ export default function SalesPerson() {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      <Dialog
+        open={isEditDialogOpen}
+        onOpenChange={(isOpen) => {
+          setIsEditDialogOpen(isOpen);
+
+          if (!isOpen) {
+            setFormErrors({}); // 🧹 Clear all validation errors
+            setFormData(initialFormState); // 🧹 Reset form data
+          }
+        }}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Edit Sales Person</DialogTitle>
           </DialogHeader>
+          {Object.keys(formErrors).length > 0 && (
+            <div
+              className="flex items-start gap-2 bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-md shadow-sm mb-4"
+              role="alert">
+              <svg
+                className="w-5 h-5 mt-0.5 text-red-500 shrink-0"
+                xmlns="http://www.w3.org/2000/svg"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor">
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M12 9v2m0 4h.01M4.93 4.93a10 10 0 0114.14 0M4.93 19.07a10 10 0 010-14.14"
+                />
+              </svg>
+              <div className="text-sm leading-relaxed">
+                <strong className="block font-medium mb-1">
+                  Fill out the required fields.
+                </strong>
+              </div>
+            </div>
+          )}
           <div className="grid gap-4 py-4">
             <div className="grid gap-2">
               <Label htmlFor="edit-code">Sales Person Code</Label>
@@ -889,7 +1001,13 @@ export default function SalesPerson() {
                 onChange={(e) =>
                   setFormData({ ...formData, salesPersonCode: e.target.value })
                 }
+                className={formErrors.salesPersonCode ? "border-red-500" : ""}
               />
+              {formErrors.salesPersonCode && (
+                <p className="text-sm text-red-500">
+                  {formErrors.salesPersonCode}
+                </p>
+              )}
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="grid gap-2">
@@ -898,13 +1016,14 @@ export default function SalesPerson() {
                   id="edit-first-name"
                   value={formData.firstName}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      firstName: e.target.value,
-                    })
+                    setFormData({ ...formData, firstName: e.target.value })
                   }
+                  className={formErrors.firstName ? "border-red-500" : ""}
                   placeholder="Juan"
                 />
+                {formErrors.firstName && (
+                  <p className="text-sm text-red-500">{formErrors.firstName}</p>
+                )}
               </div>
 
               <div className="grid gap-2">
@@ -913,25 +1032,33 @@ export default function SalesPerson() {
                   id="edit-last-name"
                   value={formData.lastName}
                   onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      lastName: e.target.value,
-                    })
+                    setFormData({ ...formData, lastName: e.target.value })
                   }
+                  className={formErrors.lastName ? "border-red-500" : ""}
                   placeholder="Dela Cruz"
                 />
+                {formErrors.lastName && (
+                  <p className="text-sm text-red-500">{formErrors.lastName}</p>
+                )}
               </div>
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-contactNumber">Contact Number</Label>
+              <Label htmlFor="edit-contact-number">Contact Number</Label>
               <Input
-                id="edit-email"
-                type="contact number"
+                id="edit-contact-number"
+                type="tel"
                 value={formData.contactNumber}
                 onChange={(e) =>
                   setFormData({ ...formData, contactNumber: e.target.value })
                 }
+                className={formErrors.contactNumber ? "border-red-500" : ""}
+                placeholder="+639123456789"
               />
+              {formErrors.contactNumber && (
+                <p className="text-sm text-red-500">
+                  {formErrors.contactNumber}
+                </p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-email">Email Address</Label>
@@ -942,18 +1069,30 @@ export default function SalesPerson() {
                 onChange={(e) =>
                   setFormData({ ...formData, emailAddress: e.target.value })
                 }
+                className={formErrors.emailAddress ? "border-red-500" : ""}
+                placeholder="juan.delacruz@example.com"
               />
+              {formErrors.emailAddress && (
+                <p className="text-sm text-red-500">
+                  {formErrors.emailAddress}
+                </p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-tin">TIN</Label>
               <Input
                 id="edit-tin"
-                type="tin"
+                type="text"
                 value={formData.TIN}
                 onChange={(e) =>
                   setFormData({ ...formData, TIN: e.target.value })
                 }
+                className={formErrors.TIN ? "border-red-500" : ""}
+                placeholder="123-456-789-000"
               />
+              {formErrors.TIN && (
+                <p className="text-sm text-red-500">{formErrors.TIN}</p>
+              )}
             </div>
             <div className="grid gap-2">
               <Label htmlFor="edit-status">Status</Label>
@@ -962,14 +1101,19 @@ export default function SalesPerson() {
                 onValueChange={(value: "active" | "inactive") =>
                   setFormData({ ...formData, status: value })
                 }>
-                <SelectTrigger>
-                  <SelectValue />
+                <SelectTrigger
+                  id="edit-status"
+                  className={formErrors.status ? "border-red-500" : ""}>
+                  <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="active">Active</SelectItem>
                   <SelectItem value="inactive">Inactive</SelectItem>
                 </SelectContent>
               </Select>
+              {formErrors.status && (
+                <p className="text-sm text-red-500">{formErrors.status}</p>
+              )}
             </div>
           </div>
           <div className="flex justify-end gap-2">
