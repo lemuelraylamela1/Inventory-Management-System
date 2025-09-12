@@ -86,8 +86,34 @@ export default function AddNew({
     const validateFields = (): Record<string, string> => {
       const errors: Record<string, string> = {};
 
-      if (!item_code.trim()) errors.item_code = "Item code is required.";
-      if (!item_name.trim()) errors.item_name = "Item name is required.";
+      if (!item_code.trim()) {
+        errors.item_code = "Item code is required.";
+      } else {
+        // Check for duplicate code (note: replace this client-side stub with a server-side/actual check)
+        const items: Array<{ itemCode?: string }> = [];
+        const duplicateCode = items.find(
+          (item) => item.itemCode?.toLowerCase() === item_code.toLowerCase()
+        );
+
+        if (duplicateCode) {
+          errors.item_code = "Item Code already exists";
+        }
+      }
+
+      if (!item_name.trim()) {
+        errors.item_name = "Item name is required.";
+      } else {
+        // Check for duplicate name (note: replace this client-side stub with a server-side/actual check)
+        const items: Array<{ itemName?: string }> = [];
+        const duplicateName = items.find(
+          (item) => item.itemName?.toLowerCase() === item_name.toLowerCase()
+        );
+
+        if (duplicateName) {
+          errors.item_name = "Item Name already exists";
+        }
+      }
+
       if (!item_description.trim())
         errors.item_description = "Description is required.";
 

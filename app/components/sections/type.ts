@@ -1,12 +1,12 @@
 export type ItemType = {
   _id: string;
-  item_code: string;
-  item_name: string;
-  item_description: string;
+  itemCode: string;
+  itemName: string;
+  description: string;
   purchasePrice: number;
   salesPrice: number;
-  item_status: string;
-  item_category: string;
+  status: "active" | "inactive";
+  category: string;
   length: number;
   width: number;
   height: number;

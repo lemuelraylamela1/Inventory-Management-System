@@ -1,19 +1,13 @@
 import connectMongoDB from "@/libs/mongodb";
-import Item from "../../../../models/item";
+import Item from "@/models/item";
 import { NextResponse, NextRequest } from "next/server";
 
-type Params = {
-  params: {
-    id: string;
-  };
-};
-
 interface ItemPayload {
-  item_code: string;
-  item_name: string;
-  item_description: string;
-  item_status: string;
-  item_category: string;
+  itemCode: string;
+  itemName: string;
+  description: string;
+  status: string;
+  category: string;
   purchasePrice: number;
   salesPrice: number;
   length: number;
@@ -25,115 +19,123 @@ interface ItemPayload {
   imagePublicId?: string;
 }
 
-export async function PUT(request: NextRequest, { params }: Params) {
-  const { id } = params;
+interface BulkPayload {
+  items: ItemPayload[];
+}
 
-  // ✅ Guard against missing or invalid ID
-  if (!id || typeof id !== "string") {
-    return NextResponse.json(
-      { error: "Missing or invalid item ID" },
-      { status: 400 }
-    );
-  }
-
-  let body: ItemPayload;
-  try {
-    body = await request.json();
-  } catch (err) {
-    return NextResponse.json(
-      { error: "Invalid JSON payload" },
-      { status: 400 }
-    );
-  }
-
-  // ✅ Validate required fields
-  const requiredFields = [
-    "item_code",
-    "item_name",
-    "item_description",
-    "item_status",
-    "item_category",
-  ] as const;
-  for (const field of requiredFields) {
-    const value = body[field];
-    if (typeof value !== "string" || value.trim() === "") {
-      return NextResponse.json(
-        { error: `Missing or invalid field: ${field}` },
-        { status: 400 }
-      );
-    }
-  }
-
-  // ✅ Optional: validate numeric fields
-  const numericFields = [
-    "purchasePrice",
-    "salesPrice",
-    "length",
-    "width",
-    "height",
-    "weight",
-  ] as const;
-  for (const field of numericFields) {
-    const value = body[field];
-    if (typeof value !== "number" || isNaN(value) || value <= 0) {
-      return NextResponse.json(
-        { error: `Invalid value for ${field}` },
-        { status: 400 }
-      );
-    }
-  }
+export async function POST(request: NextRequest) {
+  const raw = await request.json();
+  await connectMongoDB();
 
   try {
-    await connectMongoDB();
-
-    const updated = await Item.findByIdAndUpdate(
-      id,
-      { ...body },
-      { new: true }
-    );
-
-    if (!updated) {
-      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    // ✅ Bulk upload
+    if ("items" in raw && Array.isArray(raw.items)) {
+      const body = raw as BulkPayload;
+      await Item.insertMany(body.items);
+      return NextResponse.json(
+        { message: "Bulk upload successful" },
+        { status: 201 }
+      );
     }
 
+    // ✅ Single item creation
+    const body = raw as ItemPayload;
+
+    const requiredFields = [
+      "itemCode",
+      "itemName",
+      "description",
+      "status",
+      "category",
+    ] as const;
+    for (const field of requiredFields) {
+      const value = body[field];
+      if (typeof value !== "string" || value.trim() === "") {
+        return NextResponse.json(
+          { error: `Missing or invalid field: ${field}` },
+          { status: 400 }
+        );
+      }
+    }
+
+    const numericFields = [
+      "purchasePrice",
+      "salesPrice",
+      "length",
+      "width",
+      "height",
+      "weight",
+    ] as const;
+    for (const field of numericFields) {
+      const value = body[field];
+      if (typeof value !== "number" || isNaN(value) || value <= 0) {
+        return NextResponse.json(
+          { error: `Invalid value for ${field}` },
+          { status: 400 }
+        );
+      }
+    }
+
+    // ✅ Optional: check for duplicate itemCode + itemName
+    const existing = await Item.findOne({
+      itemCode: body.itemCode,
+      itemName: body.itemName,
+    });
+
+    if (existing) {
+      return NextResponse.json(
+        { error: "Item with this code and name already exists" },
+        { status: 409 }
+      );
+    }
+
+    const created = await Item.create(body);
     return NextResponse.json(
-      { message: "Item updated", item: updated },
-      { status: 200 }
+      { message: "Item created successfully", item: created },
+      { status: 201 }
     );
-  } catch (err) {
-    console.error("Update error:", err);
+  } catch (error) {
+    console.error("Error creating item:", error);
     return NextResponse.json(
-      { error: "Failed to update item" },
+      { error: "Failed to create item" },
       { status: 500 }
     );
   }
 }
 
-export async function GET(request: NextRequest, { params }: Params) {
-  const { id } = params;
+export async function GET() {
+  await connectMongoDB();
 
-  // ✅ Guard against missing or invalid ID
-  if (!id || typeof id !== "string") {
+  try {
+    const items = await Item.find();
+    return NextResponse.json({ items }, { status: 200 });
+  } catch (err) {
+    console.error("GET /api/items error:", err);
     return NextResponse.json(
-      { error: "Missing or invalid item ID" },
-      { status: 400 }
+      { error: "Failed to fetch items" },
+      { status: 500 }
     );
   }
+}
+
+type Params = {
+  params: {
+    id: string;
+  };
+};
+
+export async function DELETE(request: NextRequest, { params }: Params) {
+  const { id } = params;
 
   try {
     await connectMongoDB();
+    await Item.findByIdAndDelete(id);
 
-    const item = await Item.findById(id);
-
-    if (!item) {
-      return NextResponse.json({ error: "Item not found" }, { status: 404 });
-    }
-
-    return NextResponse.json({ item }, { status: 200 });
-  } catch (err) {
-    console.error("GET /api/items/[id] error:", err);
+    return NextResponse.json({ message: "Item deleted" }, { status: 200 });
+  } catch (error) {
+    console.error("Delete failed:", error);
     return NextResponse.json(
-      { error: "Failed to fetch item" },
+      { error: "Failed to delete item" },
       { status: 500 }
     );
   }

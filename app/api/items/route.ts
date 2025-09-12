@@ -2,16 +2,17 @@ import connectMongoDB from "../../../libs/mongodb";
 import Item from "../../../models/item";
 import { NextResponse } from "next/server";
 import { NextRequest } from "next/server";
+import mongoose from "mongoose";
 
 interface ItemPayload {
   createdDT: string;
-  item_code: string;
-  item_name: string;
-  item_description: string;
+  itemCode: string;
+  itemName: string;
+  description: string;
   purchasePrice: number;
   salesPrice: number;
-  item_category: string;
-  item_status: string;
+  category: string;
+  status: string;
   imageUrl?: string;
   height?: number;
   weight?: number;
@@ -38,13 +39,13 @@ export async function POST(request: NextRequest) {
 
     const {
       createdDT,
-      item_code,
-      item_name,
-      item_description,
+      itemCode,
+      itemName,
+      description,
       purchasePrice,
       salesPrice,
-      item_category,
-      item_status,
+      category,
+      status,
       imageUrl,
       height,
       weight,
@@ -54,13 +55,13 @@ export async function POST(request: NextRequest) {
 
     await Item.create({
       createdDT,
-      item_code,
-      item_name,
-      item_description,
+      itemCode,
+      itemName,
+      description,
       purchasePrice,
       salesPrice,
-      item_category,
-      item_status,
+      category,
+      status,
       imageUrl,
       height,
       weight,
@@ -87,13 +88,32 @@ export async function GET() {
   return NextResponse.json({ items });
 }
 
-export async function DELETE(request: NextRequest) {
-  const id = request.nextUrl.searchParams.get("id");
-  if (!id) {
-    return NextResponse.json({ message: "Missing item ID" }, { status: 400 });
+type Params = {
+  params: {
+    id: string;
+  };
+};
+
+export async function DELETE(
+  request: NextRequest,
+  { params }: Params
+): Promise<NextResponse> {
+  const { id } = params;
+
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    console.warn("Invalid or missing _id:", id);
+    return NextResponse.json(
+      { message: "Invalid or missing _id" },
+      { status: 400 }
+    );
   }
 
   await connectMongoDB();
-  await Item.findByIdAndDelete(id);
+  const deleted = await Item.findByIdAndDelete(id);
+
+  if (!deleted) {
+    return NextResponse.json({ message: "Item not found" }, { status: 404 });
+  }
+
   return NextResponse.json({ message: "Item deleted" }, { status: 200 });
 }

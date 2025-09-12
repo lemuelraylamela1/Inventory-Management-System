@@ -145,6 +145,18 @@ export default function EditItem({
       return;
     }
 
+    // Check for duplicate Sales Person Code
+    const duplicateCode = items.find(
+      (item) =>
+        item.salesPersonCode.toLowerCase() ===
+          formData.salesPersonCode.toLowerCase() &&
+        (!isEdit || item._id !== formData._id)
+    );
+
+    if (duplicateCode) {
+      errors.salesPersonCode = "Sales Person Code already exists";
+    }
+
     // ✅ Validate required string fields
     const requiredFields: (keyof ItemType)[] = [
       "item_code",
