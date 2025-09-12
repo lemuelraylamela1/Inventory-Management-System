@@ -202,7 +202,7 @@ export default function ItemsList() {
                         await Promise.all(
                           selectedItems.map((item) =>
                             fetch(
-                              `http://localhost:3000/api/items/${item._id}`,
+                              `http://localhost:3000/api/items?id=${item._id}`,
                               {
                                 method: "DELETE",
                               }

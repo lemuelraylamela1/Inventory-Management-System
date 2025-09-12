@@ -232,6 +232,7 @@ export default function EditItem({
     } finally {
       setIsSaving(false);
     }
+    setError(""); // Clear previous error
   }
 
   async function handleDeleteImage() {
@@ -266,6 +267,31 @@ export default function EditItem({
             Edit Item
           </DialogTitle>
         </DialogHeader>
+
+        {Object.keys(formErrors).length > 0 && (
+          <div
+            className="flex items-start gap-2 bg-red-50 border border-red-400 text-red-700 px-4 py-3 rounded-md shadow-sm mb-4"
+            role="alert">
+            <svg
+              className="w-5 h-5 mt-0.5 text-red-500 shrink-0"
+              xmlns="http://www.w3.org/2000/svg"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor">
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01M4.93 4.93a10 10 0 0114.14 0M4.93 19.07a10 10 0 010-14.14"
+              />
+            </svg>
+            <div className="text-sm leading-relaxed">
+              <strong className="block font-medium mb-1">
+                Fill out the required fields.
+              </strong>
+            </div>
+          </div>
+        )}
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {/* Image Preview */}

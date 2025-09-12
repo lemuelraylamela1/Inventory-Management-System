@@ -34,7 +34,6 @@ const itemSchema: Schema<IItem> = new Schema(
       required: true,
       set: (v: number) => parseFloat(v.toFixed(2)),
     },
-
     item_category: { type: String, required: true },
     item_status: { type: String, required: true },
     imageUrl: { type: String },
@@ -47,6 +46,9 @@ const itemSchema: Schema<IItem> = new Schema(
     timestamps: true,
   }
 );
+
+// ✅ Composite unique index to prevent duplicate item_code + item_name
+itemSchema.index({ item_code: 1, item_name: 1 }, { unique: true });
 
 const Item: Model<IItem> =
   mongoose.models.Item || mongoose.model<IItem>("Item", itemSchema);
