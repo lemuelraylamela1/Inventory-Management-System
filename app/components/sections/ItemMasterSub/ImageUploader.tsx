@@ -4,17 +4,43 @@ import { Label } from "../../ui/label";
 import { Image as LucideImage, X } from "lucide-react";
 import Image from "next/image";
 
+// interface ImageUploaderProps {
+//   onSelect: (file: File | null) => void;
+//   defaultImageUrl?: string;
+//   initialImageUrl?: string;
+// }
+
 interface ImageUploaderProps {
-  onSelect: (file: File | null) => void;
-  defaultImageUrl?: string;
+  onSelect: (
+    data: { file: File; url: string; publicId: string } | null
+  ) => void;
   initialImageUrl?: string;
 }
 
-export default function ImageUploader({ onSelect }: ImageUploaderProps) {
+export default function ImageUploader({
+  onSelect,
+  initialImageUrl,
+}: ImageUploaderProps) {
   const [dragActive, setDragActive] = useState(false);
   const [previewFile, setPreviewFile] = useState<File | null>(null);
+  const [previewUrl, setPreviewUrl] = useState<string | null>(
+    initialImageUrl || null
+  );
 
-  const handleFileSelect = (files: FileList | null) => {
+  // const handleFileSelect = (files: FileList | null) => {
+  //   if (!files || !files[0]) return;
+
+  //   const file = files[0];
+  //   const isImage = file.type.startsWith("image/");
+  //   const isValidSize = file.size <= 10 * 1024 * 1024;
+
+  //   if (!isImage || !isValidSize) return;
+
+  //   setPreviewFile(file);
+  //   onSelect(file);
+  // };
+
+  const handleFileSelect = async (files: FileList | null) => {
     if (!files || !files[0]) return;
 
     const file = files[0];
@@ -24,7 +50,32 @@ export default function ImageUploader({ onSelect }: ImageUploaderProps) {
     if (!isImage || !isValidSize) return;
 
     setPreviewFile(file);
-    onSelect(file);
+
+    const formData = new FormData();
+    formData.append("file", file);
+    formData.append("upload_preset", "your_upload_preset");
+
+    try {
+      const res = await fetch(
+        "https://api.cloudinary.com/v1_1/your_cloud_name/image/upload",
+        {
+          method: "POST",
+          body: formData,
+        }
+      );
+
+      const data = await res.json();
+      setPreviewUrl(data.secure_url);
+
+      onSelect({
+        file,
+        url: data.secure_url,
+        publicId: data.public_id,
+      });
+    } catch (err) {
+      console.error("Upload failed", err);
+      onSelect(null);
+    }
   };
 
   const removeFile = () => {
@@ -55,36 +106,11 @@ export default function ImageUploader({ onSelect }: ImageUploaderProps) {
           setDragActive(false);
           handleFileSelect(e.dataTransfer.files);
         }}>
-        {!previewFile ? (
-          <>
-            <input
-              type="file"
-              accept="image/*"
-              onChange={(e) => handleFileSelect(e.target.files)}
-              className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-            />
-            <div className="text-center">
-              <div className="mx-auto h-12 w-12 rounded-full bg-muted flex items-center justify-center mb-4">
-                <LucideImage className="h-6 w-6 text-muted-foreground" />
-              </div>
-              <div className="space-y-2">
-                <p className="text-sm">
-                  <span className="font-medium text-primary">
-                    Click to upload
-                  </span>{" "}
-                  or drag and drop
-                </p>
-                <p className="text-xs text-muted-foreground">
-                  PNG, JPG, GIF up to 10MB
-                </p>
-              </div>
-            </div>
-          </>
-        ) : (
-          <div className="relative w-full h-48 overflow-hidden rounded-lg">
+        {previewUrl ? (
+          <div className="relative w-full h-64 rounded-lg overflow-hidden border shadow-sm">
             <Image
-              src={URL.createObjectURL(previewFile)}
-              alt={previewFile.name}
+              src={previewUrl}
+              alt="Preview"
               fill
               className="object-cover"
               sizes="100vw"
@@ -96,6 +122,10 @@ export default function ImageUploader({ onSelect }: ImageUploaderProps) {
               className="absolute top-2 right-2 bg-white rounded-full p-1 shadow hover:bg-red-100">
               <X className="h-4 w-4 text-red-600" />
             </button>
+          </div>
+        ) : (
+          <div className="w-full h-64 flex items-center justify-center rounded-lg border bg-muted text-muted-foreground text-sm">
+            No image available
           </div>
         )}
       </div>

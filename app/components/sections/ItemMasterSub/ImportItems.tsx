@@ -10,7 +10,7 @@ type Props = {
 };
 
 const templateHeaders = [
-  ["item_code", "item_name", "item_category", "item_status", "createdDT"],
+  ["itemCode", "itemName", "category", "status", "createdDT"],
 ];
 
 export default function ImportItems({ onUploadSuccess }: Props) {
@@ -150,7 +150,6 @@ export default function ImportItems({ onUploadSuccess }: Props) {
       setParsedRows(json);
       validateRows(json);
       setIsDialogOpen(true);
-      setIsDialogOpen(true);
     };
 
     reader.readAsBinaryString(file);
@@ -161,10 +160,10 @@ export default function ImportItems({ onUploadSuccess }: Props) {
     const invalids = rows
       .map((row, i) => {
         const isValid =
-          row.item_code &&
-          row.item_name &&
-          row.item_category &&
-          ["ACTIVE", "INACTIVE"].includes(row.item_status?.toUpperCase()) &&
+          row.itemCode &&
+          row.itemName &&
+          row.category &&
+          ["ACTIVE", "INACTIVE"].includes(row.status?.toUpperCase()) &&
           !isNaN(Date.parse(row.createdDT));
         return isValid ? null : i;
       })
@@ -253,10 +252,10 @@ export default function ImportItems({ onUploadSuccess }: Props) {
                           ? "Invalid row: check required fields and formats"
                           : ""
                       }>
-                      <td className="px-6 py-3">{row.item_code}</td>
-                      <td className="px-6 py-3">{row.item_name}</td>
-                      <td className="px-6 py-3">{row.item_category}</td>
-                      <td className="px-6 py-3">{row.item_status}</td>
+                      <td className="px-6 py-3">{row.itemCode}</td>
+                      <td className="px-6 py-3">{row.itemName}</td>
+                      <td className="px-6 py-3">{row.category}</td>
+                      <td className="px-6 py-3">{row.status}</td>
                       <td className="px-6 py-3">{formatDate(row.createdDT)}</td>
                     </tr>
                   );

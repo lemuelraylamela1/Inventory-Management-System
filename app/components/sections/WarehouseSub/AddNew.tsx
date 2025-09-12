@@ -190,7 +190,7 @@ export default function AddNew({
                   setFormErrors({});
                   setFormData((prev) => ({
                     ...prev,
-                    warehouse_code: e.target.value,
+                    warehouse_name: e.target.value,
                   }));
                 }}
                 placeholder="Main Distribution Center"

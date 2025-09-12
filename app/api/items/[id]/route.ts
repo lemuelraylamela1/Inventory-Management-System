@@ -103,6 +103,35 @@ export async function POST(request: NextRequest) {
   }
 }
 
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
+  const { id } = params;
+  const body = await request.json();
+
+  await connectMongoDB();
+
+  try {
+    const updatedItem = await Item.findByIdAndUpdate(id, body, {
+      new: true,
+      runValidators: true,
+    });
+
+    if (!updatedItem) {
+      return NextResponse.json({ error: "Item not found" }, { status: 404 });
+    }
+
+    return NextResponse.json({ item: updatedItem }, { status: 200 });
+  } catch (error) {
+    console.error("PUT /api/items/:id error:", error);
+    return NextResponse.json(
+      { error: "Failed to update item" },
+      { status: 500 }
+    );
+  }
+}
+
 export async function GET() {
   await connectMongoDB();
 

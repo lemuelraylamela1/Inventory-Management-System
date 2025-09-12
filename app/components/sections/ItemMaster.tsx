@@ -49,11 +49,23 @@ import {
 } from "../ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Textarea } from "../ui/textarea";
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { ItemType } from "./type";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "../ui/checkbox";
+import { toast } from "sonner";
+import ImageUploader from "./ItemMasterSub/ImageUploader";
+import { cn } from "../ui/utils";
+import ImportItems from "./ItemMasterSub/ImportItems";
+import { ExportItemButton } from "./ItemMasterSub/ExportItems";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+} from "@radix-ui/react-dropdown-menu";
+import { FileText, FileSpreadsheet, FileDown } from "lucide-react"; // or your preferred icon set
 
 const categories = ["Jelly", "Chocolate", "Imported Candies"];
 
@@ -72,6 +84,10 @@ export default function ItemMaster({ onSuccess }: Props) {
   const [viewingItem, setViewingItem] = useState<ItemType | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [isDragging, setIsDragging] = useState(false);
+  const [isUploading, setIsUploading] = useState(false);
+  const [selectedFile, setSelectedFile] = useState<File | null>(null);
+
   const router = useRouter();
 
   const [formData, setFormData] = useState({
@@ -114,11 +130,14 @@ export default function ItemMaster({ onSuccess }: Props) {
 
   // Filter and paginate data
   const filteredItems = useMemo(() => {
-    return items.filter(
-      (item) =>
-        item.itemName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        item.itemCode.toLowerCase().includes(searchTerm.toLowerCase())
-    );
+    const query = searchTerm.toLowerCase();
+
+    return items.filter((item) => {
+      const name = item.itemName?.toLowerCase() || "";
+      const code = item.itemCode?.toLowerCase() || "";
+
+      return name.includes(query) || code.includes(query);
+    });
   }, [items, searchTerm]);
 
   const totalPages = Math.ceil(filteredItems.length / rowsPerPage);
@@ -161,7 +180,7 @@ export default function ItemMaster({ onSuccess }: Props) {
       const duplicateCode = items.find(
         (item) =>
           item.itemCode.toLowerCase() === formData.itemCode.toLowerCase() &&
-          (!isEdit || item.id !== editingItem?.id)
+          (!isEdit || item._id !== editingItem?._id)
       );
       if (duplicateCode) {
         errors.itemCode = "Item Code already exists";
@@ -175,7 +194,7 @@ export default function ItemMaster({ onSuccess }: Props) {
       const duplicateName = items.find(
         (item) =>
           item.itemName.toLowerCase() === formData.itemName.toLowerCase() &&
-          (!isEdit || item.id !== editingItem?.id)
+          (!isEdit || item._id !== editingItem?._id)
       );
       if (duplicateName) {
         errors.itemName = "Item Name already exists";
@@ -308,6 +327,7 @@ export default function ItemMaster({ onSuccess }: Props) {
         alert("Failed to create item. Please try again.");
         return;
       }
+      toast.success("Item created successfully!");
 
       if (typeof onSuccess === "function") {
         onSuccess();
@@ -316,8 +336,6 @@ export default function ItemMaster({ onSuccess }: Props) {
       setTimeout(() => {
         router.push("/");
       }, 300);
-
-      alert("Item created successfully!");
     } catch (error) {
       console.error("Network or unexpected error:", error);
       alert("Something went wrong. Please check your connection or try again.");
@@ -365,37 +383,55 @@ export default function ItemMaster({ onSuccess }: Props) {
       imageFile: "",
       imagePublicId: "",
     });
+    setIsEditDialogOpen(true);
   };
 
-  const handleUpdate = () => {
+  const handleUpdate = async () => {
     if (!editingItem || !validateForm(true)) {
       return;
     }
 
-    setItems(
-      items.map((item) =>
-        item.id === editingItem.id
-          ? {
-              ...item,
-              itemCode: formData.itemCode,
-              itemName: formData.itemName,
-              description: formData.description,
-              category: formData.category,
-              status: formData.status as "active" | "inactive",
-              purchasePrice: parseFloat(formData.purchasePrice),
-              salesPrice: parseFloat(formData.salesPrice),
-              length: parseFloat(formData.length),
-              width: parseFloat(formData.width),
-              height: parseFloat(formData.height),
-              weight: parseFloat(formData.weight),
-              createdDT: formData.createdDT,
-              imageUrl: formData.imageUrl,
-              imageFile: formData.imageFile,
-              imagePublicId: formData.imagePublicId,
-            }
-          : item
-      )
-    );
+    try {
+      const res = await fetch(`/api/items/${editingItem._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          itemCode: formData.itemCode,
+          itemName: formData.itemName,
+          description: formData.description,
+          category: formData.category,
+          status: formData.status,
+          purchasePrice: parseFloat(formData.purchasePrice),
+          salesPrice: parseFloat(formData.salesPrice),
+          length: parseFloat(formData.length),
+          width: parseFloat(formData.width),
+          height: parseFloat(formData.height),
+          weight: parseFloat(formData.weight),
+          createdDT: formData.createdDT,
+          imageUrl: formData.imageUrl,
+          imageFile: formData.imageFile,
+          imagePublicId: formData.imagePublicId,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error("Failed to update item");
+      }
+
+      const updatedItem = await res.json();
+
+      // Update local state
+      setItems(
+        items.map((item) => (item._id === editingItem._id ? updatedItem : item))
+      );
+    } catch (err) {
+      console.error("Update error:", err);
+      return;
+    }
+
+    // Reset form and close dialog
     setEditingItem(null);
     setFormData({
       itemCode: "",
@@ -463,9 +499,9 @@ export default function ItemMaster({ onSuccess }: Props) {
   };
 
   const formatPrice = (price: number) => {
-    return new Intl.NumberFormat("en-US", {
+    return new Intl.NumberFormat("en-PH", {
       style: "currency",
-      currency: "USD",
+      currency: "PHP",
     }).format(price);
   };
 
@@ -580,12 +616,42 @@ export default function ItemMaster({ onSuccess }: Props) {
     return () => clearInterval(interval); // cleanup on unmount
   }, []);
 
+  // const handleExportPDF = () => {
+  //   exportToPDF(filteredItems, "Item Master Export");
+  //   toast.success("PDF exported successfully");
+  // };
+
+  // const handleExportExcel = () => {
+  //   exportToExcel(filteredItems);
+  //   toast.success("Excel exported successfully");
+  // };
+
+  // const handleExportCSV = () => {
+  //   exportToCSV(filteredItems);
+  //   toast.success("CSV exported successfully");
+  // };
+  // const isDisabled = filteredItems.length === 0;
+
+  const handleUploadSuccess = () => {
+    // 🔁 Refetch items or trigger a state update
+    fetchItems(); // or mutate(), or setItems(), depending on your data flow
+  };
+
   return (
     <div className="p-6 space-y-6">
       <Card>
-        <CardHeader>
-          <CardTitle>Item Master Management</CardTitle>
+        <CardHeader className="flex items-center justify-between">
+          {/* Left: Title */}
+          <CardTitle className="text-lg font-semibold">
+            Item Master Management
+          </CardTitle>
+          <div className="flex items-center gap-2">
+            <ExportItemButton items={items} />
+
+            <ImportItems onUploadSuccess={handleUploadSuccess} />
+          </div>
         </CardHeader>
+
         <CardContent className="space-y-4">
           {/* Search and Add Button */}
           <div className="flex justify-between items-center gap-4">
@@ -601,7 +667,12 @@ export default function ItemMaster({ onSuccess }: Props) {
 
             <Dialog
               open={isCreateDialogOpen}
-              onOpenChange={setIsCreateDialogOpen}>
+              onOpenChange={(open) => {
+                if (open) {
+                  resetForm();
+                }
+                setIsCreateDialogOpen(open);
+              }}>
               <DialogTrigger asChild>
                 <Button className="gap-2">
                   <Plus className="w-4 h-4" />
@@ -613,107 +684,87 @@ export default function ItemMaster({ onSuccess }: Props) {
                   <DialogTitle>Add New Item</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  <div className="grid gap-2">
-                    <Label htmlFor="create-image">Item Image</Label>
-                    <div className="space-y-4">
-                      {formData.imageUrl ? (
-                        <div className="relative">
-                          <Image
-                            src={formData.imageUrl}
-                            alt="Preview"
-                            className="w-32 h-32 object-cover rounded-lg border"
-                          />
-                          <Button
-                            type="button"
-                            variant="destructive"
-                            size="sm"
-                            className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                            onClick={() =>
-                              setFormData({
-                                ...formData,
-                                imageFile: null,
-                                imageUrl: "",
-                              })
-                            }>
-                            <X className="w-3 h-3" />
-                          </Button>
-                        </div>
-                      ) : (
-                        <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
-                          <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                          <p className="text-sm text-muted-foreground mb-2">
-                            Click to upload an image
-                          </p>
-                          <Input
-                            id="create-image"
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                setFormData({
-                                  ...formData,
-                                  imageFile: file,
-                                  imageUrl: URL.createObjectURL(file),
-                                });
-                              }
-                            }}
-                            className="hidden"
-                          />
-                          <Button
-                            type="button"
-                            variant="outline"
-                            onClick={() =>
-                              document.getElementById("create-image")?.click()
-                            }>
-                            Choose Image
-                          </Button>
-                        </div>
-                      )}
-                      {formData.imageUrl && (
-                        <div className="flex gap-2">
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              document.getElementById("create-image")?.click()
-                            }>
-                            Change Image
-                          </Button>
-                          <Button
-                            type="button"
-                            variant="outline"
-                            size="sm"
-                            onClick={() =>
-                              setFormData({
-                                ...formData,
-                                imageFile: null,
-                                imageUrl: "",
-                              })
-                            }>
-                            Remove Image
-                          </Button>
-                          <Input
-                            id="create-image"
-                            type="file"
-                            accept="image/*"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file) {
-                                setFormData({
-                                  ...formData,
-                                  imageFile: file,
-                                  imageUrl: URL.createObjectURL(file),
-                                });
-                              }
-                            }}
-                            className="hidden"
-                          />
-                        </div>
-                      )}
-                    </div>
-                  </div>
+                  {/* <div
+                    className={cn(
+                      "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
+                      isDragging
+                        ? "border-blue-500 bg-blue-50"
+                        : "border-muted-foreground/25"
+                    )}
+                    onDragOver={(e) => {
+                      e.preventDefault();
+                      setIsDragging(true);
+                    }}
+                    onDragLeave={() => setIsDragging(false)}
+                    onDrop={(e) => {
+                      e.preventDefault();
+                      setIsDragging(false);
+                      const file = e.dataTransfer.files?.[0];
+                      if (file) uploadToCloudinary(file);
+                    }}>
+                    {isUploading ? (
+                      <div className="flex flex-col items-center justify-center">
+                        <Loader2 className="animate-spin w-6 h-6 text-muted-foreground mb-2" />
+                        <p className="text-sm text-muted-foreground">
+                          Uploading image...
+                        </p>
+                      </div>
+                    ) : formData.imageUrl ? (
+                      <Image
+                        src={formData.imageUrl}
+                        alt="Preview"
+                        width={128}
+                        height={128}
+                        className="w-32 h-32 object-cover rounded-lg border shadow-sm"
+                      />
+                    ) : (
+                      <>
+                        <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
+                        <p className="text-sm text-muted-foreground mb-2">
+                          Drag & drop or click to upload
+                        </p>
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() =>
+                            document.getElementById("create-image")?.click()
+                          }>
+                          Choose Image
+                        </Button>
+                      </>
+                    )}
+
+                    <Input
+                      id="create-image"
+                      type="file"
+                      accept="image/*"
+                      onChange={(e) => {
+                        const file = e.target.files?.[0];
+                        if (file) uploadToCloudinary(file);
+                      }}
+                      className="hidden"
+                    />
+                  </div> */}
+                  <ImageUploader
+                    onSelect={(data) => {
+                      if (data) {
+                        setFormData((prev) => ({
+                          ...prev,
+                          imageFile: data.file,
+                          imageUrl: data.url,
+                          imagePublicId: data.publicId,
+                        }));
+                      } else {
+                        setFormData((prev) => ({
+                          ...prev,
+                          imageFile: null,
+                          imageUrl: "",
+                          imagePublicId: "",
+                        }));
+                      }
+                    }}
+                  />
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="create-code">Item Code</Label>
@@ -758,10 +809,8 @@ export default function ItemMaster({ onSuccess }: Props) {
                   <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
                     <div className="flex-1 grid gap-2">
                       <Label htmlFor="create-purchase">Purchase Price</Label>
-                      <div className="flex items-center border rounded-md overflow-hidden focus-within:ring-2 focus-within:ring-primary">
-                        <span className="px-3 text-sm text-muted-foreground bg-muted">
-                          ₱
-                        </span>
+                      <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
+                        <span className="text-muted-foreground">₱</span>
                         <Input
                           id="create-purchase"
                           type="number"
@@ -774,7 +823,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                               purchasePrice: e.target.value,
                             })
                           }
-                          placeholder="99.99"
+                          placeholder="0.00"
                           className={`flex-1 border-none focus-visible:ring-0 focus-visible:outline-none ${
                             validationErrors.purchasePrice
                               ? "border-destructive"
@@ -788,11 +837,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                         <p
                           id="purchase-error"
                           className="text-destructive text-sm mt-1">
-                          {validationErrors.purchasePrice}
-                        </p>
-                      )}
-                      {validationErrors.purchasePrice && (
-                        <p className="text-sm text-destructive">
                           {validationErrors.purchasePrice}
                         </p>
                       )}
@@ -815,7 +859,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                                 salesPrice: e.target.value,
                               })
                             }
-                            placeholder="129.99"
+                            placeholder="0.00"
                             className={`border-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
                               validationErrors.salesPrice
                                 ? "text-destructive"
@@ -829,11 +873,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                           </p>
                         )}
                       </div>
-                      {validationErrors.salesPrice && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.salesPrice}
-                        </p>
-                      )}
                     </div>
                   </div>
 
@@ -1049,6 +1088,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                       !formData.height.trim() ||
                       !formData.length.trim() ||
                       !formData.width.trim() ||
+                      !formData.weight.trim() ||
                       Object.values(validationErrors).some(
                         (error) => error !== ""
                       )
@@ -1246,7 +1286,7 @@ export default function ItemMaster({ onSuccess }: Props) {
           <DialogHeader>
             <DialogTitle>Edit Item</DialogTitle>
           </DialogHeader>
-          <div className="grid gap-4 py-4">
+          {/* <div className="grid gap-4 py-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="edit-code">Item Code</Label>
@@ -1463,6 +1503,320 @@ export default function ItemMaster({ onSuccess }: Props) {
                 )}
               </div>
             </div>
+          </div> */}
+          <div className="grid gap-4 py-4">
+            <ImageUploader
+              initialImageUrl={formData.imageUrl}
+              onSelect={(data) => {
+                if (data) {
+                  setFormData((prev) => ({
+                    ...prev,
+                    imageFile: data.file,
+                    imageUrl: data.url,
+                    imagePublicId: data.publicId,
+                  }));
+                } else {
+                  setFormData((prev) => ({
+                    ...prev,
+                    imageFile: null,
+                    imageUrl: "",
+                    imagePublicId: "",
+                  }));
+                }
+              }}
+            />
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor="create-code">Item Code</Label>
+                <Input
+                  id="edit-code"
+                  value={formData.itemCode}
+                  onChange={(e) =>
+                    setFormData({ ...formData, itemCode: e.target.value })
+                  }
+                  placeholder="ITM001"
+                  className={cn(
+                    "text-sm",
+                    validationErrors.itemCode && "border-destructive"
+                  )}
+                />
+                {validationErrors.itemCode && (
+                  <p className="text-sm text-destructive">
+                    {validationErrors.itemCode}
+                  </p>
+                )}
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="create-name">Item Name</Label>
+                <Input
+                  id="create-name"
+                  value={formData.itemName}
+                  onChange={(e) =>
+                    setFormData({ ...formData, itemName: e.target.value })
+                  }
+                  placeholder="Wireless Headphones"
+                  className={
+                    validationErrors.itemName ? "border-destructive" : ""
+                  }
+                />
+                {validationErrors.itemName && (
+                  <p className="text-sm text-destructive">
+                    {validationErrors.itemName}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+              <div className="flex-1 grid gap-2">
+                <Label htmlFor="create-purchase">Purchase Price</Label>
+                <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
+                  <span className="text-muted-foreground">₱</span>
+                  <Input
+                    id="create-purchase"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.purchasePrice}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        purchasePrice: e.target.value,
+                      })
+                    }
+                    placeholder="0.00"
+                    className={`flex-1 border-none focus-visible:ring-0 focus-visible:outline-none ${
+                      validationErrors.purchasePrice ? "border-destructive" : ""
+                    }`}
+                    aria-invalid={!!validationErrors.purchasePrice}
+                    aria-describedby="purchase-error"
+                  />
+                </div>
+                {validationErrors.purchasePrice && (
+                  <p
+                    id="purchase-error"
+                    className="text-destructive text-sm mt-1">
+                    {validationErrors.purchasePrice}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex-1 grid gap-2">
+                <div className="grid gap-2">
+                  <Label htmlFor="create-sales">Sales Price</Label>
+                  <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
+                    <span className="text-muted-foreground">₱</span>
+                    <Input
+                      id="create-sales"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.salesPrice}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          salesPrice: e.target.value,
+                        })
+                      }
+                      placeholder="0.00"
+                      className={`border-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
+                        validationErrors.salesPrice ? "text-destructive" : ""
+                      }`}
+                    />
+                  </div>
+                  {validationErrors.salesPrice && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.salesPrice}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="grid gap-2">
+              <Label htmlFor="create-description">Description</Label>
+              <Textarea
+                id="create-description"
+                value={formData.description}
+                onChange={(e) =>
+                  setFormData({
+                    ...formData,
+                    description: e.target.value,
+                  })
+                }
+                placeholder="Enter item description..."
+                className={
+                  validationErrors.description ? "border-destructive" : ""
+                }
+                rows={3}
+              />
+              {validationErrors.description && (
+                <p className="text-sm text-destructive">
+                  {validationErrors.description}
+                </p>
+              )}
+            </div>
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+              <div className="flex-1 grid gap-2">
+                <Label htmlFor="create-category">Category</Label>
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, category: value })
+                  }>
+                  <SelectTrigger
+                    className={
+                      validationErrors.category ? "border-destructive" : ""
+                    }>
+                    <SelectValue placeholder="Select category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((category) => (
+                      <SelectItem key={category} value={category}>
+                        {category}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+                {validationErrors.category && (
+                  <p className="text-sm text-destructive">
+                    {validationErrors.category}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex-1 grid gap-2">
+                <Label htmlFor="create-status">Status</Label>
+                <Select
+                  value={formData.status}
+                  onValueChange={(value: "active" | "inactive") =>
+                    setFormData({ ...formData, status: value })
+                  }>
+                  <SelectTrigger
+                    className={
+                      validationErrors.status ? "border-destructive" : ""
+                    }>
+                    <SelectValue placeholder="Select status" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="active">Active</SelectItem>
+                    <SelectItem value="inactive">Inactive</SelectItem>
+                  </SelectContent>
+                </Select>
+                {validationErrors.status && (
+                  <p className="text-sm text-destructive">
+                    {validationErrors.status}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+              <div className="flex-1 grid gap-2">
+                <Label htmlFor="create-length">Length</Label>
+                <Input
+                  id="create-length"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.length}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      length: e.target.value,
+                    }))
+                  }
+                  placeholder="0.00"
+                  className={
+                    validationErrors.length ? "border-destructive" : ""
+                  }
+                />
+                {validationErrors.length && (
+                  <p className="text-sm text-destructive">
+                    {validationErrors.length}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex-1 grid gap-2">
+                <Label htmlFor="create-width">Width</Label>
+                <Input
+                  id="create-width"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.width}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      width: e.target.value,
+                    }))
+                  }
+                  placeholder="0.00"
+                  className={validationErrors.width ? "border-destructive" : ""}
+                />
+                {validationErrors.width && (
+                  <p className="text-sm text-destructive">
+                    {validationErrors.width}
+                  </p>
+                )}
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+              <div className="flex-1 grid gap-2">
+                <Label htmlFor="create-height">Height</Label>
+                <Input
+                  id="create-height"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.height}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      height: e.target.value,
+                    }))
+                  }
+                  placeholder="0.00"
+                  className={
+                    validationErrors.height ? "border-destructive" : ""
+                  }
+                />
+                {validationErrors.height && (
+                  <p className="text-sm text-destructive">
+                    {validationErrors.height}
+                  </p>
+                )}
+              </div>
+
+              <div className="flex-1 grid gap-2">
+                <Label htmlFor="create-weight">Weight</Label>
+                <Input
+                  id="create-weight"
+                  type="number"
+                  step="0.01"
+                  min="0"
+                  value={formData.weight}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      weight: e.target.value,
+                    }))
+                  }
+                  placeholder="0.00"
+                  className={
+                    validationErrors.weight ? "border-destructive" : ""
+                  }
+                />
+                {validationErrors.weight && (
+                  <p className="text-sm text-destructive">
+                    {validationErrors.weight}
+                  </p>
+                )}
+              </div>
+            </div>
           </div>
           <div className="flex justify-end gap-2">
             <Button
@@ -1497,121 +1851,142 @@ export default function ItemMaster({ onSuccess }: Props) {
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl h-[90vh] overflow-y-auto rounded-xl p-6">
           <DialogHeader>
             <DialogTitle>Item Details</DialogTitle>
           </DialogHeader>
           {viewingItem && (
             <div className="grid gap-6 py-4">
-              {/* Image Section */}
-              {viewingItem.imageFile && (
-                <div className="flex justify-center">
-                  <Image
-                    src={URL.createObjectURL(viewingItem.imageFile)}
-                    alt={viewingItem.itemName}
-                    className="w-48 h-48 object-cover rounded-lg border"
-                  />
-                </div>
-              )}
-
+              <div className="flex flex-col items-center gap-2">
+                {viewingItem.imageUrl ? (
+                  <div className="relative w-full h-96 rounded-lg overflow-hidden border shadow-sm">
+                    <Image
+                      src={viewingItem.imageUrl}
+                      alt={viewingItem.itemName || "Item image"}
+                      fill
+                      className="object-cover"
+                      sizes="100vw"
+                      priority
+                    />
+                  </div>
+                ) : (
+                  <div className="relative w-full h-96 rounded-lg overflow-hidden border shadow-sm flex items-center justify-center bg-muted">
+                    No image available
+                  </div>
+                )}
+              </div>
               {/* Item Information */}
               <div className="grid gap-4">
-                {/* Creation Date & Status */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm">Creation Date</Label>
-                    <p className="mt-1 p-2 bg-muted rounded border">
-                      {formatDate(viewingItem.createdDT)}
-                    </p>
+                <h4 className="text-sm font-semibold text-muted-foreground mt-6">
+                  General Info
+                </h4>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Item Code
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingItem.itemCode}
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-sm">Status</Label>
-                    <div className="mt-1 p-2">
-                      <Badge
-                        variant={
-                          viewingItem.status === "active"
-                            ? "default"
-                            : "secondary"
-                        }>
-                        {viewingItem.status}
-                      </Badge>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Item Name
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingItem.itemName}
                     </div>
                   </div>
                 </div>
 
-                {/* Item Code & Category */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm">Item Code</Label>
-                    <p className="mt-1 p-2 bg-muted rounded border">
-                      {viewingItem.itemCode}
-                    </p>
+                <div className="grid gap-4 mt-2">
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Description
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingItem.description}
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-sm">Category</Label>
-                    <p className="mt-1 p-2 bg-muted rounded border">
+                </div>
+
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Category
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
                       {viewingItem.category}
-                    </p>
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Status
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingItem.status}
+                    </div>
                   </div>
                 </div>
 
-                {/* Item Name */}
-                <div>
-                  <Label className="text-sm">Item Name</Label>
-                  <p className="mt-1 p-2 bg-muted rounded border">
-                    {viewingItem.itemName}
-                  </p>
-                </div>
-
-                {/* Description */}
-                <div>
-                  <Label className="text-sm">Description</Label>
-                  <p className="mt-1 p-2 bg-muted rounded border min-h-[80px]">
-                    {viewingItem.description}
-                  </p>
-                </div>
-
-                {/* Purchase & Sales Price */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label className="text-sm">Purchase Price</Label>
-                    <p className="mt-1 p-2 bg-muted rounded border">
+                <h4 className="text-sm font-semibold text-muted-foreground mt-6">
+                  Pricing
+                </h4>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Purchase Price
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
                       {formatPrice(viewingItem.purchasePrice)}
-                    </p>
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-sm">Sales Price</Label>
-                    <p className="mt-1 p-2 bg-muted rounded border">
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Sales Price
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
                       {formatPrice(viewingItem.salesPrice)}
-                    </p>
+                    </div>
                   </div>
                 </div>
 
-                {/* Dimensions */}
-                <div className="grid grid-cols-4 gap-4">
-                  <div>
-                    <Label className="text-sm">Length</Label>
-                    <p className="mt-1 p-2 bg-muted rounded border">
-                      {viewingItem.length}
-                    </p>
+                <h4 className="text-sm font-semibold text-muted-foreground mt-6">
+                  Dimensions
+                </h4>
+
+                <div className="grid grid-cols-4 gap-4 mt-4">
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Length
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingItem.length} cm
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-sm">Width</Label>
-                    <p className="mt-1 p-2 bg-muted rounded border">
-                      {viewingItem.width}
-                    </p>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Width
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingItem.width} cm
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-sm">Height</Label>
-                    <p className="mt-1 p-2 bg-muted rounded border">
-                      {viewingItem.height}
-                    </p>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Height
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingItem.height} cm
+                    </div>
                   </div>
-                  <div>
-                    <Label className="text-sm">Weight</Label>
-                    <p className="mt-1 p-2 bg-muted rounded border">
-                      {viewingItem.weight}
-                    </p>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Weight
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingItem.weight} kg
+                    </div>
                   </div>
                 </div>
               </div>
