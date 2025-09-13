@@ -12,7 +12,7 @@ export type ItemType = {
   height: number;
   weight: number;
   createdDT: string;
-  imageUrl: string;
+  imageUrl: string | null;
   imageFile: File | null;
   imagePublicId?: string;
 };

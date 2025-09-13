@@ -10,7 +10,20 @@ type Props = {
 };
 
 const templateHeaders = [
-  ["itemCode", "itemName", "category", "status", "createdDT"],
+  [
+    "itemCode",
+    "itemName",
+    "purchasePrice",
+    "salesPrice",
+    "description",
+    "category",
+    "status",
+    "length",
+    "width",
+    "height",
+    "weight",
+    "createdDT",
+  ],
 ];
 
 export default function ImportItems({ onUploadSuccess }: Props) {
@@ -47,11 +60,18 @@ export default function ImportItems({ onUploadSuccess }: Props) {
     // const worksheet = XLSX.utils.aoa_to_sheet(templateHeaders);
     const sampleRow = [
       [
-        "ITEM001",
-        "Sample Item",
-        "CATEGORY",
-        "ACTIVE",
-        new Date().toISOString(),
+        "ITEM001", // itemCode
+        "Sample Item", // itemName
+        100, // purchasePrice
+        150, // salesPrice
+        "Sample description", // description
+        "CATEGORY", // category
+        "ACTIVE", // status
+        10, // length
+        5, // width
+        2, // height
+        0.5, // weight
+        new Date().toISOString(), // createdDT
       ],
     ];
     const worksheet = XLSX.utils.aoa_to_sheet([
@@ -59,7 +79,7 @@ export default function ImportItems({ onUploadSuccess }: Props) {
       ...sampleRow,
     ]);
 
-    const createdDTCellRef = XLSX.utils.encode_cell({ r: 1, c: 4 }); // row 1, column 4
+    const createdDTCellRef = XLSX.utils.encode_cell({ r: 1, c: 11 }); // row 1, column 11
     worksheet[createdDTCellRef].t = "d"; // 'd' = date type
 
     const workbook = XLSX.utils.book_new();
@@ -162,17 +182,25 @@ export default function ImportItems({ onUploadSuccess }: Props) {
         const isValid =
           row.itemCode &&
           row.itemName &&
+          typeof row.purchasePrice === "number" &&
+          typeof row.salesPrice === "number" &&
+          row.description &&
           row.category &&
           ["ACTIVE", "INACTIVE"].includes(row.status?.toUpperCase()) &&
+          typeof row.length === "number" &&
+          typeof row.width === "number" &&
+          typeof row.height === "number" &&
+          typeof row.weight === "number" &&
           !isNaN(Date.parse(row.createdDT));
         return isValid ? null : i;
       })
       .filter((i) => i !== null) as number[];
+
     setInvalidRows(invalids);
 
     if (invalids.length > 0) {
       setValidationError(
-        `⚠️ Found ${invalids.length} invalid row(s). Please check for missing fields, incorrect status values, or invalid dates.`
+        `⚠️ Found ${invalids.length} invalid row(s). Please check for missing fields, incorrect status values, or invalid formats.`
       );
     }
   };
@@ -233,8 +261,15 @@ export default function ImportItems({ onUploadSuccess }: Props) {
                 <tr>
                   <th className="px-6 py-3 text-left">Code</th>
                   <th className="px-6 py-3 text-left">Name</th>
+                  <th className="px-6 py-3 text-left">Purchase Price</th>
+                  <th className="px-6 py-3 text-left">Sales Price</th>
+                  <th className="px-6 py-3 text-left">Description</th>
                   <th className="px-6 py-3 text-left">Category</th>
                   <th className="px-6 py-3 text-left">Status</th>
+                  <th className="px-6 py-3 text-left">Length</th>
+                  <th className="px-6 py-3 text-left">Width</th>
+                  <th className="px-6 py-3 text-left">Height</th>
+                  <th className="px-6 py-3 text-left">Weight</th>
                   <th className="px-6 py-3 text-left">Created</th>
                 </tr>
               </thead>
@@ -254,8 +289,15 @@ export default function ImportItems({ onUploadSuccess }: Props) {
                       }>
                       <td className="px-6 py-3">{row.itemCode}</td>
                       <td className="px-6 py-3">{row.itemName}</td>
+                      <td className="px-6 py-3">{row.purchasePrice}</td>
+                      <td className="px-6 py-3">{row.salesPrice}</td>
+                      <td className="px-6 py-3">{row.description}</td>
                       <td className="px-6 py-3">{row.category}</td>
                       <td className="px-6 py-3">{row.status}</td>
+                      <td className="px-6 py-3">{row.length}</td>
+                      <td className="px-6 py-3">{row.width}</td>
+                      <td className="px-6 py-3">{row.height}</td>
+                      <td className="px-6 py-3">{row.weight}</td>
                       <td className="px-6 py-3">{formatDate(row.createdDT)}</td>
                     </tr>
                   );

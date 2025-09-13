@@ -107,7 +107,7 @@ export default function ViewItem({
                     <div className="relative w-full h-64">
                       <Image
                         src={item.imageUrl}
-                        alt={item.item_name ?? "Uploaded item"}
+                        alt={item.iteName ?? "Uploaded item"}
                         fill
                         className="rounded-md shadow object-cover"
                       />

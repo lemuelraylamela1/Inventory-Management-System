@@ -59,13 +59,8 @@ import ImageUploader from "./ItemMasterSub/ImageUploader";
 import { cn } from "../ui/utils";
 import ImportItems from "./ItemMasterSub/ImportItems";
 import { ExportItemButton } from "./ItemMasterSub/ExportItems";
-import {
-  DropdownMenu,
-  DropdownMenuTrigger,
-  DropdownMenuContent,
-  DropdownMenuItem,
-} from "@radix-ui/react-dropdown-menu";
-import { FileText, FileSpreadsheet, FileDown } from "lucide-react"; // or your preferred icon set
+import AddItemImageUploader from "./ItemMasterSub/AddItemImageUploader";
+import EditItemImageUploader from "./ItemMasterSub/EditItemImageUploader";
 
 const categories = ["Jelly", "Chocolate", "Imported Candies"];
 
@@ -87,6 +82,11 @@ export default function ItemMaster({ onSuccess }: Props) {
   const [isDragging, setIsDragging] = useState(false);
   const [isUploading, setIsUploading] = useState(false);
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [uploadedImage, setUploadedImage] = useState<{
+    file: File;
+    url: string;
+    publicId: string;
+  } | null>(null);
 
   const router = useRouter();
 
@@ -267,24 +267,6 @@ export default function ItemMaster({ onSuccess }: Props) {
     }
   }, [formData, items]);
 
-  // Image handling functions
-  const handleImageUpload = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0];
-    if (file) {
-      setImageFile(file);
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        setSelectedImage(e.target?.result as string);
-      };
-      reader.readAsDataURL(file);
-    }
-  };
-
-  const handleRemoveImage = () => {
-    setSelectedImage(null);
-    setImageFile(null);
-  };
-
   const handleCreate = async () => {
     if (!validateForm()) return;
 
@@ -301,7 +283,9 @@ export default function ItemMaster({ onSuccess }: Props) {
         : 0.0,
       category: formData.category,
       status: formData.status,
-      imageUrl: formData.imageUrl,
+      imageUrl: formData.imageUrl || null,
+      imagePublicId: formData.imagePublicId || null,
+
       length: formData.length ? parseFloat(formData.length) : 0,
       width: formData.width ? parseFloat(formData.width) : 0,
       height: formData.height ? parseFloat(formData.height) : 0,
@@ -579,7 +563,7 @@ export default function ItemMaster({ onSuccess }: Props) {
       if (failures.length > 0) {
         alert(`Some items could not be deleted (${failures.length} failed).`);
       } else {
-        alert("Selected items deleted.");
+        toast.success("Selected items deleted.");
       }
 
       setSelectedIds([]);
@@ -615,22 +599,6 @@ export default function ItemMaster({ onSuccess }: Props) {
 
     return () => clearInterval(interval); // cleanup on unmount
   }, []);
-
-  // const handleExportPDF = () => {
-  //   exportToPDF(filteredItems, "Item Master Export");
-  //   toast.success("PDF exported successfully");
-  // };
-
-  // const handleExportExcel = () => {
-  //   exportToExcel(filteredItems);
-  //   toast.success("Excel exported successfully");
-  // };
-
-  // const handleExportCSV = () => {
-  //   exportToCSV(filteredItems);
-  //   toast.success("CSV exported successfully");
-  // };
-  // const isDisabled = filteredItems.length === 0;
 
   const handleUploadSuccess = () => {
     // 🔁 Refetch items or trigger a state update
@@ -746,25 +714,8 @@ export default function ItemMaster({ onSuccess }: Props) {
                       className="hidden"
                     />
                   </div> */}
-                  <ImageUploader
-                    onSelect={(data) => {
-                      if (data) {
-                        setFormData((prev) => ({
-                          ...prev,
-                          imageFile: data.file,
-                          imageUrl: data.url,
-                          imagePublicId: data.publicId,
-                        }));
-                      } else {
-                        setFormData((prev) => ({
-                          ...prev,
-                          imageFile: null,
-                          imageUrl: "",
-                          imagePublicId: "",
-                        }));
-                      }
-                    }}
-                  />
+                  <AddItemImageUploader onUploadComplete={setUploadedImage} />
+
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
                       <Label htmlFor="create-code">Item Code</Label>
@@ -805,7 +756,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                       )}
                     </div>
                   </div>
-
                   <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
                     <div className="flex-1 grid gap-2">
                       <Label htmlFor="create-purchase">Purchase Price</Label>
@@ -875,7 +825,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                       </div>
                     </div>
                   </div>
-
                   <div className="grid gap-2">
                     <Label htmlFor="create-description">Description</Label>
                     <Textarea
@@ -899,7 +848,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                       </p>
                     )}
                   </div>
-
                   <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
                     <div className="flex-1 grid gap-2">
                       <Label htmlFor="create-category">Category</Label>
@@ -956,7 +904,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                       )}
                     </div>
                   </div>
-
                   <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
                     <div className="flex-1 grid gap-2">
                       <Label htmlFor="create-length">Length</Label>
@@ -1010,7 +957,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                       )}
                     </div>
                   </div>
-
                   <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
                     <div className="flex-1 grid gap-2">
                       <Label htmlFor="create-height">Height</Label>
@@ -1286,245 +1232,10 @@ export default function ItemMaster({ onSuccess }: Props) {
           <DialogHeader>
             <DialogTitle>Edit Item</DialogTitle>
           </DialogHeader>
-          {/* <div className="grid gap-4 py-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-code">Item Code</Label>
-                <Input
-                  id="edit-code"
-                  value={formData.itemCode}
-                  onChange={(e) =>
-                    setFormData({ ...formData, itemCode: e.target.value })
-                  }
-                  className={
-                    validationErrors.itemCode ? "border-destructive" : ""
-                  }
-                />
-                {validationErrors.itemCode && (
-                  <p className="text-sm text-destructive">
-                    {validationErrors.itemCode}
-                  </p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="edit-name">Item Name</Label>
-                <Input
-                  id="edit-name"
-                  value={formData.itemName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, itemName: e.target.value })
-                  }
-                  className={
-                    validationErrors.itemName ? "border-destructive" : ""
-                  }
-                />
-                {validationErrors.itemName && (
-                  <p className="text-sm text-destructive">
-                    {validationErrors.itemName}
-                  </p>
-                )}
-              </div>
-            </div>
 
-            <div className="grid gap-2">
-              <Label htmlFor="edit-purchase-price">Purchase Price ($)</Label>
-              <Input
-                id="edit-purchase-price"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.purchasePrice}
-                onChange={(e) =>
-                  setFormData({ ...formData, purchasePrice: e.target.value })
-                }
-                className={
-                  validationErrors.purchasePrice ? "border-destructive" : ""
-                }
-              />
-              {validationErrors.purchasePrice && (
-                <p className="text-sm text-destructive">
-                  {validationErrors.purchasePrice}
-                </p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-sales-price">Sales Price ($)</Label>
-              <Input
-                id="edit-sales-price"
-                type="number"
-                step="0.01"
-                min="0"
-                value={formData.salesPrice}
-                onChange={(e) =>
-                  setFormData({ ...formData, salesPrice: e.target.value })
-                }
-                className={
-                  validationErrors.salesPrice ? "border-destructive" : ""
-                }
-              />
-              {validationErrors.salesPrice && (
-                <p className="text-sm text-destructive">
-                  {validationErrors.salesPrice}
-                </p>
-              )}
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-description">Description</Label>
-              <Textarea
-                id="edit-description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({ ...formData, description: e.target.value })
-                }
-                className={
-                  validationErrors.description ? "border-destructive" : ""
-                }
-                rows={3}
-              />
-              {validationErrors.description && (
-                <p className="text-sm text-destructive">
-                  {validationErrors.description}
-                </p>
-              )}
-            </div>
-            <div className="grid grid-cols-3 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="edit-category">Category</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, category: value })
-                  }>
-                  <SelectTrigger
-                    className={
-                      validationErrors.category ? "border-destructive" : ""
-                    }>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {validationErrors.category && (
-                  <p className="text-sm text-destructive">
-                    {validationErrors.category}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-status">Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value: "active" | "inactive") =>
-                  setFormData({ ...formData, status: value })
-                }>
-                <SelectTrigger>
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="edit-image">Item Image</Label>
-              <div className="space-y-4">
-                {selectedImage ? (
-                  <div className="relative">
-                    <Image
-                      src={selectedImage}
-                      alt="Preview"
-                      className="w-32 h-32 object-cover rounded-lg border"
-                    />
-                    <Button
-                      type="button"
-                      variant="destructive"
-                      size="sm"
-                      className="absolute -top-2 -right-2 h-6 w-6 rounded-full p-0"
-                      onClick={handleRemoveImage}>
-                      <X className="w-3 h-3" />
-                    </Button>
-                  </div>
-                ) : (
-                  <div className="border-2 border-dashed border-muted-foreground/25 rounded-lg p-8 text-center">
-                    <Upload className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                    <p className="text-sm text-muted-foreground mb-2">
-                      Click to upload an image
-                    </p>
-                    <Input
-                      id="edit-image"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                    <Button
-                      type="button"
-                      variant="outline"
-                      onClick={() =>
-                        document.getElementById("edit-image")?.click()
-                      }>
-                      Choose Image
-                    </Button>
-                  </div>
-                )}
-                {selectedImage && (
-                  <div className="flex gap-2">
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={() =>
-                        document.getElementById("edit-image")?.click()
-                      }>
-                      Change Image
-                    </Button>
-                    <Button
-                      type="button"
-                      variant="outline"
-                      size="sm"
-                      onClick={handleRemoveImage}>
-                      Remove Image
-                    </Button>
-                    <Input
-                      id="edit-image"
-                      type="file"
-                      accept="image/*"
-                      onChange={handleImageUpload}
-                      className="hidden"
-                    />
-                  </div>
-                )}
-              </div>
-            </div>
-          </div> */}
           <div className="grid gap-4 py-4">
-            <ImageUploader
-              initialImageUrl={formData.imageUrl}
-              onSelect={(data) => {
-                if (data) {
-                  setFormData((prev) => ({
-                    ...prev,
-                    imageFile: data.file,
-                    imageUrl: data.url,
-                    imagePublicId: data.publicId,
-                  }));
-                } else {
-                  setFormData((prev) => ({
-                    ...prev,
-                    imageFile: null,
-                    imageUrl: "",
-                    imagePublicId: "",
-                  }));
-                }
-              }}
-            />
+            <EditItemImageUploader onUpdate={setUploadedImage} />
+
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
                 <Label htmlFor="create-code">Item Code</Label>

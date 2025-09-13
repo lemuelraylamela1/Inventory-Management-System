@@ -9,7 +9,8 @@ export interface IItem extends Document {
   salesPrice: { type: number; required: true };
   category: { type: string; required: true };
   status: { type: string; required: true };
-  imageUrl?: { type: string; required: true };
+  imageUrl: { type: string; default: null };
+  imagePublicId: { type: string; default: null };
   length?: { type: number; required: true };
   width?: { type: number; required: true };
   height?: { type: number; required: true };
@@ -37,6 +38,7 @@ const itemSchema: Schema<IItem> = new Schema(
     category: { type: String, required: true },
     status: { type: String, required: true },
     imageUrl: { type: String },
+    imagePublicId: { type: String, default: null },
     length: { type: Number },
     width: { type: Number },
     height: { type: Number },

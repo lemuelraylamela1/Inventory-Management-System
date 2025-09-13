@@ -14,6 +14,7 @@ interface ItemPayload {
   category: string;
   status: string;
   imageUrl?: string;
+  imagePublicId?: string;
   height?: number;
   weight?: number;
   length?: number;
@@ -47,6 +48,7 @@ export async function POST(request: NextRequest) {
       category,
       status,
       imageUrl,
+      imagePublicId,
       height,
       weight,
       length,
@@ -63,6 +65,7 @@ export async function POST(request: NextRequest) {
       category,
       status,
       imageUrl,
+      imagePublicId,
       height,
       weight,
       length,
