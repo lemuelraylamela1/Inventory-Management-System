@@ -107,21 +107,15 @@ export default function ViewSalesPerson({
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-muted-foreground">
-                      Address
+                      Area
                     </span>
-                    <span>{salesPerson.address ?? "N/A"}</span>
+                    <span>{salesPerson.area ?? "N/A"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-muted-foreground">
                       Email
                     </span>
                     <span>{salesPerson.emailAddress ?? "N/A"}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="font-medium text-muted-foreground">
-                      TIN
-                    </span>
-                    <span>{salesPerson.TIN ?? "N/A"}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="font-medium text-muted-foreground">

@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Upload, X, Eye } from "lucide-react";
+import { X, Eye } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -49,7 +49,14 @@ import {
 } from "../ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Textarea } from "../ui/textarea";
-import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  ChevronLeft,
+  ChevronRight,
+} from "lucide-react";
 import Image from "next/image";
 import { ItemType } from "./type";
 import { useRouter } from "next/navigation";
@@ -1186,10 +1193,40 @@ export default function ItemMaster({ onSuccess }: Props) {
           )}
 
           {/* Results count */}
-          <div className="text-sm text-muted-foreground text-center">
-            Showing {startIndex + 1} to{" "}
-            {Math.min(startIndex + rowsPerPage, filteredItems.length)} of{" "}
-            {filteredItems.length} results
+          <div className="flex items-center justify-end gap-4 text-sm text-muted-foreground">
+            <button
+              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
+              disabled={currentPage === 1}
+              className={cn(
+                "flex items-center gap-1 px-3 py-1 rounded border transition-colors",
+                currentPage === 1
+                  ? "cursor-not-allowed opacity-50"
+                  : "hover:bg-accent hover:text-accent-foreground"
+              )}
+              aria-label="Go to previous page">
+              <ChevronLeft className="w-4 h-4" />
+              <span>Previous</span>
+            </button>
+
+            <span className="min-w-[80px] text-center">
+              Page <strong>{currentPage}</strong> / {totalPages}
+            </span>
+
+            <button
+              onClick={() =>
+                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+              }
+              disabled={currentPage === totalPages}
+              className={cn(
+                "flex items-center gap-1 px-3 py-1 rounded border transition-colors",
+                currentPage === totalPages
+                  ? "cursor-not-allowed opacity-50"
+                  : "hover:bg-accent hover:text-accent-foreground"
+              )}
+              aria-label="Go to next page">
+              <span>Next</span>
+              <ChevronRight className="w-4 h-4" />
+            </button>
           </div>
         </CardContent>
       </Card>

@@ -8,8 +8,7 @@ interface SalesPersonPayload {
   lastName: string;
   emailAddress: string;
   contactNumber: string;
-  address: string;
-  TIN: string;
+  area: string;
   status: string;
 }
 
@@ -36,8 +35,7 @@ export async function POST(request: NextRequest) {
       lastName,
       emailAddress,
       contactNumber,
-      address,
-      TIN,
+      area,
       status,
     } = body as SalesPersonPayload;
 
@@ -47,8 +45,7 @@ export async function POST(request: NextRequest) {
       lastName,
       emailAddress,
       contactNumber,
-      address,
-      TIN,
+      area,
       status,
     });
 

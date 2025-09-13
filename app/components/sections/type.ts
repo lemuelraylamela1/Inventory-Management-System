@@ -33,8 +33,7 @@ export type SalesPersonType = {
   lastName: string;
   emailAddress: string;
   contactNumber: string;
-  address: string;
-  TIN: string;
+  area: string;
   status: string;
   createdAt?: Date;
   updatedAt?: Date;

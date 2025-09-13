@@ -29,7 +29,7 @@ import {
   Ruler,
   Warehouse,
   LogOut,
-  Menu,
+  Factory,
   X,
 } from "lucide-react";
 
@@ -76,6 +76,7 @@ export function Sidebar({
     { id: "item-class", label: "Item Class", icon: Shapes },
     { id: "item-master", label: "Item Master", icon: Package },
     { id: "price-list", label: "Price List", icon: DollarSign },
+    { id: "production", label: "Production", icon: Factory },
     { id: "sales-person", label: "Sales Person", icon: UserCircle },
     { id: "supplier", label: "Supplier", icon: Truck },
     { id: "tax", label: "Tax", icon: Receipt },

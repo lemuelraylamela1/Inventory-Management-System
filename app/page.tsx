@@ -20,6 +20,7 @@ import Warehouse from "./components/sections/Warehouse";
 import Bank from "./components/sections/Bank";
 import Customer from "./components/sections/Customer";
 import UnitOFMeasure from "./components/sections/UnitOfMeasurement";
+import Production from "./components/sections/Production";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -84,6 +85,8 @@ export default function App() {
         return <ItemMaster />;
       case "price-list":
         return <PriceList />;
+      case "production":
+        return <Production />;
       case "sales-person":
         return <SalesPerson />;
       case "supplier":

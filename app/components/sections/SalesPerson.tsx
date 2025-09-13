@@ -88,8 +88,7 @@ export default function SalesPerson() {
     lastName: "",
     emailAddress: "",
     contactNumber: "",
-    address: "",
-    TIN: "",
+    area: "",
     status: "",
   });
 
@@ -99,8 +98,7 @@ export default function SalesPerson() {
     lastName: "",
     emailAddress: "",
     contactNumber: "",
-    address: "",
-    TIN: "",
+    area: "",
     status: "active",
   };
 
@@ -190,39 +188,22 @@ export default function SalesPerson() {
       errors.lastName = "Last name is required.";
     }
 
-    if (!formData.emailAddress.trim()) {
-      errors.emailAddress = "Email address is required.";
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.emailAddress)) {
-        errors.emailAddress = "Enter a valid email address.";
-      }
-    }
+    // if (!formData.emailAddress.trim()) {
+    //   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    //   if (!emailRegex.test(formData.emailAddress)) {
+    //     errors.emailAddress = "Enter a valid email address.";
+    //   }
+    // }
 
-    if (!formData.contactNumber.trim()) {
-      errors.contactNumber = "Contact number is required.";
-    } else {
-      const phoneRegex = /^\+?\d{10,15}$/;
-      if (!phoneRegex.test(formData.contactNumber)) {
-        errors.contactNumber = "Enter a valid contact number.";
-      }
-    }
+    // if (!formData.contactNumber.trim()) {
+    //   const phoneRegex = /^\+?\d{10,15}$/;
+    //   if (!phoneRegex.test(formData.contactNumber)) {
+    //     errors.contactNumber = "Enter a valid contact number.";
+    //   }
+    // }
 
-    if (!formData.address.trim()) {
-      errors.address = "Address is required.";
-    }
-
-    if (!formData.TIN.trim()) {
-      errors.TIN = "TIN is required.";
-    } else {
-      const tinRegex = /^\d{3}-\d{3}-\d{3}-\d{3}$/;
-      if (!tinRegex.test(formData.TIN)) {
-        errors.TIN = "Enter a valid TIN (e.g. 123-456-789-000).";
-      }
-    }
-
-    if (!formData.status || !["active", "inactive"].includes(formData.status)) {
-      errors.status = "Please select a valid status.";
+    if (!formData.area.trim()) {
+      errors.area = "Area is required.";
     }
 
     // ⛔ Block submission if there are errors
@@ -240,8 +221,7 @@ export default function SalesPerson() {
       lastName: formData.lastName,
       emailAddress: formData.emailAddress,
       contactNumber: formData.contactNumber,
-      address: formData.address,
-      TIN: formData.TIN,
+      area: formData.area,
       status: formData.status,
     };
 
@@ -272,8 +252,7 @@ export default function SalesPerson() {
         lastName: "",
         emailAddress: "",
         contactNumber: "",
-        address: "",
-        TIN: "",
+        area: "",
         status: "active",
       });
 
@@ -293,8 +272,7 @@ export default function SalesPerson() {
       lastName: person.lastName,
       emailAddress: person.emailAddress,
       contactNumber: person.contactNumber,
-      address: person.address,
-      TIN: person.TIN,
+      area: person.area,
       status: person.status,
     });
     setIsEditDialogOpen(true);
@@ -315,39 +293,22 @@ export default function SalesPerson() {
       errors.lastName = "Last name is required.";
     }
 
-    if (!formData.emailAddress.trim()) {
-      errors.emailAddress = "Email address is required.";
-    } else {
-      const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-      if (!emailRegex.test(formData.emailAddress)) {
-        errors.emailAddress = "Enter a valid email address.";
-      }
-    }
+    // if (formData.emailAddress.trim()) {
+    //   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+    //   if (!emailRegex.test(formData.emailAddress)) {
+    //     errors.emailAddress = "Enter a valid email address.";
+    //   }
+    // }
 
-    if (!formData.contactNumber.trim()) {
-      errors.contactNumber = "Contact number is required.";
-    } else {
-      const phoneRegex = /^\+?\d{10,15}$/;
-      if (!phoneRegex.test(formData.contactNumber)) {
-        errors.contactNumber = "Enter a valid contact number.";
-      }
-    }
+    // if (!formData.contactNumber.trim()) {
+    //   const phoneRegex = /^\+?\d{10,15}$/;
+    //   if (!phoneRegex.test(formData.contactNumber)) {
+    //     errors.contactNumber = "Enter a valid contact number.";
+    //   }
+    // }
 
-    if (!formData.address?.trim()) {
-      errors.address = "Address is required.";
-    }
-
-    if (!formData.TIN.trim()) {
-      errors.TIN = "TIN is required.";
-    } else {
-      const tinRegex = /^\d{3}-\d{3}-\d{3}-\d{3}$/;
-      if (!tinRegex.test(formData.TIN)) {
-        errors.TIN = "Enter a valid TIN (e.g. 123-456-789-000).";
-      }
-    }
-
-    if (!formData.status || !["active", "inactive"].includes(formData.status)) {
-      errors.status = "Please select a valid status.";
+    if (!formData.area.trim()) {
+      errors.area = "Area is required.";
     }
 
     if (Object.keys(errors).length > 0) {
@@ -365,8 +326,7 @@ export default function SalesPerson() {
       lastName: formData.lastName,
       emailAddress: formData.emailAddress,
       contactNumber: formData.contactNumber,
-      address: formData.address,
-      TIN: formData.TIN,
+      area: formData.area,
       status: formData.status,
     };
 
@@ -401,8 +361,7 @@ export default function SalesPerson() {
       lastName: "",
       emailAddress: "",
       contactNumber: "",
-      address: "",
-      TIN: "",
+      area: "",
       status: "active",
     });
     setIsEditDialogOpen(false);
@@ -619,45 +578,25 @@ export default function SalesPerson() {
                   </div>
 
                   <div className="grid gap-2">
-                    <Label htmlFor="create-address">Address</Label>
+                    <Label htmlFor="create-area">Area</Label>
                     <Input
-                      id="create-address"
-                      value={formData.address}
+                      id="create-area"
+                      value={formData.area}
                       onChange={(e) =>
-                        setFormData({ ...formData, address: e.target.value })
+                        setFormData({ ...formData, area: e.target.value })
                       }
                       placeholder="123 Mabini St., Bacoor, Cavite"
                       className={
-                        formErrors.address ? "border-red-500 ring-red-500" : ""
+                        formErrors.area ? "border-red-500 ring-red-500" : ""
                       }
                     />
-                    {formErrors.address && (
+                    {formErrors.area && (
                       <p className="text-sm text-red-500 mt-1">
-                        {formErrors.address}
+                        {formErrors.area}
                       </p>
                     )}
                   </div>
                   <div className="grid gap-4 md:grid-cols-2">
-                    <div className="grid gap-2">
-                      <Label htmlFor="create-tin">TIN</Label>
-                      <Input
-                        id="create-tin"
-                        value={formData.TIN}
-                        onChange={(e) =>
-                          setFormData({ ...formData, TIN: e.target.value })
-                        }
-                        placeholder="123-456-789-000"
-                        className={
-                          formErrors.TIN ? "border-red-500 ring-red-500" : ""
-                        }
-                      />
-                      {formErrors.TIN && (
-                        <p className="text-sm text-red-500 mt-1">
-                          {formErrors.TIN}
-                        </p>
-                      )}
-                    </div>
-
                     <div className="grid gap-2">
                       <Label htmlFor="create-status">Status</Label>
                       <Select
@@ -1084,19 +1023,19 @@ export default function SalesPerson() {
               )}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-tin">TIN</Label>
+              <Label htmlFor="edit-tin">Area</Label>
               <Input
-                id="edit-tin"
+                id="edit-area"
                 type="text"
-                value={formData.TIN}
+                value={formData.area}
                 onChange={(e) =>
-                  setFormData({ ...formData, TIN: e.target.value })
+                  setFormData({ ...formData, area: e.target.value })
                 }
-                className={formErrors.TIN ? "border-red-500" : ""}
+                className={formErrors.area ? "border-red-500" : ""}
                 placeholder="123-456-789-000"
               />
-              {formErrors.TIN && (
-                <p className="text-sm text-red-500">{formErrors.TIN}</p>
+              {formErrors.area && (
+                <p className="text-sm text-red-500">{formErrors.area}</p>
               )}
             </div>
             <div className="grid gap-2">

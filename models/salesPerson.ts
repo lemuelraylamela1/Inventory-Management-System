@@ -7,8 +7,7 @@ export interface ISalesPerson extends Document {
   lastName: string;
   emailAddress: string;
   contactNumber: string;
-  address: string;
-  TIN: string;
+  area: string;
   status: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -22,8 +21,7 @@ const salesPersonSchema: Schema<ISalesPerson> = new Schema(
     lastName: { type: String },
     emailAddress: { type: String },
     contactNumber: { type: String },
-    address: { type: String },
-    TIN: { type: String },
+    area: { type: String },
     status: { type: String },
   },
   {
