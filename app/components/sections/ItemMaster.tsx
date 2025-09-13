@@ -55,7 +55,6 @@ import { ItemType } from "./type";
 import { useRouter } from "next/navigation";
 import { Checkbox } from "../ui/checkbox";
 import { toast } from "sonner";
-import ImageUploader from "./ItemMasterSub/ImageUploader";
 import { cn } from "../ui/utils";
 import ImportItems from "./ItemMasterSub/ImportItems";
 import { ExportItemButton } from "./ItemMasterSub/ExportItems";
@@ -259,13 +258,6 @@ export default function ItemMaster({ onSuccess }: Props) {
     setValidationErrors(errors);
     return !Object.values(errors).some((error) => error !== "");
   };
-
-  // Clear validation errors when form data changes
-  React.useEffect(() => {
-    if (Object.values(validationErrors).some((error) => error !== "")) {
-      validateForm(!!editingItem);
-    }
-  }, [formData, items]);
 
   const handleCreate = async () => {
     if (!validateForm()) return;
@@ -623,6 +615,17 @@ export default function ItemMaster({ onSuccess }: Props) {
     }
   };
 
+  const handleImageUpdate = (
+    data: { file: File; url: string; publicId: string } | null
+  ) => {
+    setFormData((prev) => ({
+      ...prev,
+      imageUrl: data?.url ?? null,
+      imagePublicId: data?.publicId ?? null,
+      imageFile: data?.file ?? null,
+    }));
+  };
+
   return (
     <div className="p-6 space-y-6">
       <Card>
@@ -680,12 +683,19 @@ export default function ItemMaster({ onSuccess }: Props) {
                       <Input
                         id="create-code"
                         value={formData.itemCode}
-                        onChange={(e) =>
-                          setFormData({ ...formData, itemCode: e.target.value })
-                        }
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData((prev) => ({ ...prev, itemCode: value }));
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            itemCode: "",
+                          }));
+                        }}
                         placeholder="ITM001"
                         className={
-                          validationErrors.itemCode ? "border-destructive" : ""
+                          validationErrors.itemCode
+                            ? "border-destructive text-sm"
+                            : "text-sm"
                         }
                       />
                       {validationErrors.itemCode && (
@@ -1192,7 +1202,10 @@ export default function ItemMaster({ onSuccess }: Props) {
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <EditItemImageUploader onUpdate={setUploadedImage} />
+            <EditItemImageUploader
+              initialImageUrl={formData.imageUrl ?? ""}
+              onUpdate={handleImageUpdate}
+            />
 
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-2">
@@ -1200,9 +1213,11 @@ export default function ItemMaster({ onSuccess }: Props) {
                 <Input
                   id="edit-code"
                   value={formData.itemCode}
-                  onChange={(e) =>
-                    setFormData({ ...formData, itemCode: e.target.value })
-                  }
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({ ...prev, itemCode: value }));
+                    setValidationErrors((prev) => ({ ...prev, itemCode: "" }));
+                  }}
                   placeholder="ITM001"
                   className={cn(
                     "text-sm",
@@ -1235,7 +1250,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                 )}
               </div>
             </div>
-
             <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
               <div className="flex-1 grid gap-2">
                 <Label htmlFor="create-purchase">Purchase Price</Label>
@@ -1301,7 +1315,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                 </div>
               </div>
             </div>
-
             <div className="grid gap-2">
               <Label htmlFor="create-description">Description</Label>
               <Textarea
@@ -1325,7 +1338,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                 </p>
               )}
             </div>
-
             <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
               <div className="flex-1 grid gap-2">
                 <Label htmlFor="create-category">Category</Label>
@@ -1380,7 +1392,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                 )}
               </div>
             </div>
-
             <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
               <div className="flex-1 grid gap-2">
                 <Label htmlFor="create-length">Length</Label>
@@ -1432,7 +1443,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                 )}
               </div>
             </div>
-
             <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
               <div className="flex-1 grid gap-2">
                 <Label htmlFor="create-height">Height</Label>
@@ -1539,13 +1549,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                       sizes="100vw"
                       priority
                     />
-                    <a
-                      href={viewingItem.imageUrl.trim()}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="absolute bottom-2 right-2 bg-white text-xs px-2 py-1 rounded shadow hover:bg-primary/10 transition">
-                      View Full Image
-                    </a>
                   </div>
                 ) : (
                   <div className="relative w-full h-96 rounded-lg overflow-hidden border shadow-sm flex items-center justify-center bg-muted text-muted-foreground text-sm">

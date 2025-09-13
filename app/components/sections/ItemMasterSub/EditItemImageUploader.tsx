@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Label } from "../../ui/label";
 import { uploadImage } from "../../../../libs/uploadImage";
 import { Image as LucideImage, X, Loader2 } from "lucide-react";
@@ -44,6 +44,10 @@ export default function EditItemImageUploader({
     setDragActive(false);
     handleFileSelect(e.dataTransfer.files);
   };
+
+  useEffect(() => {
+    setPreviewUrl(initialImageUrl?.trim() || null);
+  }, [initialImageUrl]);
 
   return (
     <div className="space-y-3">
@@ -91,6 +95,7 @@ export default function EditItemImageUploader({
               fill
               className="object-cover w-full h-full transition-transform duration-300 hover:scale-105"
               priority
+              onError={() => setPreviewUrl(null)} // fallback to empty state
             />
             <button
               type="button"
