@@ -1,6 +1,7 @@
 import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface IItem extends Document {
+  /* item details */
   createdDT?: Date;
   itemCode: { type: string; required: true };
   itemName: { type: string; required: true };
@@ -17,10 +18,16 @@ export interface IItem extends Document {
   weight?: { type: number; required: true };
   createdAt?: Date;
   updatedAt?: Date;
+  /* unit of measurement */
+  unitCode?: { type: string; required: true };
+  unitDescription?: { type: string; required: true };
+  unitType?: { type: string; required: true };
+  unitStatus?: { type: string; required: true };
 }
 
 const itemSchema: Schema<IItem> = new Schema(
   {
+    /* item details */
     createdDT: { type: Date, default: Date.now },
     itemCode: { type: String, required: true },
     itemName: { type: String, required: true },
@@ -43,6 +50,11 @@ const itemSchema: Schema<IItem> = new Schema(
     width: { type: Number },
     height: { type: Number },
     weight: { type: Number },
+    /* unit of measurement */
+    unitCode: { type: String },
+    unitDescription: { type: String },
+    unitType: { type: String },
+    unitStatus: { type: String },
   },
   {
     timestamps: true,

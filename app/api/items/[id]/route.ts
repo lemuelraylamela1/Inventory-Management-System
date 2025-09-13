@@ -17,6 +17,11 @@ interface ItemPayload {
   createdDT: string;
   imageUrl?: string;
   imagePublicId?: string;
+  /* unit of measure */
+  unitCode?: string;
+  unitDescription?: string;
+  unitType?: string;
+  unitStatus?: string;
 }
 
 interface BulkPayload {
@@ -47,6 +52,10 @@ export async function POST(request: NextRequest) {
       "description",
       "status",
       "category",
+      "unitCode",
+      "unitDescription",
+      "unitType",
+      "unitStatus",
     ] as const;
     for (const field of requiredFields) {
       const value = body[field];

@@ -51,10 +51,6 @@ export default function EditItemImageUploader({
 
   return (
     <div className="space-y-3">
-      <Label className="text-base font-medium text-foreground">
-        Edit Image
-      </Label>
-
       <div
         className={`relative border-2 border-dashed rounded-xl p-6 transition-all duration-300 ease-in-out cursor-pointer group ${
           dragActive

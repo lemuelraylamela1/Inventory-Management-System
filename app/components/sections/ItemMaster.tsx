@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { X, Eye } from "lucide-react";
+import { Eye } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -21,14 +21,7 @@ import {
 } from "../ui/dialog";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
-import {
-  Pagination,
-  PaginationContent,
-  PaginationItem,
-  PaginationLink,
-  PaginationNext,
-  PaginationPrevious,
-} from "../ui/pagination";
+
 import {
   Select,
   SelectContent,
@@ -49,14 +42,7 @@ import {
 } from "../ui/alert-dialog";
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Textarea } from "../ui/textarea";
-import {
-  Plus,
-  Search,
-  Edit,
-  Trash2,
-  ChevronLeft,
-  ChevronRight,
-} from "lucide-react";
+import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import Image from "next/image";
 import { ItemType } from "./type";
 import { useRouter } from "next/navigation";
@@ -85,18 +71,19 @@ export default function ItemMaster({ onSuccess }: Props) {
   const [viewingItem, setViewingItem] = useState<ItemType | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [isDragging, setIsDragging] = useState(false);
-  const [isUploading, setIsUploading] = useState(false);
-  const [selectedFile, setSelectedFile] = useState<File | null>(null);
-  const [uploadedImage, setUploadedImage] = useState<{
-    file: File;
-    url: string;
-    publicId: string;
-  } | null>(null);
+  // const [isDragging, setIsDragging] = useState(false);
+  // const [isUploading, setIsUploading] = useState(false);
+  // const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  // const [uploadedImage, setUploadedImage] = useState<{
+  //   file: File;
+  //   url: string;
+  //   publicId: string;
+  // } | null>(null);
 
   const router = useRouter();
 
   const [formData, setFormData] = useState({
+    /* item details */
     itemCode: "",
     itemName: "",
     description: "",
@@ -112,11 +99,15 @@ export default function ItemMaster({ onSuccess }: Props) {
     imageUrl: null as string | null,
     imageFile: null as File | null,
     imagePublicId: null as string | null,
+    /* unit of measure */
+    unitCode: "",
+    unitDescription: "",
+    unitType: "",
+    unitStatus: "active" as "active" | "inactive",
   });
 
-  const [selectedImage, setSelectedImage] = useState<string | null>(null);
-  const [imageFile, setImageFile] = useState<File | null>(null);
   const [validationErrors, setValidationErrors] = useState({
+    /* item details */
     itemCode: "",
     itemName: "",
     description: "",
@@ -132,6 +123,11 @@ export default function ItemMaster({ onSuccess }: Props) {
     imageUrl: "",
     imageFile: "",
     imagePublicId: "",
+    /* unit of measure */
+    unitCode: "",
+    unitDescription: "",
+    unitType: "",
+    unitStatus: "",
   });
 
   // Filter and paginate data
@@ -145,13 +141,6 @@ export default function ItemMaster({ onSuccess }: Props) {
       return name.includes(query) || code.includes(query);
     });
   }, [items, searchTerm]);
-
-  // const totalPages = Math.ceil(filteredItems.length / rowsPerPage);
-  // const startIndex = (currentPage - 1) * rowsPerPage;
-  // const paginatedItems = filteredItems.slice(
-  //   startIndex,
-  //   startIndex + rowsPerPage
-  // );
 
   const totalPages = Math.ceil(filteredItems.length / rowsPerPage);
   const paginatedItems: ItemType[] = filteredItems.slice(
@@ -167,6 +156,7 @@ export default function ItemMaster({ onSuccess }: Props) {
   // Validation functions
   const validateForm = (isEdit = false) => {
     const errors = {
+      /* item details */
       itemCode: "",
       itemName: "",
       description: "",
@@ -182,9 +172,15 @@ export default function ItemMaster({ onSuccess }: Props) {
       imageUrl: "",
       imageFile: "",
       imagePublicId: "",
+      /* unit of measure */
+      unitCode: "",
+      unitDescription: "",
+      unitType: "",
+      unitStatus: "",
     };
 
     // Check for required fields
+    /* item details */
     if (!formData.itemCode.trim()) {
       errors.itemCode = "Item Code is required";
     } else {
@@ -268,6 +264,21 @@ export default function ItemMaster({ onSuccess }: Props) {
       }
     }
 
+    /* unit of measure */
+
+    if (!formData.unitCode?.trim()) {
+      errors.unitCode = "Unit code is required";
+    }
+    if (!formData.unitDescription?.trim()) {
+      errors.unitDescription = "Unit description is required";
+    }
+    if (!formData.unitType?.trim()) {
+      errors.unitType = "Unit type is required";
+    }
+    if (!formData.unitStatus?.trim()) {
+      errors.unitStatus = "Unit status is required";
+    }
+
     setValidationErrors(errors);
     return !Object.values(errors).some((error) => error !== "");
   };
@@ -276,6 +287,7 @@ export default function ItemMaster({ onSuccess }: Props) {
     if (!validateForm()) return;
 
     const payload = {
+      /* item details */
       createdDT: new Date().toISOString(),
       itemCode: formData.itemCode,
       itemName: formData.itemName,
@@ -290,11 +302,16 @@ export default function ItemMaster({ onSuccess }: Props) {
       status: formData.status,
       imageUrl: formData.imageUrl || null,
       imagePublicId: formData.imagePublicId || null,
-
       length: formData.length ? parseFloat(formData.length) : 0,
       width: formData.width ? parseFloat(formData.width) : 0,
       height: formData.height ? parseFloat(formData.height) : 0,
       weight: formData.weight ? parseFloat(formData.weight) : 0,
+
+      /* unit of measure */
+      unitCode: formData.unitCode,
+      unitDescription: formData.unitDescription,
+      unitType: formData.unitType,
+      unitStatus: formData.unitStatus,
     };
 
     console.log("Creating item:", payload);
@@ -335,6 +352,7 @@ export default function ItemMaster({ onSuccess }: Props) {
   const handleEdit = (item: ItemType) => {
     setEditingItem(item);
     setFormData({
+      /* item details */
       itemCode: item.itemCode || "",
       itemName: item.itemName || "",
       description: item.description || "",
@@ -354,8 +372,14 @@ export default function ItemMaster({ onSuccess }: Props) {
       imageUrl: item.imageUrl || null,
       imageFile: item.imageFile || null,
       imagePublicId: item.imagePublicId || null,
+      /* unit of measure */
+      unitCode: item.unitCode || "",
+      unitDescription: item.unitDescription || "",
+      unitType: item.unitType || "",
+      unitStatus: item.unitStatus || "active",
     });
     setValidationErrors({
+      /* item details */
       itemCode: "",
       itemName: "",
       description: "",
@@ -371,6 +395,11 @@ export default function ItemMaster({ onSuccess }: Props) {
       imageUrl: "",
       imageFile: "",
       imagePublicId: "",
+      /* unit of measure */
+      unitCode: "",
+      unitDescription: "",
+      unitType: "",
+      unitStatus: "",
     });
     setIsEditDialogOpen(true);
   };
@@ -387,6 +416,7 @@ export default function ItemMaster({ onSuccess }: Props) {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
+          /* item details */
           itemCode: formData.itemCode,
           itemName: formData.itemName,
           description: formData.description,
@@ -402,6 +432,11 @@ export default function ItemMaster({ onSuccess }: Props) {
           imageUrl: formData.imageUrl,
           imageFile: formData.imageFile,
           imagePublicId: formData.imagePublicId,
+          /* unit of measure */
+          unitCode: formData.unitCode,
+          unitDescription: formData.unitDescription,
+          unitType: formData.unitType,
+          unitStatus: formData.unitStatus,
         }),
       });
 
@@ -423,6 +458,7 @@ export default function ItemMaster({ onSuccess }: Props) {
     // Reset form and close dialog
     setEditingItem(null);
     setFormData({
+      /* item details */
       itemCode: "",
       itemName: "",
       description: "",
@@ -438,8 +474,14 @@ export default function ItemMaster({ onSuccess }: Props) {
       imageUrl: null,
       imageFile: null,
       imagePublicId: null,
+      /* unit of measure */
+      unitCode: "",
+      unitDescription: "",
+      unitType: "",
+      unitStatus: "active",
     });
     setValidationErrors({
+      /* item details */
       itemCode: "",
       itemName: "",
       description: "",
@@ -455,6 +497,11 @@ export default function ItemMaster({ onSuccess }: Props) {
       imageUrl: "",
       imageFile: "",
       imagePublicId: "",
+      /* unit of measure */
+      unitCode: "",
+      unitDescription: "",
+      unitType: "",
+      unitStatus: "",
     });
     setIsEditDialogOpen(false);
   };
@@ -496,6 +543,7 @@ export default function ItemMaster({ onSuccess }: Props) {
 
   const resetForm = () => {
     setFormData({
+      /* item details */
       itemCode: "",
       itemName: "",
       description: "",
@@ -511,8 +559,15 @@ export default function ItemMaster({ onSuccess }: Props) {
       imageUrl: null,
       imageFile: null,
       imagePublicId: null,
+
+      /* unit of measure */
+      unitCode: "",
+      unitDescription: "",
+      unitType: "",
+      unitStatus: "active",
     });
     setValidationErrors({
+      /* item details */
       itemCode: "",
       itemName: "",
       description: "",
@@ -528,6 +583,12 @@ export default function ItemMaster({ onSuccess }: Props) {
       imageUrl: "",
       imageFile: "",
       imagePublicId: "",
+
+      /* unit of measure */
+      unitCode: "",
+      unitDescription: "",
+      unitType: "",
+      unitStatus: "",
     });
   };
 
@@ -692,195 +753,428 @@ export default function ItemMaster({ onSuccess }: Props) {
                   Add Item
                 </Button>
               </DialogTrigger>
-              <DialogContent className="max-w-2xl">
+
+              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add New Item</DialogTitle>
                 </DialogHeader>
-                <div className="grid gap-4 py-4">
-                  <AddItemImageUploader
-                    onUploadComplete={handleImageUploadComplete}
-                  />
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="create-code">Item Code</Label>
-                      <Input
-                        id="create-code"
-                        value={formData.itemCode}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setFormData((prev) => ({ ...prev, itemCode: value }));
-                          setValidationErrors((prev) => ({
-                            ...prev,
-                            itemCode: "",
-                          }));
-                        }}
-                        placeholder="ITM001"
-                        className={
-                          validationErrors.itemCode
-                            ? "border-destructive text-sm"
-                            : "text-sm"
-                        }
-                      />
-                      {validationErrors.itemCode && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.itemCode}
-                        </p>
-                      )}
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="create-name">Item Name</Label>
-                      <Input
-                        id="create-name"
-                        value={formData.itemName}
-                        onChange={(e) =>
-                          setFormData({ ...formData, itemName: e.target.value })
-                        }
-                        placeholder="Wireless Headphones"
-                        className={
-                          validationErrors.itemName ? "border-destructive" : ""
-                        }
-                      />
-                      {validationErrors.itemName && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.itemName}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-                    <div className="flex-1 grid gap-2">
-                      <Label htmlFor="create-purchase">Purchase Price</Label>
-                      <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
-                        <span className="text-muted-foreground">₱</span>
+                <AddItemImageUploader
+                  onUploadComplete={handleImageUploadComplete}
+                />
+                <Card className="p-4">
+                  <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
+                    General Info
+                  </h4>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="grid gap-2">
+                        <Label htmlFor="create-code">Item Code</Label>
                         <Input
-                          id="create-purchase"
-                          type="number"
-                          step="0.01"
-                          min="0"
-                          value={formData.purchasePrice}
+                          id="create-code"
+                          value={formData.itemCode}
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              itemCode: value,
+                            }));
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              itemCode: "",
+                            }));
+                          }}
+                          placeholder="ITM001"
+                          className={
+                            validationErrors.itemCode
+                              ? "border-destructive text-sm"
+                              : "text-sm"
+                          }
+                        />
+                        {validationErrors.itemCode && (
+                          <p className="text-sm text-destructive">
+                            {validationErrors.itemCode}
+                          </p>
+                        )}
+                      </div>
+                      <div className="grid gap-2">
+                        <Label htmlFor="create-name">Item Name</Label>
+                        <Input
+                          id="create-name"
+                          value={formData.itemName}
                           onChange={(e) =>
                             setFormData({
                               ...formData,
-                              purchasePrice: e.target.value,
+                              itemName: e.target.value,
                             })
                           }
-                          placeholder="0.00"
-                          className={`flex-1 border-none focus-visible:ring-0 focus-visible:outline-none ${
-                            validationErrors.purchasePrice
+                          placeholder="Wireless Headphones"
+                          className={
+                            validationErrors.itemName
                               ? "border-destructive"
                               : ""
-                          }`}
-                          aria-invalid={!!validationErrors.purchasePrice}
-                          aria-describedby="purchase-error"
+                          }
                         />
+                        {validationErrors.itemName && (
+                          <p className="text-sm text-destructive">
+                            {validationErrors.itemName}
+                          </p>
+                        )}
                       </div>
-                      {validationErrors.purchasePrice && (
-                        <p
-                          id="purchase-error"
-                          className="text-destructive text-sm mt-1">
-                          {validationErrors.purchasePrice}
-                        </p>
-                      )}
                     </div>
-
-                    <div className="flex-1 grid gap-2">
-                      <div className="grid gap-2">
-                        <Label htmlFor="create-sales">Sales Price</Label>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                      <div className="flex-1 grid gap-2">
+                        <Label htmlFor="create-purchase">Purchase Price</Label>
                         <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
                           <span className="text-muted-foreground">₱</span>
                           <Input
-                            id="create-sales"
+                            id="create-purchase"
                             type="number"
                             step="0.01"
                             min="0"
-                            value={formData.salesPrice}
+                            value={formData.purchasePrice}
                             onChange={(e) =>
                               setFormData({
                                 ...formData,
-                                salesPrice: e.target.value,
+                                purchasePrice: e.target.value,
                               })
                             }
                             placeholder="0.00"
-                            className={`border-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
-                              validationErrors.salesPrice
-                                ? "text-destructive"
+                            className={`flex-1 border-none focus-visible:ring-0 focus-visible:outline-none ${
+                              validationErrors.purchasePrice
+                                ? "border-destructive"
                                 : ""
                             }`}
+                            aria-invalid={!!validationErrors.purchasePrice}
+                            aria-describedby="purchase-error"
                           />
                         </div>
-                        {validationErrors.salesPrice && (
+                        {validationErrors.purchasePrice && (
+                          <p
+                            id="purchase-error"
+                            className="text-destructive text-sm mt-1">
+                            {validationErrors.purchasePrice}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex-1 grid gap-2">
+                        <div className="grid gap-2">
+                          <Label htmlFor="create-sales">Sales Price</Label>
+                          <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
+                            <span className="text-muted-foreground">₱</span>
+                            <Input
+                              id="create-sales"
+                              type="number"
+                              step="0.01"
+                              min="0"
+                              value={formData.salesPrice}
+                              onChange={(e) =>
+                                setFormData({
+                                  ...formData,
+                                  salesPrice: e.target.value,
+                                })
+                              }
+                              placeholder="0.00"
+                              className={`border-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
+                                validationErrors.salesPrice
+                                  ? "text-destructive"
+                                  : ""
+                              }`}
+                            />
+                          </div>
+                          {validationErrors.salesPrice && (
+                            <p className="text-sm text-destructive">
+                              {validationErrors.salesPrice}
+                            </p>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-description">Description</Label>
+                      <Textarea
+                        id="create-description"
+                        value={formData.description}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            description: e.target.value,
+                          })
+                        }
+                        placeholder="Enter item description..."
+                        className={
+                          validationErrors.description
+                            ? "border-destructive"
+                            : ""
+                        }
+                        rows={3}
+                      />
+                      {validationErrors.description && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.description}
+                        </p>
+                      )}
+                    </div>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                      <div className="flex-1 grid gap-2">
+                        <Label htmlFor="create-category">Category</Label>
+                        <Select
+                          value={formData.category}
+                          onValueChange={(value) =>
+                            setFormData({ ...formData, category: value })
+                          }>
+                          <SelectTrigger
+                            className={
+                              validationErrors.category
+                                ? "border-destructive"
+                                : ""
+                            }>
+                            <SelectValue placeholder="Select category" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            {categories.map((category) => (
+                              <SelectItem key={category} value={category}>
+                                {category}
+                              </SelectItem>
+                            ))}
+                          </SelectContent>
+                        </Select>
+                        {validationErrors.category && (
                           <p className="text-sm text-destructive">
-                            {validationErrors.salesPrice}
+                            {validationErrors.category}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex-1 grid gap-2">
+                        <Label htmlFor="create-status">Status</Label>
+                        <Select
+                          value={formData.status}
+                          onValueChange={(value: "active" | "inactive") =>
+                            setFormData({ ...formData, status: value })
+                          }>
+                          <SelectTrigger
+                            className={
+                              validationErrors.status
+                                ? "border-destructive"
+                                : ""
+                            }>
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="active">Active</SelectItem>
+                            <SelectItem value="inactive">Inactive</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {validationErrors.status && (
+                          <p className="text-sm text-destructive">
+                            {validationErrors.status}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                      <div className="flex-1 grid gap-2">
+                        <Label htmlFor="create-length">Length</Label>
+                        <Input
+                          id="create-length"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.length}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              length: e.target.value,
+                            }))
+                          }
+                          placeholder="0.00"
+                          className={
+                            validationErrors.length ? "border-destructive" : ""
+                          }
+                        />
+                        {validationErrors.length && (
+                          <p className="text-sm text-destructive">
+                            {validationErrors.length}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex-1 grid gap-2">
+                        <Label htmlFor="create-width">Width</Label>
+                        <Input
+                          id="create-width"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.width}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              width: e.target.value,
+                            }))
+                          }
+                          placeholder="0.00"
+                          className={
+                            validationErrors.width ? "border-destructive" : ""
+                          }
+                        />
+                        {validationErrors.width && (
+                          <p className="text-sm text-destructive">
+                            {validationErrors.width}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                      <div className="flex-1 grid gap-2">
+                        <Label htmlFor="create-height">Height</Label>
+                        <Input
+                          id="create-height"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.height}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              height: e.target.value,
+                            }))
+                          }
+                          placeholder="0.00"
+                          className={
+                            validationErrors.height ? "border-destructive" : ""
+                          }
+                        />
+                        {validationErrors.height && (
+                          <p className="text-sm text-destructive">
+                            {validationErrors.height}
+                          </p>
+                        )}
+                      </div>
+
+                      <div className="flex-1 grid gap-2">
+                        <Label htmlFor="create-weight">Weight</Label>
+                        <Input
+                          id="create-weight"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.weight}
+                          onChange={(e) =>
+                            setFormData((prev) => ({
+                              ...prev,
+                              weight: e.target.value,
+                            }))
+                          }
+                          placeholder="0.00"
+                          className={
+                            validationErrors.weight ? "border-destructive" : ""
+                          }
+                        />
+                        {validationErrors.weight && (
+                          <p className="text-sm text-destructive">
+                            {validationErrors.weight}
                           </p>
                         )}
                       </div>
                     </div>
                   </div>
-                  <div className="grid gap-2">
-                    <Label htmlFor="create-description">Description</Label>
-                    <Textarea
-                      id="create-description"
-                      value={formData.description}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          description: e.target.value,
-                        })
-                      }
-                      placeholder="Enter item description..."
-                      className={
-                        validationErrors.description ? "border-destructive" : ""
-                      }
-                      rows={3}
-                    />
-                    {validationErrors.description && (
-                      <p className="text-sm text-destructive">
-                        {validationErrors.description}
-                      </p>
-                    )}
-                  </div>
-                  <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-                    <div className="flex-1 grid gap-2">
-                      <Label htmlFor="create-category">Category</Label>
-                      <Select
-                        value={formData.category}
-                        onValueChange={(value) =>
-                          setFormData({ ...formData, category: value })
-                        }>
-                        <SelectTrigger
-                          className={
-                            validationErrors.category
-                              ? "border-destructive"
-                              : ""
-                          }>
-                          <SelectValue placeholder="Select category" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {categories.map((category) => (
-                            <SelectItem key={category} value={category}>
-                              {category}
-                            </SelectItem>
-                          ))}
-                        </SelectContent>
-                      </Select>
-                      {validationErrors.category && (
+                </Card>
+                <Card className="p-4">
+                  <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
+                    Unit of Measure
+                  </h4>
+                  <div className="grid gap-4 py-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-code">Unit Code</Label>
+                      <Input
+                        id="create-code"
+                        value={formData.unitCode}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData((prev) => ({
+                            ...prev,
+                            unitCode: value,
+                          }));
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            unitCode: "",
+                          }));
+                        }}
+                        placeholder="ITM001"
+                        className={
+                          validationErrors.unitCode
+                            ? "border-destructive text-sm"
+                            : "text-sm"
+                        }
+                      />
+                      {validationErrors.unitCode && (
                         <p className="text-sm text-destructive">
-                          {validationErrors.category}
+                          {validationErrors.unitCode}
                         </p>
                       )}
                     </div>
-
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-description">
+                        Unit Description
+                      </Label>
+                      <Textarea
+                        id="create-name"
+                        value={formData.unitDescription}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            unitDescription: e.target.value,
+                          })
+                        }
+                        placeholder="Wireless Headphones"
+                        className={
+                          validationErrors.unitDescription
+                            ? "border-destructive"
+                            : ""
+                        }
+                      />
+                      {validationErrors.unitDescription && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.unitDescription}
+                        </p>
+                      )}
+                    </div>
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-unit-type">Unit Type</Label>
+                      <Input
+                        id="create-unit-type"
+                        value={formData.unitType}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            unitType: e.target.value,
+                          })
+                        }
+                        placeholder="Enter unit type"
+                        className={
+                          validationErrors.unitType ? "border-destructive" : ""
+                        }
+                      />
+                      {validationErrors.unitType && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.unitType}
+                        </p>
+                      )}
+                    </div>
                     <div className="flex-1 grid gap-2">
-                      <Label htmlFor="create-status">Status</Label>
+                      <Label htmlFor="create-status">Unit Status</Label>
                       <Select
-                        value={formData.status}
+                        value={formData.unitStatus}
                         onValueChange={(value: "active" | "inactive") =>
-                          setFormData({ ...formData, status: value })
+                          setFormData({ ...formData, unitStatus: value })
                         }>
                         <SelectTrigger
                           className={
-                            validationErrors.status ? "border-destructive" : ""
+                            validationErrors.unitStatus
+                              ? "border-destructive"
+                              : ""
                           }>
                           <SelectValue placeholder="Select status" />
                         </SelectTrigger>
@@ -889,121 +1183,14 @@ export default function ItemMaster({ onSuccess }: Props) {
                           <SelectItem value="inactive">Inactive</SelectItem>
                         </SelectContent>
                       </Select>
-                      {validationErrors.status && (
+                      {validationErrors.unitStatus && (
                         <p className="text-sm text-destructive">
-                          {validationErrors.status}
+                          {validationErrors.unitStatus}
                         </p>
                       )}
                     </div>
                   </div>
-                  <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-                    <div className="flex-1 grid gap-2">
-                      <Label htmlFor="create-length">Length</Label>
-                      <Input
-                        id="create-length"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.length}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            length: e.target.value,
-                          }))
-                        }
-                        placeholder="0.00"
-                        className={
-                          validationErrors.length ? "border-destructive" : ""
-                        }
-                      />
-                      {validationErrors.length && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.length}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex-1 grid gap-2">
-                      <Label htmlFor="create-width">Width</Label>
-                      <Input
-                        id="create-width"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.width}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            width: e.target.value,
-                          }))
-                        }
-                        placeholder="0.00"
-                        className={
-                          validationErrors.width ? "border-destructive" : ""
-                        }
-                      />
-                      {validationErrors.width && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.width}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-                    <div className="flex-1 grid gap-2">
-                      <Label htmlFor="create-height">Height</Label>
-                      <Input
-                        id="create-height"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.height}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            height: e.target.value,
-                          }))
-                        }
-                        placeholder="0.00"
-                        className={
-                          validationErrors.height ? "border-destructive" : ""
-                        }
-                      />
-                      {validationErrors.height && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.height}
-                        </p>
-                      )}
-                    </div>
-
-                    <div className="flex-1 grid gap-2">
-                      <Label htmlFor="create-weight">Weight</Label>
-                      <Input
-                        id="create-weight"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.weight}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            weight: e.target.value,
-                          }))
-                        }
-                        placeholder="0.00"
-                        className={
-                          validationErrors.weight ? "border-destructive" : ""
-                        }
-                      />
-                      {validationErrors.weight && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.weight}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-
+                </Card>
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="ghost"
@@ -1016,17 +1203,21 @@ export default function ItemMaster({ onSuccess }: Props) {
                   <Button
                     onClick={handleCreate}
                     disabled={
-                      !formData.itemCode.trim() ||
-                      !formData.itemName.trim() ||
-                      !formData.purchasePrice.trim() ||
-                      !formData.salesPrice.trim() ||
-                      !formData.description.trim() ||
-                      !formData.category.trim() ||
-                      !formData.status.trim() ||
-                      !formData.height.trim() ||
-                      !formData.length.trim() ||
-                      !formData.width.trim() ||
-                      !formData.weight.trim() ||
+                      !`${formData.itemCode}`.trim() ||
+                      !`${formData.itemName}`.trim() ||
+                      !`${formData.purchasePrice}`.trim() ||
+                      !`${formData.salesPrice}`.trim() ||
+                      !`${formData.description}`.trim() ||
+                      !`${formData.category}`.trim() ||
+                      !`${formData.status}`.trim() ||
+                      !`${formData.height}`.trim() ||
+                      !`${formData.length}`.trim() ||
+                      !`${formData.width}`.trim() ||
+                      !`${formData.weight}`.trim() ||
+                      !`${formData.unitCode}`.trim() ||
+                      !`${formData.unitDescription}`.trim() ||
+                      !`${formData.unitType}`.trim() ||
+                      !`${formData.unitStatus}`.trim() ||
                       Object.values(validationErrors).some(
                         (error) => error !== ""
                       )
@@ -1120,14 +1311,14 @@ export default function ItemMaster({ onSuccess }: Props) {
                       <TableCell>
                         <div className="flex gap-1">
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleView(item)}
                             title="View Details">
                             <Eye className="w-4 h-4" />
                           </Button>
                           <Button
-                            variant="outline"
+                            variant="ghost"
                             size="sm"
                             onClick={() => handleEdit(item)}
                             title="Edit Item">
@@ -1136,9 +1327,10 @@ export default function ItemMaster({ onSuccess }: Props) {
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
-                                variant="outline"
+                                variant="ghost"
                                 size="sm"
-                                title="Delete Item">
+                                title="Delete Item"
+                                className="text-red-600 hover:text-red-700">
                                 <Trash2 className="w-4 h-4" />
                               </Button>
                             </AlertDialogTrigger>
@@ -1217,7 +1409,7 @@ export default function ItemMaster({ onSuccess }: Props) {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Item</DialogTitle>
           </DialogHeader>
@@ -1227,296 +1419,405 @@ export default function ItemMaster({ onSuccess }: Props) {
               initialImageUrl={formData.imageUrl ?? ""}
               onUpdate={handleImageUpdate}
             />
-
-            <div className="grid grid-cols-2 gap-4">
-              <div className="grid gap-2">
-                <Label htmlFor="create-code">Item Code</Label>
-                <Input
-                  id="edit-code"
-                  value={formData.itemCode}
-                  onChange={(e) => {
-                    const value = e.target.value;
-                    setFormData((prev) => ({ ...prev, itemCode: value }));
-                    setValidationErrors((prev) => ({ ...prev, itemCode: "" }));
-                  }}
-                  placeholder="ITM001"
-                  className={cn(
-                    "text-sm",
-                    validationErrors.itemCode && "border-destructive"
-                  )}
-                />
-                {validationErrors.itemCode && (
-                  <p className="text-sm text-destructive">
-                    {validationErrors.itemCode}
-                  </p>
-                )}
-              </div>
-              <div className="grid gap-2">
-                <Label htmlFor="create-name">Item Name</Label>
-                <Input
-                  id="create-name"
-                  value={formData.itemName}
-                  onChange={(e) =>
-                    setFormData({ ...formData, itemName: e.target.value })
-                  }
-                  placeholder="Wireless Headphones"
-                  className={
-                    validationErrors.itemName ? "border-destructive" : ""
-                  }
-                />
-                {validationErrors.itemName && (
-                  <p className="text-sm text-destructive">
-                    {validationErrors.itemName}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-              <div className="flex-1 grid gap-2">
-                <Label htmlFor="create-purchase">Purchase Price</Label>
-                <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
-                  <span className="text-muted-foreground">₱</span>
-                  <Input
-                    id="create-purchase"
-                    type="number"
-                    step="0.01"
-                    min="0"
-                    value={formData.purchasePrice}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        purchasePrice: e.target.value,
-                      })
-                    }
-                    placeholder="0.00"
-                    className={`flex-1 border-none focus-visible:ring-0 focus-visible:outline-none ${
-                      validationErrors.purchasePrice ? "border-destructive" : ""
-                    }`}
-                    aria-invalid={!!validationErrors.purchasePrice}
-                    aria-describedby="purchase-error"
-                  />
-                </div>
-                {validationErrors.purchasePrice && (
-                  <p
-                    id="purchase-error"
-                    className="text-destructive text-sm mt-1">
-                    {validationErrors.purchasePrice}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex-1 grid gap-2">
+            <Card className="p-4">
+              <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
+                General Info
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
                 <div className="grid gap-2">
-                  <Label htmlFor="create-sales">Sales Price</Label>
-                  <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
-                    <span className="text-muted-foreground">₱</span>
-                    <Input
-                      id="create-sales"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.salesPrice}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          salesPrice: e.target.value,
-                        })
-                      }
-                      placeholder="0.00"
-                      className={`border-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
-                        validationErrors.salesPrice ? "text-destructive" : ""
-                      }`}
-                    />
-                  </div>
-                  {validationErrors.salesPrice && (
+                  <Label htmlFor="create-code">Item Code</Label>
+                  <Input
+                    id="edit-code"
+                    value={formData.itemCode}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData((prev) => ({ ...prev, itemCode: value }));
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        itemCode: "",
+                      }));
+                    }}
+                    placeholder="ITM001"
+                    className={cn(
+                      "text-sm",
+                      validationErrors.itemCode && "border-destructive"
+                    )}
+                  />
+                  {validationErrors.itemCode && (
                     <p className="text-sm text-destructive">
-                      {validationErrors.salesPrice}
+                      {validationErrors.itemCode}
+                    </p>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="create-name">Item Name</Label>
+                  <Input
+                    id="create-name"
+                    value={formData.itemName}
+                    onChange={(e) =>
+                      setFormData({ ...formData, itemName: e.target.value })
+                    }
+                    placeholder="Wireless Headphones"
+                    className={
+                      validationErrors.itemName ? "border-destructive" : ""
+                    }
+                  />
+                  {validationErrors.itemName && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.itemName}
                     </p>
                   )}
                 </div>
               </div>
-            </div>
-            <div className="grid gap-2">
-              <Label htmlFor="create-description">Description</Label>
-              <Textarea
-                id="create-description"
-                value={formData.description}
-                onChange={(e) =>
-                  setFormData({
-                    ...formData,
-                    description: e.target.value,
-                  })
-                }
-                placeholder="Enter item description..."
-                className={
-                  validationErrors.description ? "border-destructive" : ""
-                }
-                rows={3}
-              />
-              {validationErrors.description && (
-                <p className="text-sm text-destructive">
-                  {validationErrors.description}
-                </p>
-              )}
-            </div>
-            <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-              <div className="flex-1 grid gap-2">
-                <Label htmlFor="create-category">Category</Label>
-                <Select
-                  value={formData.category}
-                  onValueChange={(value) =>
-                    setFormData({ ...formData, category: value })
-                  }>
-                  <SelectTrigger
-                    className={
-                      validationErrors.category ? "border-destructive" : ""
-                    }>
-                    <SelectValue placeholder="Select category" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    {categories.map((category) => (
-                      <SelectItem key={category} value={category}>
-                        {category}
-                      </SelectItem>
-                    ))}
-                  </SelectContent>
-                </Select>
-                {validationErrors.category && (
+              <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                <div className="flex-1 grid gap-2">
+                  <Label htmlFor="create-purchase">Purchase Price</Label>
+                  <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
+                    <span className="text-muted-foreground">₱</span>
+                    <Input
+                      id="create-purchase"
+                      type="number"
+                      step="0.01"
+                      min="0"
+                      value={formData.purchasePrice}
+                      onChange={(e) =>
+                        setFormData({
+                          ...formData,
+                          purchasePrice: e.target.value,
+                        })
+                      }
+                      placeholder="0.00"
+                      className={`flex-1 border-none focus-visible:ring-0 focus-visible:outline-none ${
+                        validationErrors.purchasePrice
+                          ? "border-destructive"
+                          : ""
+                      }`}
+                      aria-invalid={!!validationErrors.purchasePrice}
+                      aria-describedby="purchase-error"
+                    />
+                  </div>
+                  {validationErrors.purchasePrice && (
+                    <p
+                      id="purchase-error"
+                      className="text-destructive text-sm mt-1">
+                      {validationErrors.purchasePrice}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex-1 grid gap-2">
+                  <div className="grid gap-2">
+                    <Label htmlFor="create-sales">Sales Price</Label>
+                    <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
+                      <span className="text-muted-foreground">₱</span>
+                      <Input
+                        id="create-sales"
+                        type="number"
+                        step="0.01"
+                        min="0"
+                        value={formData.salesPrice}
+                        onChange={(e) =>
+                          setFormData({
+                            ...formData,
+                            salesPrice: e.target.value,
+                          })
+                        }
+                        placeholder="0.00"
+                        className={`border-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
+                          validationErrors.salesPrice ? "text-destructive" : ""
+                        }`}
+                      />
+                    </div>
+                    {validationErrors.salesPrice && (
+                      <p className="text-sm text-destructive">
+                        {validationErrors.salesPrice}
+                      </p>
+                    )}
+                  </div>
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="create-description">Description</Label>
+                <Textarea
+                  id="create-description"
+                  value={formData.description}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      description: e.target.value,
+                    })
+                  }
+                  placeholder="Enter item description..."
+                  className={
+                    validationErrors.description ? "border-destructive" : ""
+                  }
+                  rows={3}
+                />
+                {validationErrors.description && (
                   <p className="text-sm text-destructive">
-                    {validationErrors.category}
+                    {validationErrors.description}
                   </p>
                 )}
               </div>
+              <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                <div className="flex-1 grid gap-2">
+                  <Label htmlFor="create-category">Category</Label>
+                  <Select
+                    value={formData.category}
+                    onValueChange={(value) =>
+                      setFormData({ ...formData, category: value })
+                    }>
+                    <SelectTrigger
+                      className={
+                        validationErrors.category ? "border-destructive" : ""
+                      }>
+                      <SelectValue placeholder="Select category" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {categories.map((category) => (
+                        <SelectItem key={category} value={category}>
+                          {category}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  {validationErrors.category && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.category}
+                    </p>
+                  )}
+                </div>
 
+                <div className="flex-1 grid gap-2">
+                  <Label htmlFor="create-status">Status</Label>
+                  <Select
+                    value={formData.status}
+                    onValueChange={(value: "active" | "inactive") =>
+                      setFormData({ ...formData, status: value })
+                    }>
+                    <SelectTrigger
+                      className={
+                        validationErrors.status ? "border-destructive" : ""
+                      }>
+                      <SelectValue placeholder="Select status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="active">Active</SelectItem>
+                      <SelectItem value="inactive">Inactive</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {validationErrors.status && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.status}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                <div className="flex-1 grid gap-2">
+                  <Label htmlFor="create-length">Length</Label>
+                  <Input
+                    id="create-length"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.length}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        length: e.target.value,
+                      }))
+                    }
+                    placeholder="0.00"
+                    className={
+                      validationErrors.length ? "border-destructive" : ""
+                    }
+                  />
+                  {validationErrors.length && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.length}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex-1 grid gap-2">
+                  <Label htmlFor="create-width">Width</Label>
+                  <Input
+                    id="create-width"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.width}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        width: e.target.value,
+                      }))
+                    }
+                    placeholder="0.00"
+                    className={
+                      validationErrors.width ? "border-destructive" : ""
+                    }
+                  />
+                  {validationErrors.width && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.width}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                <div className="flex-1 grid gap-2">
+                  <Label htmlFor="create-height">Height</Label>
+                  <Input
+                    id="create-height"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.height}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        height: e.target.value,
+                      }))
+                    }
+                    placeholder="0.00"
+                    className={
+                      validationErrors.height ? "border-destructive" : ""
+                    }
+                  />
+                  {validationErrors.height && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.height}
+                    </p>
+                  )}
+                </div>
+
+                <div className="flex-1 grid gap-2">
+                  <Label htmlFor="create-weight">Weight</Label>
+                  <Input
+                    id="create-weight"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    value={formData.weight}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        weight: e.target.value,
+                      }))
+                    }
+                    placeholder="0.00"
+                    className={
+                      validationErrors.weight ? "border-destructive" : ""
+                    }
+                  />
+                  {validationErrors.weight && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.weight}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </Card>
+            <Card className="p-4">
+              <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
+                Unit of Measure
+              </h4>
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-code">Unit Code</Label>
+                  <Input
+                    id="edit-code"
+                    value={formData.unitCode}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData((prev) => ({ ...prev, unitCode: value }));
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        unitCode: "",
+                      }));
+                    }}
+                    placeholder="ITM001"
+                    className={cn(
+                      "text-sm",
+                      validationErrors.unitCode && "border-destructive"
+                    )}
+                  />
+                  {validationErrors.unitCode && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.unitCode}
+                    </p>
+                  )}
+                </div>
+                <div className="grid gap-2">
+                  <Label htmlFor="create-name">Unit Type</Label>
+                  <Input
+                    id="create-name"
+                    value={formData.unitType}
+                    onChange={(e) =>
+                      setFormData({ ...formData, unitType: e.target.value })
+                    }
+                    placeholder="Enter unit type"
+                    className={
+                      validationErrors.unitType ? "border-destructive" : ""
+                    }
+                  />
+                  {validationErrors.unitType && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.unitType}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="grid gap-2">
+                <Label htmlFor="create-description">Unit Description</Label>
+                <Textarea
+                  id="create-description"
+                  value={formData.unitDescription}
+                  onChange={(e) =>
+                    setFormData({
+                      ...formData,
+                      unitDescription: e.target.value,
+                    })
+                  }
+                  placeholder="Enter unit description..."
+                  className={
+                    validationErrors.unitDescription ? "border-destructive" : ""
+                  }
+                  rows={3}
+                />
+                {validationErrors.unitDescription && (
+                  <p className="text-sm text-destructive">
+                    {validationErrors.unitDescription}
+                  </p>
+                )}
+              </div>
               <div className="flex-1 grid gap-2">
-                <Label htmlFor="create-status">Status</Label>
+                <Label htmlFor="create-status">Unit Status</Label>
                 <Select
-                  value={formData.status}
+                  value={formData.unitStatus}
                   onValueChange={(value: "active" | "inactive") =>
                     setFormData({ ...formData, status: value })
                   }>
                   <SelectTrigger
                     className={
-                      validationErrors.status ? "border-destructive" : ""
+                      validationErrors.unitStatus ? "border-destructive" : ""
                     }>
-                    <SelectValue placeholder="Select status" />
+                    <SelectValue placeholder="Select unit status" />
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="active">Active</SelectItem>
                     <SelectItem value="inactive">Inactive</SelectItem>
                   </SelectContent>
                 </Select>
-                {validationErrors.status && (
+                {validationErrors.unitStatus && (
                   <p className="text-sm text-destructive">
-                    {validationErrors.status}
+                    {validationErrors.unitStatus}
                   </p>
                 )}
               </div>
-            </div>
-            <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-              <div className="flex-1 grid gap-2">
-                <Label htmlFor="create-length">Length</Label>
-                <Input
-                  id="create-length"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.length}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      length: e.target.value,
-                    }))
-                  }
-                  placeholder="0.00"
-                  className={
-                    validationErrors.length ? "border-destructive" : ""
-                  }
-                />
-                {validationErrors.length && (
-                  <p className="text-sm text-destructive">
-                    {validationErrors.length}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex-1 grid gap-2">
-                <Label htmlFor="create-width">Width</Label>
-                <Input
-                  id="create-width"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.width}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      width: e.target.value,
-                    }))
-                  }
-                  placeholder="0.00"
-                  className={validationErrors.width ? "border-destructive" : ""}
-                />
-                {validationErrors.width && (
-                  <p className="text-sm text-destructive">
-                    {validationErrors.width}
-                  </p>
-                )}
-              </div>
-            </div>
-            <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-              <div className="flex-1 grid gap-2">
-                <Label htmlFor="create-height">Height</Label>
-                <Input
-                  id="create-height"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.height}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      height: e.target.value,
-                    }))
-                  }
-                  placeholder="0.00"
-                  className={
-                    validationErrors.height ? "border-destructive" : ""
-                  }
-                />
-                {validationErrors.height && (
-                  <p className="text-sm text-destructive">
-                    {validationErrors.height}
-                  </p>
-                )}
-              </div>
-
-              <div className="flex-1 grid gap-2">
-                <Label htmlFor="create-weight">Weight</Label>
-                <Input
-                  id="create-weight"
-                  type="number"
-                  step="0.01"
-                  min="0"
-                  value={formData.weight}
-                  onChange={(e) =>
-                    setFormData((prev) => ({
-                      ...prev,
-                      weight: e.target.value,
-                    }))
-                  }
-                  placeholder="0.00"
-                  className={
-                    validationErrors.weight ? "border-destructive" : ""
-                  }
-                />
-                {validationErrors.weight && (
-                  <p className="text-sm text-destructive">
-                    {validationErrors.weight}
-                  </p>
-                )}
-              </div>
-            </div>
+            </Card>
           </div>
           <div className="flex justify-end gap-2">
             <Button
@@ -1541,6 +1842,10 @@ export default function ItemMaster({ onSuccess }: Props) {
                 !formData.width.trim() ||
                 !formData.height.trim() ||
                 !formData.weight.trim() ||
+                !formData.unitCode.trim() ||
+                !formData.unitDescription.trim() ||
+                !formData.unitType.trim() ||
+                !formData.unitStatus.trim() ||
                 Object.values(validationErrors).some((error) => error !== "")
               }>
               Update
@@ -1557,7 +1862,6 @@ export default function ItemMaster({ onSuccess }: Props) {
           </DialogHeader>
           {viewingItem && (
             <div className="grid gap-6 py-4">
-              {/* Image Preview */}
               {/* Image Preview */}
               <div className="flex flex-col items-center gap-2">
                 {viewingItem.imageUrl?.trim() ? (
@@ -1577,12 +1881,12 @@ export default function ItemMaster({ onSuccess }: Props) {
                   </div>
                 )}
               </div>
-
-              {/* Item Information */}
-              <div className="grid gap-4">
-                <h4 className="text-sm font-semibold text-muted-foreground mt-6">
+              <Card className="p-4">
+                <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
                   General Info
                 </h4>
+                {/* Item Information */}
+
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   <div className="flex flex-col gap-1">
                     <Label className="text-xs text-muted-foreground">
@@ -1654,9 +1958,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                   </div>
                 </div>
 
-                <h4 className="text-sm font-semibold text-muted-foreground mt-6">
-                  Dimensions
-                </h4>
                 <div className="grid grid-cols-4 gap-4 mt-4">
                   <div className="flex flex-col gap-1">
                     <Label className="text-xs text-muted-foreground">
@@ -1691,7 +1992,48 @@ export default function ItemMaster({ onSuccess }: Props) {
                     </div>
                   </div>
                 </div>
-              </div>
+              </Card>
+              <Card className="p-4">
+                <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
+                  Unit of Measure
+                </h4>
+                <div className="grid grid-cols-2 gap-4 mt-2">
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Unit Code
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingItem.unitCode}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Unit Type
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingItem.unitType}
+                    </div>
+                  </div>
+                </div>
+                <div className="grid gap-4 mt-2">
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Unit Description
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingItem.unitDescription}
+                    </div>
+                  </div>
+                </div>
+                <div className="flex flex-col gap-1">
+                  <Label className="text-xs text-muted-foreground">
+                    Unit Status
+                  </Label>
+                  <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                    {viewingItem.unitStatus}
+                  </div>
+                </div>
+              </Card>
             </div>
           )}
           <div className="flex justify-end">

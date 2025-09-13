@@ -5,6 +5,7 @@ import { NextRequest } from "next/server";
 import mongoose from "mongoose";
 
 interface ItemPayload {
+  /* item details */
   createdDT: string;
   itemCode: string;
   itemName: string;
@@ -19,6 +20,11 @@ interface ItemPayload {
   weight?: number;
   length?: number;
   width?: number;
+  /* unit of measure */
+  unitCode?: string;
+  unitDescription?: string;
+  unitType?: string;
+  unitStatus?: string;
 }
 
 interface BulkPayload {
@@ -53,6 +59,10 @@ export async function POST(request: NextRequest) {
       weight,
       length,
       width,
+      unitCode,
+      unitDescription,
+      unitType,
+      unitStatus,
     } = body as ItemPayload;
 
     await Item.create({
@@ -70,6 +80,10 @@ export async function POST(request: NextRequest) {
       weight,
       length,
       width,
+      unitCode,
+      unitDescription,
+      unitType,
+      unitStatus,
     });
 
     return NextResponse.json(
