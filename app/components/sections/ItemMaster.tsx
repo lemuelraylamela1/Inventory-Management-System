@@ -146,11 +146,17 @@ export default function ItemMaster({ onSuccess }: Props) {
     });
   }, [items, searchTerm]);
 
+  // const totalPages = Math.ceil(filteredItems.length / rowsPerPage);
+  // const startIndex = (currentPage - 1) * rowsPerPage;
+  // const paginatedItems = filteredItems.slice(
+  //   startIndex,
+  //   startIndex + rowsPerPage
+  // );
+
   const totalPages = Math.ceil(filteredItems.length / rowsPerPage);
-  const startIndex = (currentPage - 1) * rowsPerPage;
-  const paginatedItems = filteredItems.slice(
-    startIndex,
-    startIndex + rowsPerPage
+  const paginatedItems: ItemType[] = filteredItems.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
   );
 
   // Reset to first page when search changes
@@ -530,9 +536,20 @@ export default function ItemMaster({ onSuccess }: Props) {
 
   const toggleSelectAll = (checked: boolean | "indeterminate") => {
     if (checked === true) {
-      setSelectedIds(items.map((item) => item._id));
-    } else {
-      setSelectedIds([]);
+      // Select all items on current page
+      const newSelections = [
+        ...selectedIds,
+        ...paginatedItems
+          .filter((item) => !selectedIds.includes(item._id))
+          .map((item) => item._id),
+      ];
+      setSelectedIds(newSelections);
+    } else if (checked === false) {
+      // Unselect all items on current page
+      const remaining = selectedIds.filter(
+        (id) => !paginatedItems.some((item) => item._id === id)
+      );
+      setSelectedIds(remaining);
     }
   };
 
@@ -1022,15 +1039,20 @@ export default function ItemMaster({ onSuccess }: Props) {
           </div>
 
           {selectedIds.length > 0 && (
-            <div className="flex justify-end gap-2 mb-4">
-              <Button
-                variant="destructive"
-                onClick={() => handleDeleteMany(selectedIds)}>
-                Delete Selected
-              </Button>
-              <Button variant="outline" onClick={() => setSelectedIds([])}>
-                Clear Selection
-              </Button>
+            <div className="flex items-center justify-between mb-4">
+              <span className="text-sm text-gray-600">
+                ✅ {selectedIds.length} item(s) selected
+              </span>
+              <div className="flex gap-2">
+                <Button
+                  variant="destructive"
+                  onClick={() => handleDeleteMany(selectedIds)}>
+                  Delete Selected
+                </Button>
+                <Button variant="outline" onClick={() => setSelectedIds([])}>
+                  Clear Selection
+                </Button>
+              </div>
             </div>
           )}
 
@@ -1043,6 +1065,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                     <Checkbox
                       checked={allSelected}
                       onCheckedChange={toggleSelectAll}
+                      aria-label="Select all items on current page"
                     />
                   </TableHead>
                   <TableHead>Creation Date</TableHead>
@@ -1146,87 +1169,48 @@ export default function ItemMaster({ onSuccess }: Props) {
             </Table>
           </div>
 
-          {/* Pagination */}
-          {totalPages > 1 && (
-            <div className="flex justify-center">
-              <Pagination>
-                <PaginationContent>
-                  <PaginationItem>
-                    <PaginationPrevious
-                      onClick={() =>
-                        setCurrentPage(Math.max(1, currentPage - 1))
-                      }
-                      className={
-                        currentPage === 1
-                          ? "pointer-events-none opacity-50"
-                          : "cursor-pointer"
-                      }
-                    />
-                  </PaginationItem>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map(
-                    (page) => (
-                      <PaginationItem key={page}>
-                        <PaginationLink
-                          onClick={() => setCurrentPage(page)}
-                          isActive={currentPage === page}
-                          className="cursor-pointer">
-                          {page}
-                        </PaginationLink>
-                      </PaginationItem>
-                    )
-                  )}
-                  <PaginationItem>
-                    <PaginationNext
-                      onClick={() =>
-                        setCurrentPage(Math.min(totalPages, currentPage + 1))
-                      }
-                      className={
-                        currentPage === totalPages
-                          ? "pointer-events-none opacity-50"
-                          : "cursor-pointer"
-                      }
-                    />
-                  </PaginationItem>
-                </PaginationContent>
-              </Pagination>
-            </div>
-          )}
-
           {/* Results count */}
-          <div className="flex items-center justify-end gap-4 text-sm text-muted-foreground">
-            <button
-              onClick={() => setCurrentPage((prev) => Math.max(prev - 1, 1))}
-              disabled={currentPage === 1}
-              className={cn(
-                "flex items-center gap-1 px-3 py-1 rounded border transition-colors",
-                currentPage === 1
-                  ? "cursor-not-allowed opacity-50"
-                  : "hover:bg-accent hover:text-accent-foreground"
-              )}
-              aria-label="Go to previous page">
-              <ChevronLeft className="w-4 h-4" />
-              <span>Previous</span>
-            </button>
+          <div className="flex items-center justify-between mt-4">
+            {/* Rows per page selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">Items per page:</span>
+              <Select
+                value={String(rowsPerPage)}
+                onValueChange={(val) => {
+                  setRowsPerPage(Number(val));
+                  setCurrentPage(1); // reset to first page
+                }}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            <span className="min-w-[80px] text-center">
-              Page <strong>{currentPage}</strong> / {totalPages}
-            </span>
-
-            <button
-              onClick={() =>
-                setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-              }
-              disabled={currentPage === totalPages}
-              className={cn(
-                "flex items-center gap-1 px-3 py-1 rounded border transition-colors",
-                currentPage === totalPages
-                  ? "cursor-not-allowed opacity-50"
-                  : "hover:bg-accent hover:text-accent-foreground"
-              )}
-              aria-label="Go to next page">
-              <span>Next</span>
-              <ChevronRight className="w-4 h-4" />
-            </button>
+            {/* Pagination controls */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => prev - 1)}>
+                Previous
+              </Button>
+              <span className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={currentPage === totalPages || totalPages === 0}
+                onClick={() => setCurrentPage((prev) => prev + 1)}>
+                Next
+              </Button>
+            </div>
           </div>
         </CardContent>
       </Card>

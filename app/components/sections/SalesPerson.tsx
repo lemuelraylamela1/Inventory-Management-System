@@ -807,6 +807,16 @@ export default function SalesPerson() {
                             <Eye className="h-4 w-4" />
                           </Button>
 
+                          <Button
+                            variant="ghost"
+                            onClick={() => {
+                              setEditingSalesPerson(salesPerson);
+                              setIsEditDialogOpen(true);
+                            }}
+                            className="gap-2">
+                            <Edit className="h-4 w-4" />
+                          </Button>
+
                           <AlertDialog>
                             <AlertDialogTrigger asChild>
                               <Button
@@ -1023,7 +1033,7 @@ export default function SalesPerson() {
               )}
             </div>
             <div className="grid gap-2">
-              <Label htmlFor="edit-tin">Area</Label>
+              <Label htmlFor="edit-area">Area</Label>
               <Input
                 id="edit-area"
                 type="text"
@@ -1032,7 +1042,7 @@ export default function SalesPerson() {
                   setFormData({ ...formData, area: e.target.value })
                 }
                 className={formErrors.area ? "border-red-500" : ""}
-                placeholder="123-456-789-000"
+                placeholder="area"
               />
               {formErrors.area && (
                 <p className="text-sm text-red-500">{formErrors.area}</p>
@@ -1073,7 +1083,7 @@ export default function SalesPerson() {
           {/* Rows per page selector */}
           <div className="flex items-center gap-2">
             <span className="text-sm text-gray-600">
-              SalesPersons per page:
+              Sales Persons per page:
             </span>
             <Select
               value={String(rowsPerPage)}
