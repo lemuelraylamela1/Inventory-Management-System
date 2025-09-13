@@ -103,9 +103,9 @@ export default function ItemMaster({ onSuccess }: Props) {
     height: "",
     weight: "",
     createdDT: new Date().toISOString(),
-    imageUrl: "",
+    imageUrl: null as string | null,
     imageFile: null as File | null,
-    imagePublicId: "",
+    imagePublicId: null as string | null,
   });
 
   const [selectedImage, setSelectedImage] = useState<string | null>(null);
@@ -346,9 +346,9 @@ export default function ItemMaster({ onSuccess }: Props) {
       height: item.height?.toString() || "0",
       weight: item.weight?.toString() || "0",
       createdDT: item.createdDT || new Date().toISOString().split("T")[0],
-      imageUrl: item.imageUrl || "",
+      imageUrl: item.imageUrl || null,
       imageFile: item.imageFile || null,
-      imagePublicId: item.imagePublicId || "",
+      imagePublicId: item.imagePublicId || null,
     });
     setValidationErrors({
       itemCode: "",
@@ -430,9 +430,9 @@ export default function ItemMaster({ onSuccess }: Props) {
       height: "",
       weight: "",
       createdDT: new Date().toISOString().split("T")[0],
-      imageUrl: "",
+      imageUrl: null,
       imageFile: null,
-      imagePublicId: "",
+      imagePublicId: null,
     });
     setValidationErrors({
       itemCode: "",
@@ -503,9 +503,9 @@ export default function ItemMaster({ onSuccess }: Props) {
       height: "",
       weight: "",
       createdDT: new Date().toISOString().split("T")[0],
-      imageUrl: "",
+      imageUrl: null,
       imageFile: null,
-      imagePublicId: "",
+      imagePublicId: null,
     });
     setValidationErrors({
       itemCode: "",
@@ -605,6 +605,24 @@ export default function ItemMaster({ onSuccess }: Props) {
     fetchItems(); // or mutate(), or setItems(), depending on your data flow
   };
 
+  const handleImageUploadComplete = (
+    data: { file: File; url: string; publicId: string } | null
+  ) => {
+    if (data) {
+      setFormData((prev) => ({
+        ...prev,
+        imageUrl: data.url.trim(),
+        imagePublicId: data.publicId,
+      }));
+    } else {
+      setFormData((prev) => ({
+        ...prev,
+        imageUrl: null,
+        imagePublicId: null,
+      }));
+    }
+  };
+
   return (
     <div className="p-6 space-y-6">
       <Card>
@@ -652,69 +670,9 @@ export default function ItemMaster({ onSuccess }: Props) {
                   <DialogTitle>Add New Item</DialogTitle>
                 </DialogHeader>
                 <div className="grid gap-4 py-4">
-                  {/* <div
-                    className={cn(
-                      "border-2 border-dashed rounded-lg p-6 text-center transition-colors",
-                      isDragging
-                        ? "border-blue-500 bg-blue-50"
-                        : "border-muted-foreground/25"
-                    )}
-                    onDragOver={(e) => {
-                      e.preventDefault();
-                      setIsDragging(true);
-                    }}
-                    onDragLeave={() => setIsDragging(false)}
-                    onDrop={(e) => {
-                      e.preventDefault();
-                      setIsDragging(false);
-                      const file = e.dataTransfer.files?.[0];
-                      if (file) uploadToCloudinary(file);
-                    }}>
-                    {isUploading ? (
-                      <div className="flex flex-col items-center justify-center">
-                        <Loader2 className="animate-spin w-6 h-6 text-muted-foreground mb-2" />
-                        <p className="text-sm text-muted-foreground">
-                          Uploading image...
-                        </p>
-                      </div>
-                    ) : formData.imageUrl ? (
-                      <Image
-                        src={formData.imageUrl}
-                        alt="Preview"
-                        width={128}
-                        height={128}
-                        className="w-32 h-32 object-cover rounded-lg border shadow-sm"
-                      />
-                    ) : (
-                      <>
-                        <Upload className="w-6 h-6 mx-auto mb-2 text-muted-foreground" />
-                        <p className="text-sm text-muted-foreground mb-2">
-                          Drag & drop or click to upload
-                        </p>
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() =>
-                            document.getElementById("create-image")?.click()
-                          }>
-                          Choose Image
-                        </Button>
-                      </>
-                    )}
-
-                    <Input
-                      id="create-image"
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => {
-                        const file = e.target.files?.[0];
-                        if (file) uploadToCloudinary(file);
-                      }}
-                      className="hidden"
-                    />
-                  </div> */}
-                  <AddItemImageUploader onUploadComplete={setUploadedImage} />
+                  <AddItemImageUploader
+                    onUploadComplete={handleImageUploadComplete}
+                  />
 
                   <div className="grid grid-cols-2 gap-4">
                     <div className="grid gap-2">
@@ -1568,24 +1526,34 @@ export default function ItemMaster({ onSuccess }: Props) {
           </DialogHeader>
           {viewingItem && (
             <div className="grid gap-6 py-4">
+              {/* Image Preview */}
+              {/* Image Preview */}
               <div className="flex flex-col items-center gap-2">
-                {viewingItem.imageUrl ? (
-                  <div className="relative w-full h-96 rounded-lg overflow-hidden border shadow-sm">
+                {viewingItem.imageUrl?.trim() ? (
+                  <div className="relative w-full h-96 rounded-lg overflow-hidden border shadow-sm group">
                     <Image
-                      src={viewingItem.imageUrl}
+                      src={viewingItem.imageUrl.trim()}
                       alt={viewingItem.itemName || "Item image"}
                       fill
-                      className="object-cover"
+                      className="object-cover transition-transform duration-300 group-hover:scale-105"
                       sizes="100vw"
                       priority
                     />
+                    <a
+                      href={viewingItem.imageUrl.trim()}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="absolute bottom-2 right-2 bg-white text-xs px-2 py-1 rounded shadow hover:bg-primary/10 transition">
+                      View Full Image
+                    </a>
                   </div>
                 ) : (
-                  <div className="relative w-full h-96 rounded-lg overflow-hidden border shadow-sm flex items-center justify-center bg-muted">
+                  <div className="relative w-full h-96 rounded-lg overflow-hidden border shadow-sm flex items-center justify-center bg-muted text-muted-foreground text-sm">
                     No image available
                   </div>
                 )}
               </div>
+
               {/* Item Information */}
               <div className="grid gap-4">
                 <h4 className="text-sm font-semibold text-muted-foreground mt-6">
@@ -1665,7 +1633,6 @@ export default function ItemMaster({ onSuccess }: Props) {
                 <h4 className="text-sm font-semibold text-muted-foreground mt-6">
                   Dimensions
                 </h4>
-
                 <div className="grid grid-cols-4 gap-4 mt-4">
                   <div className="flex flex-col gap-1">
                     <Label className="text-xs text-muted-foreground">
