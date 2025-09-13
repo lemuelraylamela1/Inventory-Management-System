@@ -64,7 +64,7 @@ export default function AddNew({
     }
 
     if (!formData.warehouse_name.trim()) {
-      errors.warehouse_name = "Name is required.";
+      errors.warehouse_name = "Warehouse name is required.";
     }
 
     if (!formData.warehouse_location.trim()) {
@@ -198,7 +198,7 @@ export default function AddNew({
                   formErrors.warehouse_name ? "border-red-500 ring-red-500" : ""
                 }`}
               />
-              {showAlert && formErrors.warehouse_name && (
+              {formErrors.warehouse_name && (
                 <p className="text-sm text-red-500 mt-1">
                   {formErrors.warehouse_name}
                 </p>
@@ -237,7 +237,10 @@ export default function AddNew({
             <Button
               type="button"
               variant="outline"
-              onClick={() => onOpenChange(false)}>
+              onClick={() => {
+                setFormErrors({});
+                onOpenChange(false); // Close modal/dialog
+              }}>
               Cancel
             </Button>
             <Button

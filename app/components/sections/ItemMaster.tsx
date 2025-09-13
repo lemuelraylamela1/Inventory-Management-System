@@ -1006,7 +1006,7 @@ export default function ItemMaster({ onSuccess }: Props) {
 
                 <div className="flex justify-end gap-2">
                   <Button
-                    variant="outline"
+                    variant="ghost"
                     onClick={() => {
                       setIsCreateDialogOpen(false);
                       resetForm();
