@@ -46,3 +46,17 @@ export type SalesPersonType = {
   createdAt?: Date;
   updatedAt?: Date;
 };
+
+export type CustomerType = {
+  _id: string;
+  createdDT: Date;
+  groupCode: string;
+  groupName: string;
+  discount1: number;
+  discount2: number;
+  discount3: number;
+  discount4: number;
+  discount5: number;
+  createdAt?: Date;
+  updatedAt?: Date;
+};

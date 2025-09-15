@@ -533,7 +533,7 @@ export default function ItemMaster({ onSuccess }: Props) {
   };
 
   const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-US", {
+    return new Date(dateString).toLocaleDateString("en-PH", {
       year: "numeric",
       month: "short",
       day: "numeric",

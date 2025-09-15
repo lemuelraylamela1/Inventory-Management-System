@@ -69,10 +69,10 @@ export function Sidebar({
   ];
 
   const purchase = [
-    { id: "purchase-request", label: "Purchase Request", icon: ClipboardList },
-    { id: "purchase-order", label: "Purchase Order", icon: Package },
+    { id: "purchase-order", label: "Purchase Order", icon: ShoppingCart },
     { id: "purchase-receipt", label: "Purchase Receipt", icon: Receipt },
-    { id: "purchase return", label: "Purchase Return", icon: Undo2 },
+    { id: "purchase-request", label: "Purchase Request", icon: ClipboardList },
+    { id: "purchase-return", label: "Purchase Return", icon: Undo2 },
   ];
 
   const maintenanceItems = [
