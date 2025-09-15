@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
+import { motion, AnimatePresence } from "framer-motion";
 import { Separator } from "./ui/separator";
 import {
   Collapsible,
@@ -31,6 +32,8 @@ import {
   LogOut,
   Factory,
   X,
+  ClipboardList,
+  Undo2,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -53,20 +56,23 @@ export function Sidebar({
   const [openSubMenus, setOpenSubMenus] = useState<string[]>([]);
 
   const toggleSubMenu = (menu: string) => {
-    setOpenSubMenus((prev) =>
-      prev.includes(menu)
-        ? prev.filter((item) => item !== menu)
-        : [...prev, menu]
-    );
+    setOpenSubMenus((prev) => (prev.includes(menu) ? [] : [menu]));
   };
 
   const mainMenuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "sales", label: "Sales", icon: ShoppingCart },
-    { id: "purchase", label: "Purchase", icon: Package },
+    // { id: "purchase", label: "Purchase", icon: Package },
     { id: "inventory", label: "Inventory", icon: Package2 },
     { id: "reports", label: "Reports", icon: BarChart3 },
     { id: "users", label: "User Management", icon: Users, adminOnly: true },
+  ];
+
+  const purchase = [
+    { id: "purchase-request", label: "Purchase Request", icon: ClipboardList },
+    { id: "purchase-order", label: "Purchase Order", icon: Package },
+    { id: "purchase-receipt", label: "Purchase Receipt", icon: Receipt },
+    { id: "purchase return", label: "Purchase Return", icon: Undo2 },
   ];
 
   const maintenanceItems = [
@@ -134,6 +140,55 @@ export function Sidebar({
               ))}
 
               <Collapsible
+                open={openSubMenus.includes("purchase")}
+                onOpenChange={() => toggleSubMenu("purchase")}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-start">
+                    <Package className="mr-2 h-4 w-4" />
+                    Purchase
+                    {openSubMenus.includes("purchase") ? (
+                      <ChevronDown
+                        className={`ml-auto h-4 w-4 transform transition-transform duration-300 ${
+                          openSubMenus.includes("purchase")
+                            ? "rotate-180"
+                            : "rotate-0"
+                        }`}
+                      />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <AnimatePresence initial={false}>
+                  {openSubMenus.includes("purchase") && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.4, ease: "easeInOut" }}
+                      className="space-y-1 ml-4 mt-1 overflow-hidden">
+                      {purchase.map((item) => (
+                        <Button
+                          key={item.id}
+                          variant={
+                            activeSection === item.id ? "default" : "ghost"
+                          }
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            onSectionChange(item.id);
+                            if (window.innerWidth < 1024) onToggle();
+                          }}>
+                          <item.icon className="mr-2 h-3 w-3" />
+                          {item.label}
+                        </Button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Collapsible>
+
+              <Collapsible
                 open={openSubMenus.includes("maintenance")}
                 onOpenChange={() => toggleSubMenu("maintenance")}>
                 <CollapsibleTrigger asChild>
@@ -141,28 +196,45 @@ export function Sidebar({
                     <Settings className="mr-2 h-4 w-4" />
                     Maintenance
                     {openSubMenus.includes("maintenance") ? (
-                      <ChevronDown className="ml-auto h-4 w-4" />
+                      <ChevronDown
+                        className={`ml-auto h-4 w-4 transform transition-transform duration-300 ${
+                          openSubMenus.includes("maintenance")
+                            ? "rotate-180"
+                            : "rotate-0"
+                        }`}
+                      />
                     ) : (
                       <ChevronRight className="ml-auto h-4 w-4" />
                     )}
                   </Button>
                 </CollapsibleTrigger>
-                <CollapsibleContent className="space-y-1 ml-4 mt-1">
-                  {maintenanceItems.map((item) => (
-                    <Button
-                      key={item.id}
-                      variant={activeSection === item.id ? "default" : "ghost"}
-                      size="sm"
-                      className="w-full justify-start"
-                      onClick={() => {
-                        onSectionChange(item.id);
-                        if (window.innerWidth < 1024) onToggle();
-                      }}>
-                      <item.icon className="mr-2 h-3 w-3" />
-                      {item.label}
-                    </Button>
-                  ))}
-                </CollapsibleContent>
+                <AnimatePresence initial={false}>
+                  {openSubMenus.includes("maintenance") && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.4, ease: "easeInOut" }}
+                      className="space-y-1 ml-4 mt-1 overflow-hidden">
+                      {maintenanceItems.map((item) => (
+                        <Button
+                          key={item.id}
+                          variant={
+                            activeSection === item.id ? "default" : "ghost"
+                          }
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            onSectionChange(item.id);
+                            if (window.innerWidth < 1024) onToggle();
+                          }}>
+                          <item.icon className="mr-2 h-3 w-3" />
+                          {item.label}
+                        </Button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </Collapsible>
             </nav>
           </div>
