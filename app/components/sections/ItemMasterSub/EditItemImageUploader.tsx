@@ -1,5 +1,4 @@
 import { useState, useEffect } from "react";
-import { Label } from "../../ui/label";
 import { uploadImage } from "../../../../libs/uploadImage";
 import { Image as LucideImage, X, Loader2 } from "lucide-react";
 import Image from "next/image";

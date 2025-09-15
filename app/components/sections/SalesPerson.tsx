@@ -293,20 +293,6 @@ export default function SalesPerson() {
       errors.lastName = "Last name is required.";
     }
 
-    // if (formData.emailAddress.trim()) {
-    //   const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    //   if (!emailRegex.test(formData.emailAddress)) {
-    //     errors.emailAddress = "Enter a valid email address.";
-    //   }
-    // }
-
-    // if (!formData.contactNumber.trim()) {
-    //   const phoneRegex = /^\+?\d{10,15}$/;
-    //   if (!phoneRegex.test(formData.contactNumber)) {
-    //     errors.contactNumber = "Enter a valid contact number.";
-    //   }
-    // }
-
     if (!formData.area.trim()) {
       errors.area = "Area is required.";
     }
@@ -710,7 +696,7 @@ export default function SalesPerson() {
                             setselectedSalesPersons(remaining);
                           }
                         }}
-                        className="accent-blue-600"
+                        className="accent-black"
                       />
                       <span className="text-sm font-medium text-gray-700">
                         Creation Date
@@ -767,7 +753,7 @@ export default function SalesPerson() {
                                 );
                               }
                             }}
-                            className="accent-blue-600 mr-2"
+                            className="accent-black mr-2"
                           />
                         )}
                         {new Date(salesPerson.createdDT).toLocaleDateString(

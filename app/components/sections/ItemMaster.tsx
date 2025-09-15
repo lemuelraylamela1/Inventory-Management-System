@@ -40,7 +40,13 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../ui/alert-dialog";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import {
+  Card,
+  CardContent,
+  CardDescription,
+  CardHeader,
+  CardTitle,
+} from "../ui/card";
 import { Textarea } from "../ui/textarea";
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
 import Image from "next/image";
@@ -712,17 +718,19 @@ export default function ItemMaster({ onSuccess }: Props) {
   };
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="space-y-6">
       <Card>
-        <CardHeader className="flex items-center justify-between">
-          {/* Left: Title */}
-          <CardTitle className="text-lg font-semibold">
-            Item Master Management
-          </CardTitle>
-          <div className="flex items-center gap-2">
-            <ExportItemButton items={items} />
+        <CardHeader>
+          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+            <div>
+              <CardTitle>Item Master</CardTitle>
+              <CardDescription>Manage items</CardDescription>
+            </div>
+            <div className="flex items-center gap-2">
+              <ExportItemButton items={items} />
 
-            <ImportItems onUploadSuccess={handleUploadSuccess} />
+              <ImportItems onUploadSuccess={handleUploadSuccess} />
+            </div>
           </div>
         </CardHeader>
 
