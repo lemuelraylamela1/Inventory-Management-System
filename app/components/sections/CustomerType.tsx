@@ -189,6 +189,7 @@ export default function CustomerType({ onSuccess }: Props) {
 
     const payload = {
       ...formData,
+      groupCode: formData.groupCode?.toUpperCase(),
       groupName: formData.groupName?.toUpperCase(),
       discount1: Number(formData.discount1),
       discount2: Number(formData.discount2),
