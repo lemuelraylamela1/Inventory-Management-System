@@ -672,11 +672,7 @@ export default function CustomerType({ onSuccess }: Props) {
                   <TableHead>Creation Date</TableHead>
                   <TableHead>Group Code</TableHead>
                   <TableHead>Group Name</TableHead>
-                  <TableHead>Discount 1</TableHead>
-                  <TableHead>Discount 2</TableHead>
-                  <TableHead>Discount 3</TableHead>
-                  <TableHead>Discount 4</TableHead>
-                  <TableHead>Discount 5</TableHead>
+
                   <TableHead className="w-32">Actions</TableHead>
                 </TableRow>
               </TableHeader>
@@ -710,11 +706,7 @@ export default function CustomerType({ onSuccess }: Props) {
                       </TableCell>
                       <TableCell>{customer.groupCode}</TableCell>
                       <TableCell>{customer.groupName}</TableCell>
-                      <TableCell>{customer.discount1}</TableCell>
-                      <TableCell>{customer.discount2}</TableCell>
-                      <TableCell>{customer.discount3}</TableCell>
-                      <TableCell>{customer.discount4}</TableCell>
-                      <TableCell>{customer.discount5}</TableCell>
+
                       <TableCell>
                         <div className="flex gap-1">
                           <Button
@@ -827,10 +819,8 @@ export default function CustomerType({ onSuccess }: Props) {
 
           <div className="grid gap-4 py-4">
             <Card className="p-4">
-              <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
-                General Info
-              </h4>
               <div className="grid grid-cols-2 gap-4">
+                {/* Group Code */}
                 <div className="grid gap-2">
                   <Label htmlFor="edit-group-code">Group Code</Label>
                   <Input
@@ -857,6 +847,7 @@ export default function CustomerType({ onSuccess }: Props) {
                   )}
                 </div>
 
+                {/* Group Name */}
                 <div className="grid gap-2">
                   <Label htmlFor="edit-group-name">Group Name</Label>
                   <Input
@@ -877,6 +868,36 @@ export default function CustomerType({ onSuccess }: Props) {
                     </p>
                   )}
                 </div>
+
+                {/* Discounts 1–5 */}
+                {Array.from({ length: 5 }).map((_, index) => {
+                  const key = `discount${index + 1}` as keyof typeof formData;
+                  return (
+                    <div key={key} className="grid gap-2">
+                      <Label htmlFor={key}>{`Discount ${index + 1}`}</Label>
+                      <Input
+                        id={key}
+                        value={formData[key]}
+                        onChange={(e) =>
+                          setFormData((prev) => ({
+                            ...prev,
+                            [key]: e.target.value,
+                          }))
+                        }
+                        placeholder={`Discount ${index + 1} (%)`}
+                        className={cn(
+                          "text-sm",
+                          validationErrors[key] && "border-destructive"
+                        )}
+                      />
+                      {validationErrors[key] && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors[key]}
+                        </p>
+                      )}
+                    </div>
+                  );
+                })}
               </div>
             </Card>
           </div>
@@ -910,17 +931,13 @@ export default function CustomerType({ onSuccess }: Props) {
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl h-[90vh] overflow-y-auto rounded-xl p-6">
+        <DialogContent className="max-w-2xl overflow-y-auto rounded-xl p-6">
           <DialogHeader>
             <DialogTitle>Customer Type Details</DialogTitle>
           </DialogHeader>
           {viewingCustomerType && (
             <div className="grid gap-6 py-4">
               <Card className="p-4">
-                <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
-                  General Info
-                </h4>
-
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   <div className="flex flex-col gap-1">
                     <Label className="text-xs text-muted-foreground">
@@ -936,6 +953,46 @@ export default function CustomerType({ onSuccess }: Props) {
                     </Label>
                     <div className="bg-muted rounded-md px-3 py-2 text-sm border">
                       {viewingCustomerType.groupName}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Discount 1
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingCustomerType.discount1}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Discount 2
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingCustomerType.discount2}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Discount 3
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingCustomerType.discount3}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Discount 4
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingCustomerType.discount4}
+                    </div>
+                  </div>
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Discount 5
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingCustomerType.discount5}
                     </div>
                   </div>
                 </div>
