@@ -59,6 +59,7 @@ export default function AddNew({
 
     const errors: Partial<Record<keyof typeof formData, string>> = {};
 
+    // Basic required field checks
     if (!formData.warehouse_code.trim()) {
       errors.warehouse_code = "Code is required.";
     }
@@ -78,14 +79,53 @@ export default function AddNew({
 
     setIsSubmitting(true);
 
-    const payload = {
-      createdDT: new Date().toISOString(),
-      warehouse_code: formData.warehouse_code,
-      warehouse_name: formData.warehouse_name,
-      warehouse_location: formData.warehouse_location,
-    };
-
     try {
+      // 🔍 Check for duplicates before submitting
+      const checkRes = await fetch("http://localhost:3000/api/warehouses");
+      const { warehouses } = await checkRes.json();
+
+      if (!Array.isArray(warehouses)) {
+        throw new Error("Invalid response format");
+      }
+
+      const duplicate = warehouses.find(
+        (w) =>
+          w.warehouse_code.toUpperCase() ===
+            formData.warehouse_code.toUpperCase() ||
+          w.warehouse_name.toUpperCase() ===
+            formData.warehouse_name.toUpperCase()
+      );
+
+      if (duplicate) {
+        const dupErrors: Partial<Record<keyof typeof formData, string>> = {};
+
+        if (
+          duplicate.warehouse_code.toUpperCase() ===
+          formData.warehouse_code.toUpperCase()
+        ) {
+          dupErrors.warehouse_code = "Code already exists.";
+        }
+
+        if (
+          duplicate.warehouse_name.toUpperCase() ===
+          formData.warehouse_name.toUpperCase()
+        ) {
+          dupErrors.warehouse_name = "Warehouse name already exists.";
+        }
+
+        setFormErrors(dupErrors);
+        setIsSubmitting(false);
+        return;
+      }
+
+      // ✅ Proceed with submission
+      const payload = {
+        createdDT: new Date().toISOString(),
+        warehouse_code: formData.warehouse_code,
+        warehouse_name: formData.warehouse_name,
+        warehouse_location: formData.warehouse_location,
+      };
+
       const res = await fetch("http://localhost:3000/api/warehouses", {
         method: "POST",
         headers: {
@@ -101,9 +141,8 @@ export default function AddNew({
 
         setTimeout(() => {
           router.push("/");
-        }, 300); // ✅ Give time for dialog to close
+        }, 300);
 
-        // ✅ Reset form fields
         setFormData({
           warehouse_code: "",
           warehouse_name: "",
@@ -166,7 +205,7 @@ export default function AddNew({
                   setFormErrors({});
                   setFormData((prev) => ({
                     ...prev,
-                    warehouse_code: e.target.value,
+                    warehouse_code: e.target.value.toUpperCase(),
                   }));
                 }}
                 placeholder="Enter code"
@@ -190,7 +229,7 @@ export default function AddNew({
                   setFormErrors({});
                   setFormData((prev) => ({
                     ...prev,
-                    warehouse_name: e.target.value,
+                    warehouse_name: e.target.value.toUpperCase(),
                   }));
                 }}
                 placeholder="Main Distribution Center"
@@ -215,7 +254,7 @@ export default function AddNew({
                 setFormErrors({});
                 setFormData((prev) => ({
                   ...prev,
-                  warehouse_location: e.target.value,
+                  warehouse_location: e.target.value.toUpperCase(),
                 }));
               }}
               placeholder="Enter location"

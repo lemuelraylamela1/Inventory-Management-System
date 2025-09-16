@@ -99,7 +99,7 @@ export default function SalesPerson() {
     emailAddress: "",
     contactNumber: "",
     area: "",
-    status: "active",
+    status: "ACTIVE",
   };
 
   const handleDialogToggle = (isOpen: boolean) => {
@@ -443,7 +443,7 @@ export default function SalesPerson() {
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          salesPersonCode: e.target.value,
+                          salesPersonCode: e.target.value.toUpperCase(), // Force uppercase
                         })
                       }
                       placeholder="SP001"
@@ -469,10 +469,10 @@ export default function SalesPerson() {
                         onChange={(e) =>
                           setFormData({
                             ...formData,
-                            firstName: e.target.value,
+                            firstName: e.target.value.toUpperCase(), // Enforce uppercase
                           })
                         }
-                        placeholder="John"
+                        placeholder="JOHN"
                         className={`w-full ${
                           formErrors.firstName
                             ? "border-red-500 ring-red-500"
@@ -492,9 +492,12 @@ export default function SalesPerson() {
                         id="create-last-name"
                         value={formData.lastName}
                         onChange={(e) =>
-                          setFormData({ ...formData, lastName: e.target.value })
+                          setFormData({
+                            ...formData,
+                            lastName: e.target.value.toUpperCase(), // Enforce uppercase
+                          })
                         }
-                        placeholder="Smith"
+                        placeholder="SMITH"
                         className={`w-full ${
                           formErrors.lastName
                             ? "border-red-500 ring-red-500"
@@ -515,13 +518,23 @@ export default function SalesPerson() {
                       id="create-email"
                       type="email"
                       value={formData.emailAddress}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          emailAddress: e.target.value,
-                        })
-                      }
-                      placeholder="john.smith@company.com"
+                      onChange={(e) => {
+                        const value = e.target.value.toUpperCase(); // Enforce uppercase
+                        setFormData({ ...formData, emailAddress: value });
+
+                        // Conditional validation: only validate if not empty
+                        const isValidEmail =
+                          value === "" ||
+                          /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+                        setFormErrors({
+                          ...formErrors,
+                          emailAddress: isValidEmail
+                            ? ""
+                            : "Enter a valid email address.",
+                        });
+                      }}
+                      placeholder="JOHN.SMITH@COMPANY.COM"
                       className={
                         formErrors.emailAddress
                           ? "border-red-500 ring-red-500"
@@ -530,10 +543,7 @@ export default function SalesPerson() {
                     />
                     {formErrors.emailAddress && (
                       <p className="text-sm text-red-500 mt-1">
-                        {formErrors.emailAddress ===
-                        "Enter a valid email address."
-                          ? "Enter a valid email address."
-                          : formErrors.emailAddress}
+                        {formErrors.emailAddress}
                       </p>
                     )}
                   </div>
@@ -543,13 +553,12 @@ export default function SalesPerson() {
                     <Input
                       id="create-contact"
                       value={formData.contactNumber}
-                      onChange={(e) =>
-                        setFormData({
-                          ...formData,
-                          contactNumber: e.target.value,
-                        })
-                      }
-                      placeholder="+63 912 345 6789"
+                      onChange={(e) => {
+                        const raw = e.target.value;
+                        const sanitized = raw.replace(/(?!^\+)\D/g, ""); // Allow digits and leading '+'
+                        setFormData({ ...formData, contactNumber: sanitized });
+                      }}
+                      placeholder="+639123456789"
                       className={
                         formErrors.contactNumber
                           ? "border-red-500 ring-red-500"
@@ -569,9 +578,12 @@ export default function SalesPerson() {
                       id="create-area"
                       value={formData.area}
                       onChange={(e) =>
-                        setFormData({ ...formData, area: e.target.value })
+                        setFormData({
+                          ...formData,
+                          area: e.target.value.toUpperCase(), // Enforce uppercase
+                        })
                       }
-                      placeholder="123 Mabini St., Bacoor, Cavite"
+                      placeholder="ENTER AREA"
                       className={
                         formErrors.area ? "border-red-500 ring-red-500" : ""
                       }
@@ -599,8 +611,8 @@ export default function SalesPerson() {
                           <SelectValue />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="inactive">Inactive</SelectItem>
+                          <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                          <SelectItem value="INACTIVE">INACTIVE</SelectItem>
                         </SelectContent>
                       </Select>
                       {formErrors.status && (
@@ -615,7 +627,11 @@ export default function SalesPerson() {
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="outline"
-                    onClick={() => setIsCreateDialogOpen(false)}>
+                    onClick={() => {
+                      setIsCreateDialogOpen(false); // Close the dialog
+                      setFormErrors({}); // Clear all error messages
+                      setFormData(initialFormState); // Reset form fields
+                    }}>
                     Cancel
                   </Button>
                   <Button onClick={handleCreate}>Create</Button>
@@ -796,8 +812,19 @@ export default function SalesPerson() {
                           <Button
                             variant="ghost"
                             onClick={() => {
-                              setEditingSalesPerson(salesPerson);
-                              setIsEditDialogOpen(true);
+                              setEditingSalesPerson(salesPerson); // Optional: for tracking ID
+
+                              setFormData({
+                                salesPersonCode: salesPerson.salesPersonCode,
+                                firstName: salesPerson.firstName,
+                                lastName: salesPerson.lastName,
+                                emailAddress: salesPerson.emailAddress,
+                                contactNumber: salesPerson.contactNumber,
+                                area: salesPerson.area,
+                                status: salesPerson.status,
+                              });
+
+                              setIsEditDialogOpen(true); // Open the dialog
                             }}
                             className="gap-2">
                             <Edit className="h-4 w-4" />
@@ -900,8 +927,8 @@ export default function SalesPerson() {
           setIsEditDialogOpen(isOpen);
 
           if (!isOpen) {
-            setFormErrors({}); // 🧹 Clear all validation errors
-            setFormData(initialFormState); // 🧹 Reset form data
+            setFormErrors({});
+            setFormData(initialFormState); // Reset form on close
           }
         }}>
         <DialogContent>
@@ -939,7 +966,10 @@ export default function SalesPerson() {
                 id="edit-code"
                 value={formData.salesPersonCode}
                 onChange={(e) =>
-                  setFormData({ ...formData, salesPersonCode: e.target.value })
+                  setFormData({
+                    ...formData,
+                    salesPersonCode: e.target.value.toUpperCase(),
+                  })
                 }
                 className={formErrors.salesPersonCode ? "border-red-500" : ""}
               />
@@ -956,7 +986,10 @@ export default function SalesPerson() {
                   id="edit-first-name"
                   value={formData.firstName}
                   onChange={(e) =>
-                    setFormData({ ...formData, firstName: e.target.value })
+                    setFormData({
+                      ...formData,
+                      firstName: e.target.value.toUpperCase(),
+                    })
                   }
                   className={formErrors.firstName ? "border-red-500" : ""}
                   placeholder="Juan"
@@ -972,7 +1005,10 @@ export default function SalesPerson() {
                   id="edit-last-name"
                   value={formData.lastName}
                   onChange={(e) =>
-                    setFormData({ ...formData, lastName: e.target.value })
+                    setFormData({
+                      ...formData,
+                      lastName: e.target.value.toUpperCase(),
+                    })
                   }
                   className={formErrors.lastName ? "border-red-500" : ""}
                   placeholder="Dela Cruz"
@@ -988,9 +1024,11 @@ export default function SalesPerson() {
                 id="edit-contact-number"
                 type="tel"
                 value={formData.contactNumber}
-                onChange={(e) =>
-                  setFormData({ ...formData, contactNumber: e.target.value })
-                }
+                onChange={(e) => {
+                  const raw = e.target.value;
+                  const sanitized = raw.replace(/(?!^\+)\D/g, ""); // Allow digits and leading '+'
+                  setFormData({ ...formData, contactNumber: sanitized });
+                }}
                 className={formErrors.contactNumber ? "border-red-500" : ""}
                 placeholder="+639123456789"
               />
@@ -1006,11 +1044,23 @@ export default function SalesPerson() {
                 id="edit-email"
                 type="email"
                 value={formData.emailAddress}
-                onChange={(e) =>
-                  setFormData({ ...formData, emailAddress: e.target.value })
-                }
+                onChange={(e) => {
+                  const value = e.target.value.toUpperCase(); // Enforce uppercase
+                  setFormData({ ...formData, emailAddress: value });
+
+                  // Validate only if not empty
+                  const isValidEmail =
+                    value === "" || /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(value);
+
+                  setFormErrors({
+                    ...formErrors,
+                    emailAddress: isValidEmail
+                      ? ""
+                      : "Enter a valid email address.",
+                  });
+                }}
                 className={formErrors.emailAddress ? "border-red-500" : ""}
-                placeholder="juan.delacruz@example.com"
+                placeholder="JUAN.DELACRUZ@EXAMPLE.COM"
               />
               {formErrors.emailAddress && (
                 <p className="text-sm text-red-500">
@@ -1025,7 +1075,10 @@ export default function SalesPerson() {
                 type="text"
                 value={formData.area}
                 onChange={(e) =>
-                  setFormData({ ...formData, area: e.target.value })
+                  setFormData({
+                    ...formData,
+                    area: e.target.value.toUpperCase(),
+                  })
                 }
                 className={formErrors.area ? "border-red-500" : ""}
                 placeholder="area"
@@ -1047,8 +1100,8 @@ export default function SalesPerson() {
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="active">Active</SelectItem>
-                  <SelectItem value="inactive">Inactive</SelectItem>
+                  <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                  <SelectItem value="INACTIVE">INACTIVE</SelectItem>
                 </SelectContent>
               </Select>
               {formErrors.status && (
