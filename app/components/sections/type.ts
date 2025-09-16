@@ -6,7 +6,7 @@ export type ItemType = {
   description: string;
   purchasePrice: number;
   salesPrice: number;
-  status: "active" | "inactive";
+  status: "ACTIVE" | "INACTIVE";
   category: string;
   length: number;
   width: number;
@@ -20,7 +20,7 @@ export type ItemType = {
   unitCode: string;
   unitDescription: string;
   unitType: string;
-  unitStatus: "active" | "inactive";
+  unitStatus: "ACTIVE" | "INACTIVE";
   createdAt?: Date;
   updatedAt?: Date;
 };

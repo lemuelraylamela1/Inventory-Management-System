@@ -60,7 +60,7 @@ import { ExportItemButton } from "./ItemMasterSub/ExportItems";
 import AddItemImageUploader from "./ItemMasterSub/AddItemImageUploader";
 import EditItemImageUploader from "./ItemMasterSub/EditItemImageUploader";
 
-const categories = ["Jelly", "Chocolate", "Imported Candies"];
+const categories = ["JELLY", "CHOCOLATE", "IMPORTED CANDIES"];
 
 type Props = {
   onSuccess?: () => void;
@@ -94,7 +94,7 @@ export default function ItemMaster({ onSuccess }: Props) {
     itemName: "",
     description: "",
     category: "",
-    status: "active" as "active" | "inactive",
+    status: "ACTIVE" as "ACTIVE" | "INACTIVE",
     purchasePrice: "",
     salesPrice: "",
     length: "",
@@ -109,7 +109,7 @@ export default function ItemMaster({ onSuccess }: Props) {
     unitCode: "",
     unitDescription: "",
     unitType: "",
-    unitStatus: "active" as "active" | "inactive",
+    unitStatus: "ACTIVE" as "ACTIVE" | "INACTIVE",
   });
 
   const [validationErrors, setValidationErrors] = useState({
@@ -118,7 +118,7 @@ export default function ItemMaster({ onSuccess }: Props) {
     itemName: "",
     description: "",
     category: "",
-    status: "active",
+    status: "ACTIVE",
     purchasePrice: "",
     salesPrice: "",
     length: "",
@@ -363,7 +363,7 @@ export default function ItemMaster({ onSuccess }: Props) {
       itemName: item.itemName || "",
       description: item.description || "",
       category: item.category || "",
-      status: item.status || "active",
+      status: item.status || "ACTIVE",
       purchasePrice: item.purchasePrice
         ? parseFloat(item.purchasePrice.toFixed(2)).toString()
         : "0.00",
@@ -382,7 +382,7 @@ export default function ItemMaster({ onSuccess }: Props) {
       unitCode: item.unitCode || "",
       unitDescription: item.unitDescription || "",
       unitType: item.unitType || "",
-      unitStatus: item.unitStatus || "active",
+      unitStatus: item.unitStatus || "ACTIVE",
     });
     setValidationErrors({
       /* item details */
@@ -469,7 +469,7 @@ export default function ItemMaster({ onSuccess }: Props) {
       itemName: "",
       description: "",
       category: "",
-      status: "active",
+      status: "ACTIVE",
       purchasePrice: "",
       salesPrice: "",
       length: "",
@@ -484,7 +484,7 @@ export default function ItemMaster({ onSuccess }: Props) {
       unitCode: "",
       unitDescription: "",
       unitType: "",
-      unitStatus: "active",
+      unitStatus: "ACTIVE",
     });
     setValidationErrors({
       /* item details */
@@ -554,7 +554,7 @@ export default function ItemMaster({ onSuccess }: Props) {
       itemName: "",
       description: "",
       category: "",
-      status: "active",
+      status: "ACTIVE",
       purchasePrice: "",
       salesPrice: "",
       length: "",
@@ -570,7 +570,7 @@ export default function ItemMaster({ onSuccess }: Props) {
       unitCode: "",
       unitDescription: "",
       unitType: "",
-      unitStatus: "active",
+      unitStatus: "ACTIVE",
     });
     setValidationErrors({
       /* item details */
@@ -781,7 +781,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                           id="create-code"
                           value={formData.itemCode}
                           onChange={(e) => {
-                            const value = e.target.value;
+                            const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
                             setFormData((prev) => ({
                               ...prev,
                               itemCode: value,
@@ -809,19 +809,29 @@ export default function ItemMaster({ onSuccess }: Props) {
                         <Input
                           id="create-name"
                           value={formData.itemName}
-                          onChange={(e) =>
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
                             setFormData({
                               ...formData,
-                              itemName: e.target.value,
-                            })
-                          }
+                              itemName: value,
+                            });
+                          }}
                           placeholder="Wireless Headphones"
                           className={
                             validationErrors.itemName
                               ? "border-destructive"
                               : ""
                           }
+                          aria-invalid={!!validationErrors.itemName}
+                          aria-describedby="itemName-error"
                         />
+                        {validationErrors.itemName && (
+                          <p
+                            id="itemName-error"
+                            className="text-sm text-destructive">
+                            {validationErrors.itemName}
+                          </p>
+                        )}
                         {validationErrors.itemName && (
                           <p className="text-sm text-destructive">
                             {validationErrors.itemName}
@@ -903,20 +913,26 @@ export default function ItemMaster({ onSuccess }: Props) {
                       <Textarea
                         id="create-description"
                         value={formData.description}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
                           setFormData({
                             ...formData,
-                            description: e.target.value,
-                          })
-                        }
+                            description: value,
+                          });
+                        }}
                         placeholder="Enter item description..."
-                        className={
+                        className={`text-sm ${
                           validationErrors.description
                             ? "border-destructive"
                             : ""
-                        }
+                        }`}
                         rows={3}
                       />
+                      {validationErrors.description && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.description}
+                        </p>
+                      )}
                       {validationErrors.description && (
                         <p className="text-sm text-destructive">
                           {validationErrors.description}
@@ -942,7 +958,8 @@ export default function ItemMaster({ onSuccess }: Props) {
                           <SelectContent>
                             {categories.map((category) => (
                               <SelectItem key={category} value={category}>
-                                {category}
+                                {category.charAt(0).toUpperCase() +
+                                  category.slice(1)}
                               </SelectItem>
                             ))}
                           </SelectContent>
@@ -958,7 +975,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                         <Label htmlFor="create-status">Status</Label>
                         <Select
                           value={formData.status}
-                          onValueChange={(value: "active" | "inactive") =>
+                          onValueChange={(value: "ACTIVE" | "INACTIVE") =>
                             setFormData({ ...formData, status: value })
                           }>
                           <SelectTrigger
@@ -970,8 +987,8 @@ export default function ItemMaster({ onSuccess }: Props) {
                             <SelectValue placeholder="Select status" />
                           </SelectTrigger>
                           <SelectContent>
-                            <SelectItem value="active">Active</SelectItem>
-                            <SelectItem value="inactive">Inactive</SelectItem>
+                            <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                            <SelectItem value="INACTIVE">INACTIVE</SelectItem>
                           </SelectContent>
                         </Select>
                         {validationErrors.status && (
@@ -1100,7 +1117,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                         id="create-code"
                         value={formData.unitCode}
                         onChange={(e) => {
-                          const value = e.target.value;
+                          const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
                           setFormData((prev) => ({
                             ...prev,
                             unitCode: value,
@@ -1111,11 +1128,9 @@ export default function ItemMaster({ onSuccess }: Props) {
                           }));
                         }}
                         placeholder="ITM001"
-                        className={
-                          validationErrors.unitCode
-                            ? "border-destructive text-sm"
-                            : "text-sm"
-                        }
+                        className={`text-sm ${
+                          validationErrors.unitCode ? "border-destructive" : ""
+                        }`}
                       />
                       {validationErrors.unitCode && (
                         <p className="text-sm text-destructive">
@@ -1130,19 +1145,25 @@ export default function ItemMaster({ onSuccess }: Props) {
                       <Textarea
                         id="create-name"
                         value={formData.unitDescription}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
                           setFormData({
                             ...formData,
-                            unitDescription: e.target.value,
-                          })
-                        }
+                            unitDescription: value,
+                          });
+                        }}
                         placeholder="Wireless Headphones"
-                        className={
+                        className={`text-sm ${
                           validationErrors.unitDescription
                             ? "border-destructive"
                             : ""
-                        }
+                        }`}
                       />
+                      {validationErrors.unitDescription && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.unitDescription}
+                        </p>
+                      )}
                       {validationErrors.unitDescription && (
                         <p className="text-sm text-destructive">
                           {validationErrors.unitDescription}
@@ -1154,17 +1175,23 @@ export default function ItemMaster({ onSuccess }: Props) {
                       <Input
                         id="create-unit-type"
                         value={formData.unitType}
-                        onChange={(e) =>
+                        onChange={(e) => {
+                          const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
                           setFormData({
                             ...formData,
-                            unitType: e.target.value,
-                          })
-                        }
+                            unitType: value,
+                          });
+                        }}
                         placeholder="Enter unit type"
-                        className={
+                        className={`text-sm ${
                           validationErrors.unitType ? "border-destructive" : ""
-                        }
+                        }`}
                       />
+                      {validationErrors.unitType && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.unitType}
+                        </p>
+                      )}
                       {validationErrors.unitType && (
                         <p className="text-sm text-destructive">
                           {validationErrors.unitType}
@@ -1175,7 +1202,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                       <Label htmlFor="create-status">Unit Status</Label>
                       <Select
                         value={formData.unitStatus}
-                        onValueChange={(value: "active" | "inactive") =>
+                        onValueChange={(value: "ACTIVE" | "INACTIVE") =>
                           setFormData({ ...formData, unitStatus: value })
                         }>
                         <SelectTrigger
@@ -1187,8 +1214,8 @@ export default function ItemMaster({ onSuccess }: Props) {
                           <SelectValue placeholder="Select status" />
                         </SelectTrigger>
                         <SelectContent>
-                          <SelectItem value="active">Active</SelectItem>
-                          <SelectItem value="inactive">Inactive</SelectItem>
+                          <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                          <SelectItem value="INACTIVE">INACTIVE</SelectItem>
                         </SelectContent>
                       </Select>
                       {validationErrors.unitStatus && (
@@ -1311,7 +1338,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                       <TableCell>
                         <Badge
                           variant={
-                            item.status === "active" ? "default" : "secondary"
+                            item.status === "ACTIVE" ? "default" : "secondary"
                           }>
                           {item.status}
                         </Badge>
@@ -1600,7 +1627,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                   <Label htmlFor="create-status">Status</Label>
                   <Select
                     value={formData.status}
-                    onValueChange={(value: "active" | "inactive") =>
+                    onValueChange={(value: "ACTIVE" | "INACTIVE") =>
                       setFormData({ ...formData, status: value })
                     }>
                     <SelectTrigger
@@ -1610,8 +1637,8 @@ export default function ItemMaster({ onSuccess }: Props) {
                       <SelectValue placeholder="Select status" />
                     </SelectTrigger>
                     <SelectContent>
-                      <SelectItem value="active">Active</SelectItem>
-                      <SelectItem value="inactive">Inactive</SelectItem>
+                      <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                      <SelectItem value="INACTIVE">INACTIVE</SelectItem>
                     </SelectContent>
                   </Select>
                   {validationErrors.status && (
@@ -1805,7 +1832,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                 <Label htmlFor="create-status">Unit Status</Label>
                 <Select
                   value={formData.unitStatus}
-                  onValueChange={(value: "active" | "inactive") =>
+                  onValueChange={(value: "ACTIVE" | "INACTIVE") =>
                     setFormData({ ...formData, status: value })
                   }>
                   <SelectTrigger
@@ -1815,8 +1842,8 @@ export default function ItemMaster({ onSuccess }: Props) {
                     <SelectValue placeholder="Select unit status" />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="active">Active</SelectItem>
-                    <SelectItem value="inactive">Inactive</SelectItem>
+                    <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                    <SelectItem value="INACTIVE">INACTIVE</SelectItem>
                   </SelectContent>
                 </Select>
                 {validationErrors.unitStatus && (

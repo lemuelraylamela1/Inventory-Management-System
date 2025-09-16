@@ -189,6 +189,7 @@ export default function CustomerType({ onSuccess }: Props) {
 
     const payload = {
       ...formData,
+      groupName: formData.groupName?.toUpperCase(),
       discount1: Number(formData.discount1),
       discount2: Number(formData.discount2),
       discount3: Number(formData.discount3),
@@ -344,12 +345,15 @@ export default function CustomerType({ onSuccess }: Props) {
     setIsViewDialogOpen(true);
   };
 
-  const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString("en-PH", {
-      year: "numeric",
-      month: "short",
-      day: "numeric",
-    });
+  const formatDate = (date: Date | string) => {
+    const parsed = typeof date === "string" ? new Date(date) : date;
+    return isNaN(parsed.getTime())
+      ? "Invalid date"
+      : parsed.toLocaleDateString("en-PH", {
+          year: "numeric",
+          month: "short",
+          day: "numeric",
+        });
   };
 
   const resetForm = () => {
@@ -520,7 +524,7 @@ export default function CustomerType({ onSuccess }: Props) {
                           id="create-group-code"
                           value={formData.groupCode}
                           onChange={(e) => {
-                            const value = e.target.value;
+                            const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
                             setFormData((prev) => ({
                               ...prev,
                               groupCode: value,
@@ -533,8 +537,8 @@ export default function CustomerType({ onSuccess }: Props) {
                           placeholder="GRP001"
                           className={
                             validationErrors.groupCode
-                              ? "border-destructive text-sm"
-                              : "text-sm"
+                              ? "border-destructive text-sm uppercase"
+                              : "text-sm uppercase"
                           }
                         />
                         {validationErrors.groupCode && (
@@ -548,18 +552,23 @@ export default function CustomerType({ onSuccess }: Props) {
                         <Input
                           id="create-group-name"
                           value={formData.groupName}
-                          onChange={(e) =>
-                            setFormData({
-                              ...formData,
-                              groupName: e.target.value,
-                            })
-                          }
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
+                            setFormData((prev) => ({
+                              ...prev,
+                              groupName: value,
+                            }));
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              groupName: "",
+                            }));
+                          }}
                           placeholder="Retail Customers"
-                          className={
+                          className={`text-sm uppercase ${
                             validationErrors.groupName
                               ? "border-destructive"
                               : ""
-                          }
+                          }`}
                         />
                         {validationErrors.groupName && (
                           <p className="text-sm text-destructive">
@@ -575,28 +584,35 @@ export default function CustomerType({ onSuccess }: Props) {
                             <Label htmlFor={`create-${key}`}>{`Discount ${
                               i + 1
                             }`}</Label>
-                            <Input
-                              id={`create-${key}`}
-                              type="number"
-                              value={formData[key]}
-                              onChange={(e) => {
-                                const value = e.target.value;
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  [key]: value,
-                                }));
-                                setValidationErrors((prev) => ({
-                                  ...prev,
-                                  [key]: "",
-                                }));
-                              }}
-                              placeholder={`0`}
-                              className={
-                                validationErrors[key]
-                                  ? "border-destructive text-sm"
-                                  : "text-sm"
-                              }
-                            />
+                            <div className="flex items-center gap-1">
+                              <Input
+                                id={`create-${key}`}
+                                type="text"
+                                inputMode="numeric" // mobile-friendly keyboard
+                                pattern="[0-9]*" // hint for numeric-only input
+                                value={formData[key]}
+                                onChange={(e) => {
+                                  const raw = e.target.value;
+                                  const numeric = raw.replace(/[^0-9.]/g, ""); // strip non-numeric
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    [key]: numeric,
+                                  }));
+                                  setValidationErrors((prev) => ({
+                                    ...prev,
+                                    [key]: "",
+                                  }));
+                                }}
+                                placeholder="0"
+                                className={cn(
+                                  "text-sm w-full",
+                                  validationErrors[key] && "border-destructive"
+                                )}
+                              />
+                              <span className="text-sm text-muted-foreground">
+                                %
+                              </span>
+                            </div>
                             {validationErrors[key] && (
                               <p className="text-sm text-destructive">
                                 {validationErrors[key]}
@@ -701,7 +717,7 @@ export default function CustomerType({ onSuccess }: Props) {
                       </TableCell>
                       <TableCell>
                         {customer.createdAt
-                          ? new Date(customer.createdAt).toISOString()
+                          ? formatDate(customer.createdAt)
                           : "—"}
                       </TableCell>
                       <TableCell>{customer.groupCode}</TableCell>
@@ -827,7 +843,7 @@ export default function CustomerType({ onSuccess }: Props) {
                     id="edit-group-code"
                     value={formData.groupCode}
                     onChange={(e) => {
-                      const value = e.target.value;
+                      const value = e.target.value.toUpperCase(); // 👈 enforce uppercase
                       setFormData((prev) => ({ ...prev, groupCode: value }));
                       setValidationErrors((prev) => ({
                         ...prev,
@@ -836,7 +852,7 @@ export default function CustomerType({ onSuccess }: Props) {
                     }}
                     placeholder="GRP001"
                     className={cn(
-                      "text-sm",
+                      "text-sm uppercase", // 👈 Tailwind visual transformation
                       validationErrors.groupCode && "border-destructive"
                     )}
                   />
@@ -853,12 +869,17 @@ export default function CustomerType({ onSuccess }: Props) {
                   <Input
                     id="edit-group-name"
                     value={formData.groupName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, groupName: e.target.value })
-                    }
+                    onChange={(e) => {
+                      const value = e.target.value.toUpperCase(); // 👈 enforce uppercase
+                      setFormData((prev) => ({ ...prev, groupName: value }));
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        groupName: "",
+                      }));
+                    }}
                     placeholder="Retail Customers"
                     className={cn(
-                      "text-sm",
+                      "text-sm uppercase", // 👈 Tailwind visual transformation
                       validationErrors.groupName && "border-destructive"
                     )}
                   />
@@ -875,21 +896,32 @@ export default function CustomerType({ onSuccess }: Props) {
                   return (
                     <div key={key} className="grid gap-2">
                       <Label htmlFor={key}>{`Discount ${index + 1}`}</Label>
-                      <Input
-                        id={key}
-                        value={formData[key]}
-                        onChange={(e) =>
-                          setFormData((prev) => ({
-                            ...prev,
-                            [key]: e.target.value,
-                          }))
-                        }
-                        placeholder={`Discount ${index + 1} (%)`}
-                        className={cn(
-                          "text-sm",
-                          validationErrors[key] && "border-destructive"
-                        )}
-                      />
+                      <div className="flex items-center gap-1">
+                        <Input
+                          id={key}
+                          inputMode="numeric"
+                          pattern="[0-9]*"
+                          value={formData[key]}
+                          onChange={(e) => {
+                            const raw = e.target.value;
+                            const numeric = raw.replace(/[^0-9.]/g, ""); // strip non-numeric
+                            setFormData((prev) => ({
+                              ...prev,
+                              [key]: numeric,
+                            }));
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              [key]: "",
+                            }));
+                          }}
+                          placeholder={`Discount ${index + 1}`}
+                          className={cn(
+                            "text-sm w-full",
+                            validationErrors[key] && "border-destructive"
+                          )}
+                        />
+                        <span className="text-sm text-muted-foreground">%</span>
+                      </div>
                       {validationErrors[key] && (
                         <p className="text-sm text-destructive">
                           {validationErrors[key]}

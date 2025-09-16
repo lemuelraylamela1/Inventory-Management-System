@@ -33,7 +33,14 @@ export async function PUT(
       );
     }
 
-    const updated = await CustomerType.findByIdAndUpdate(id, body, {
+    // Transform groupCode and groupName to uppercase if present
+    const transformedBody = {
+      ...body,
+      ...(body.groupCode && { groupCode: body.groupCode.toUpperCase() }),
+      ...(body.groupName && { groupName: body.groupName.toUpperCase() }),
+    };
+
+    const updated = await CustomerType.findByIdAndUpdate(id, transformedBody, {
       new: true,
       runValidators: true,
     });

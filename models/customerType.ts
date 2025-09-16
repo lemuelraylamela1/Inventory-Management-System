@@ -33,7 +33,14 @@ const CustomerTypeSchema = new Schema<ICustomerType>(
 
 // ✅ Virtual field for formatted createdAt
 CustomerTypeSchema.virtual("createdDT").get(function () {
-  return this.createdAt ? this.createdAt.toISOString() : null;
+  if (!this.createdAt) return null;
+
+  const date = new Date(this.createdAt);
+  const mm = String(date.getMonth() + 1).padStart(2, "0");
+  const dd = String(date.getDate()).padStart(2, "0");
+  const yyyy = date.getFullYear();
+
+  return `${mm}${dd}${yyyy}`; // 👈 returns MMDDYYYY
 });
 
 // ✅ Ensure virtuals are included in JSON and object outputs

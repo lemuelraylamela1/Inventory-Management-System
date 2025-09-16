@@ -22,9 +22,23 @@ export async function POST(request: NextRequest) {
 
   const body: CustomerTypePayload | BulkPayload = await request.json();
 
+  // Helper to transform string fields to uppercase
+  const toUpperCaseFields = (
+    item: CustomerTypePayload
+  ): CustomerTypePayload => ({
+    groupCode: item.groupCode.toUpperCase(),
+    groupName: item.groupName.toUpperCase(),
+    discount1: item.discount1,
+    discount2: item.discount2,
+    discount3: item.discount3,
+    discount4: item.discount4,
+    discount5: item.discount5,
+  });
+
   try {
     if ("items" in body && Array.isArray(body.items)) {
-      await CustomerType.insertMany(body.items);
+      const transformedItems = body.items.map(toUpperCaseFields);
+      await CustomerType.insertMany(transformedItems);
       return NextResponse.json(
         { message: "Bulk upload successful" },
         { status: 201 }
@@ -39,7 +53,7 @@ export async function POST(request: NextRequest) {
       discount3,
       discount4,
       discount5,
-    } = body as CustomerTypePayload;
+    } = toUpperCaseFields(body as CustomerTypePayload);
 
     await CustomerType.create({
       groupCode,
