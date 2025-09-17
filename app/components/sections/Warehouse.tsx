@@ -108,7 +108,7 @@ export default function WarehouseList() {
                 placeholder="Search items..."
                 value={searchTerm}
                 onChange={(e) => {
-                  setSearchTerm(e.target.value.toUpperCase());
+                  setSearchTerm(e.target.value);
                   setCurrentPage(1);
                 }}
                 className="pl-10"
