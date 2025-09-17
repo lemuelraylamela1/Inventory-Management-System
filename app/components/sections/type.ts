@@ -90,3 +90,17 @@ export type Customer = {
   createdAt?: Date;
   updatedAt?: Date;
 };
+
+export type PurchaseOrderType = {
+  _id: string;
+  poNumber: string;
+  referenceNumber?: string;
+  supplierName: string; // ← added
+  warehouse: string; // ← added
+  amount: number;
+  balance: number;
+  remarks?: string;
+  status: "Pending" | "Approved" | "Rejected" | "Completed";
+  createdAt: string;
+  updatedAt: string;
+};
