@@ -364,6 +364,7 @@ export default function Customer({ onSuccess }: Props) {
           emailAddress: formData.emailAddress.trim().toLowerCase(),
           TIN: formData.TIN.trim(),
           salesAgent: formData.salesAgent.trim().toUpperCase(),
+          customerGroup: formData.customerGroup.trim().toUpperCase(),
           terms: formData.terms.trim().toUpperCase(),
         }),
       });
@@ -1360,26 +1361,92 @@ export default function Customer({ onSuccess }: Props) {
                 {/* Sales Agent */}
                 <div className="grid gap-2">
                   <Label htmlFor="edit-sales-agent">Sales Agent</Label>
-                  <Input
-                    id="edit-sales-agent"
+                  <Select
                     value={formData.salesAgent}
-                    onChange={(e) => {
-                      const value = e.target.value.toUpperCase().trim();
-                      setFormData((prev) => ({ ...prev, salesAgent: value }));
+                    onValueChange={(value) => {
+                      const normalized = value.toUpperCase().trim();
+                      setFormData((prev) => ({
+                        ...prev,
+                        salesAgent: normalized,
+                      }));
                       setValidationErrors((prev) => ({
                         ...prev,
                         salesAgent: "",
                       }));
-                    }}
-                    placeholder="AGENT001"
-                    className={cn(
-                      "text-sm uppercase",
-                      validationErrors.salesAgent && "border-destructive"
-                    )}
-                  />
+                    }}>
+                    <SelectTrigger
+                      id="edit-sales-agent"
+                      className={`text-sm uppercase w-full ${
+                        validationErrors.salesAgent ? "border-destructive" : ""
+                      }`}>
+                      {formData.salesAgent || "Select Sales Agent"}
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {Array.isArray(salesPersons) &&
+                        salesPersons.map((person) => {
+                          const label = getDisplayName(person); // e.g. "John Doe" or "Unnamed"
+                          return (
+                            <SelectItem
+                              key={person._id}
+                              value={label.toUpperCase()}>
+                              {label}
+                            </SelectItem>
+                          );
+                        })}
+                    </SelectContent>
+                  </Select>
+
                   {validationErrors.salesAgent && (
                     <p className="text-sm text-destructive">
                       {validationErrors.salesAgent}
+                    </p>
+                  )}
+                </div>
+
+                <div className="grid gap-2">
+                  <Label htmlFor="edit-customer-group">Customer Group</Label>
+                  <Select
+                    value={formData.customerGroup}
+                    onValueChange={(value) => {
+                      const normalized = value.toUpperCase().trim();
+                      setFormData((prev) => ({
+                        ...prev,
+                        customerGroup: normalized,
+                      }));
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        customerGroup: "",
+                      }));
+                    }}>
+                    <SelectTrigger
+                      id="edit-customer-group"
+                      className={`text-sm uppercase w-full ${
+                        validationErrors.customerGroup
+                          ? "border-destructive"
+                          : ""
+                      }`}>
+                      {formData.customerGroup || "Select Customer Group"}
+                    </SelectTrigger>
+
+                    <SelectContent>
+                      {Array.isArray(customerTypes) &&
+                        customerTypes.map((group) => {
+                          const label = group.groupName || "Unnamed Group";
+                          return (
+                            <SelectItem
+                              key={group._id}
+                              value={label.toUpperCase()}>
+                              {label}
+                            </SelectItem>
+                          );
+                        })}
+                    </SelectContent>
+                  </Select>
+
+                  {validationErrors.customerGroup && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.customerGroup}
                     </p>
                   )}
                 </div>
@@ -1425,13 +1492,6 @@ export default function Customer({ onSuccess }: Props) {
               disabled={
                 !formData.customerCode.trim() ||
                 !formData.customerName.trim() ||
-                !formData.address.trim() ||
-                !formData.contactPerson.trim() ||
-                !formData.contactNumber.trim() ||
-                !formData.emailAddress.trim() ||
-                !formData.TIN.trim() ||
-                !formData.salesAgent.trim() ||
-                !formData.terms.trim() ||
                 Object.values(validationErrors).some((error) => error !== "")
               }>
               Update
@@ -1442,13 +1502,16 @@ export default function Customer({ onSuccess }: Props) {
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl overflow-y-auto rounded-xl p-6">
+        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-xl p-6 scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-transparent">
           <DialogHeader>
-            <DialogTitle>Customer Type Details</DialogTitle>
+            <DialogTitle>Customer Details</DialogTitle>
           </DialogHeader>
           {viewingCustomer && (
             <div className="grid gap-6 py-4">
               <Card className="p-4">
+                <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
+                  General info
+                </h4>
                 <div className="grid grid-cols-2 gap-4 mt-2">
                   {/* Customer Code */}
                   {viewingCustomer.customerCode && (
@@ -1534,30 +1597,6 @@ export default function Customer({ onSuccess }: Props) {
                     </div>
                   )}
 
-                  {/* Customer Group */}
-                  {viewingCustomer.customerGroup && (
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-xs text-muted-foreground">
-                        Customer Group
-                      </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                        {viewingCustomer.customerGroup}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Sales Agent */}
-                  {viewingCustomer.salesAgent && (
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-xs text-muted-foreground">
-                        Sales Agent
-                      </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                        {viewingCustomer.salesAgent}
-                      </div>
-                    </div>
-                  )}
-
                   {/* Terms */}
                   {viewingCustomer.terms && (
                     <div className="flex flex-col gap-1">
@@ -1570,6 +1609,232 @@ export default function Customer({ onSuccess }: Props) {
                     </div>
                   )}
                 </div>
+              </Card>
+              <Card className="p-4">
+                {/* Sales Agent */}
+                {viewingCustomer.salesAgent &&
+                  (() => {
+                    const matchedPerson = salesPersons.find(
+                      (person) =>
+                        `${person.firstName} ${person.lastName}`
+                          .toUpperCase()
+                          .trim() ===
+                        viewingCustomer.salesAgent.toUpperCase().trim()
+                    );
+
+                    return matchedPerson ? (
+                      <div className="flex flex-col gap-4 mt-4">
+                        <h4 className="text-lg font-semibold text-muted-foreground text-center">
+                          Sales Agent Details
+                        </h4>
+
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          {/* Full Name */}
+                          <div className="flex-1 bg-muted rounded-md px-4 py-3 text-sm border">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Full Name
+                            </Label>
+                            <div className="font-medium">
+                              {[matchedPerson.firstName, matchedPerson.lastName]
+                                .filter(Boolean)
+                                .join(" ")}
+                            </div>
+                          </div>
+
+                          {/* Sales Code */}
+                          <div className="flex-1 bg-muted rounded-md px-4 py-3 text-sm border">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Sales Code
+                            </Label>
+                            <div className="font-medium">
+                              {matchedPerson.salesPersonCode}
+                            </div>
+                          </div>
+                        </div>
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          {/* Contact Number */}
+                          <div className="flex-1 bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Contact Number
+                            </Label>
+                            <div className="font-medium">
+                              {matchedPerson.contactNumber}
+                            </div>
+                          </div>
+
+                          {/* Status */}
+                          <div className="flex-1 bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Status
+                            </Label>
+                            <div className="font-medium">
+                              {matchedPerson.status}
+                            </div>
+                          </div>
+                        </div>
+                        <div>
+                          <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                            <Label className="text-xs text-muted-foreground">
+                              Email Address
+                            </Label>
+                            <div>{matchedPerson.emailAddress}</div>
+                          </div>
+                        </div>
+
+                        <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                          <Label className="text-xs text-muted-foreground">
+                            Area
+                          </Label>
+                          <div>{matchedPerson.area}</div>
+                        </div>
+
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          {/* Created Date */}
+                          <div className="flex-1 bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Created Date
+                            </Label>
+                            <div className="font-medium">
+                              {new Date(
+                                matchedPerson.createdDT
+                              ).toLocaleDateString()}
+                            </div>
+                          </div>
+
+                          {/* Last Updated */}
+                          <div className="flex-1 bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Last Updated
+                            </Label>
+                            <div className="font-medium">
+                              {matchedPerson.updatedAt
+                                ? new Date(
+                                    matchedPerson.updatedAt
+                                  ).toLocaleDateString()
+                                : "—"}
+                            </div>
+                          </div>
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-destructive mt-2">
+                        Sales agent details not found.
+                      </div>
+                    );
+                  })()}
+              </Card>
+              <Card className="p-6 rounded-xl shadow-sm">
+                {viewingCustomer.customerGroup &&
+                  (() => {
+                    const matchedGroup = customerTypes.find(
+                      (group) =>
+                        group.groupName?.toUpperCase().trim() ===
+                        viewingCustomer.customerGroup.toUpperCase().trim()
+                    );
+
+                    return matchedGroup ? (
+                      <div className="flex flex-col gap-4">
+                        <h4 className="text-lg font-semibold text-muted-foreground text-center">
+                          Customer Group Details
+                        </h4>
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Group Name
+                            </Label>
+                            <div className="font-medium">
+                              {matchedGroup.groupName}
+                            </div>
+                          </div>
+
+                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Group Code
+                            </Label>
+                            <div className="font-medium">
+                              {matchedGroup.groupCode}
+                            </div>
+                          </div>
+
+                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Discount 1
+                            </Label>
+                            <div className="font-medium">
+                              {matchedGroup.discount1}%
+                            </div>
+                          </div>
+
+                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Discount 2
+                            </Label>
+                            <div className="font-medium">
+                              {matchedGroup.discount2}%
+                            </div>
+                          </div>
+
+                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Discount 3
+                            </Label>
+                            <div className="font-medium">
+                              {matchedGroup.discount3}%
+                            </div>
+                          </div>
+
+                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Discount 4
+                            </Label>
+                            <div className="font-medium">
+                              {matchedGroup.discount4}%
+                            </div>
+                          </div>
+
+                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Discount 5
+                            </Label>
+                            <div className="font-medium">
+                              {matchedGroup.discount5}%
+                            </div>
+                          </div>
+
+                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
+                            <Label className="text-xs text-muted-foreground mb-1 block">
+                              Created Date
+                            </Label>
+                            <div className="font-medium">
+                              {matchedGroup.createdAt
+                                ? new Date(
+                                    matchedGroup.createdAt
+                                  ).toLocaleDateString()
+                                : "—"}
+                            </div>
+                          </div>
+
+                          {matchedGroup.updatedAt && (
+                            <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
+                              <Label className="text-xs text-muted-foreground mb-1 block">
+                                Last Updated
+                              </Label>
+                              <div className="font-medium">
+                                {new Date(
+                                  matchedGroup.updatedAt
+                                ).toLocaleDateString()}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ) : (
+                      <div className="text-sm text-destructive text-center">
+                        Customer group details not found.
+                      </div>
+                    );
+                  })()}
               </Card>
             </div>
           )}
