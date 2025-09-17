@@ -73,3 +73,20 @@ export type SupplierType = {
   createdAt?: Date;
   updatedAt?: Date;
 };
+
+export type Customer = {
+  _id: string;
+  createdDT: string;
+  customerCode: string;
+  customerName: string;
+  address: string;
+  contactPerson: string;
+  contactNumber: string;
+  emailAddress?: string;
+  TIN: string;
+  customerGroup: string;
+  salesAgent: string;
+  terms: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
