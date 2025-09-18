@@ -15,6 +15,7 @@ export async function POST(request: Request) {
       warehouse: body.warehouse?.trim().toUpperCase(),
       itemName: body.itemName?.trim().toUpperCase(),
       total: Number(body.total) || 0,
+      totalQuantity: Number(body.totalQuantity) || 0,
       balance: Number(body.balance ?? body.amount) || 0,
       remarks: body.remarks,
       status: body.status ?? "Pending",

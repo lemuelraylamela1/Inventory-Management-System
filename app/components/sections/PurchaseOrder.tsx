@@ -158,6 +158,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     warehouse: "",
     itemName: "",
     total: 0,
+    totalQuantity: 0,
     balance: 0,
     remarks: "",
     status: "Pending",
@@ -175,6 +176,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     warehouse: "", // ← added
     itemName: "", // ← added
     total: "",
+    totalQuantity: "",
     balance: "",
     remarks: "",
     status: "",
@@ -220,6 +222,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       warehouse: "",
       itemName: "",
       total: "",
+      totalQuantity: "",
       balance: "",
       remarks: "",
       status: "",
@@ -246,15 +249,23 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
   // Compute amount and balance directly before submission
   useEffect(() => {
-    const total = itemsData.reduce((sum, item) => {
-      const quantity = Number(item.quantity) || 0;
-      const price = Number(item.purchasePrice) || 0;
-      return sum + quantity * price;
-    }, 0);
+    const { total, totalQuantity } = itemsData.reduce(
+      (acc, item) => {
+        const quantity = Number(item.quantity) || 0;
+        const price = Number(item.purchasePrice) || 0;
+
+        acc.total += quantity * price;
+        acc.totalQuantity += quantity;
+
+        return acc;
+      },
+      { total: 0, totalQuantity: 0 }
+    );
 
     setFormData((prev) => ({
       ...prev,
       total,
+      totalQuantity,
     }));
   }, [itemsData]);
 
@@ -273,6 +284,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       warehouse: formData.warehouse?.trim().toUpperCase() || "",
       itemName: formData.itemName?.trim().toUpperCase() || "",
       total: Number(formData.total) || 0,
+      totalQuantity: Number(formData.totalQuantity) || 0,
       balance: Number(formData.total) || 0,
       remarks: formData.remarks?.trim() || "",
       status: formData.status?.trim() || "Pending",
@@ -325,6 +337,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       warehouse: po.warehouse || "",
       itemName: po.itemName || "",
       total: po.total ?? 0,
+      totalQuantity: po.totalQuantity ?? 0,
       balance: po.balance ?? 0,
       remarks: po.remarks || "",
       status: po.status || "Pending",
@@ -337,6 +350,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       warehouse: "",
       itemName: "",
       total: "",
+      totalQuantity: "",
       balance: "",
       remarks: "",
       status: "",
@@ -362,6 +376,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
           warehouse: formData.warehouse.trim().toUpperCase(),
           itemName: formData.itemName.trim().toUpperCase(), // ← added
           total: Number(formData.total),
+          totalQuantity: Number(formData.totalQuantity),
           balance: Number(formData.balance),
           remarks: formData.remarks?.trim(),
           status: formData.status.trim(),
@@ -392,6 +407,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       warehouse: "",
       itemName: "",
       total: 0,
+      totalQuantity: 0,
       balance: 0,
       remarks: "",
       status: "Pending",
@@ -403,6 +419,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       warehouse: "",
       itemName: "",
       total: "",
+      totalQuantity: "",
       balance: "",
       remarks: "",
       status: "",
@@ -458,6 +475,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       warehouse: "",
       itemName: "",
       total: 0,
+      totalQuantity: 0,
       balance: 0,
       remarks: "",
       status: "Pending",
@@ -470,6 +488,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       warehouse: "",
       itemName: "",
       total: "",
+      totalQuantity: "",
       balance: "",
       remarks: "",
       status: "",
@@ -574,15 +593,6 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
     return () => clearInterval(interval); // cleanup on unmount
   }, []);
-
-  // useEffect(() => {
-  //   const computedAmount = formData.quantity * formData.purchasePrice;
-  //   setFormData((prev) => ({
-  //     ...prev,
-  //     amount: computedAmount,
-  //     balance: computedAmount, // optional: sync balance too
-  //   }));
-  // }, [formData.quantity, formData.purchasePrice]);
 
   const selectedItem = items.find(
     (item) => item.itemName?.toUpperCase().trim() === formData.itemName
@@ -862,175 +872,180 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                     </div>
                   </div>
                 </div>
+                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
+                  {/* Header Row */}
+                  <div className="text-xs font-semibold uppercase text-center">
+                    Item Code
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center">
+                    Item Name
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center">
+                    Qty
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center">
+                    UOM
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center">
+                    Purchase Price
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center">
+                    Amount
+                  </div>
+                  <div className="text-center"></div> {/* Trash icon column */}
+                </div>
+
                 {itemsData.map((item, index) => (
                   <div
                     key={index}
-                    className="flex flex-row flex-wrap items-start gap-4 border-b pb-4 mb-4">
-                    {/* Item Name */}
-                    <div className="flex flex-col flex-1 min-w-[180px]">
-                      <Label htmlFor={`item-name-${index}`}>Item Name</Label>
-                      <Select
-                        value={item.itemName}
-                        onValueChange={(value) => {
-                          const normalized = value.toUpperCase().trim();
-                          const selected = items.find(
-                            (option) =>
-                              option.itemName?.toUpperCase().trim() ===
-                              normalized
-                          );
-
-                          if (!selected) return;
-
-                          setItemsData((prev) => {
-                            const updated = [...prev];
-                            updated[index] = {
-                              ...updated[index],
-                              itemName: normalized,
-                              itemCode: selected.itemCode || "",
-                              unitType: selected.unitType || "",
-                              purchasePrice: selected.purchasePrice || 0,
-                            };
-                            return updated;
-                          });
-                        }}>
-                        <SelectTrigger
-                          id={`item-name-${index}`}
-                          className="text-sm uppercase w-full">
-                          {item.itemName || "Select Item"}
-                        </SelectTrigger>
-                        <SelectContent>
-                          {items.length > 0 ? (
-                            items.map((option) => {
-                              const label =
-                                option.itemName?.trim() || "Unnamed Item";
-                              return (
-                                <SelectItem
-                                  key={option._id || label}
-                                  value={label.toUpperCase()}>
-                                  {label}
-                                </SelectItem>
-                              );
-                            })
-                          ) : (
-                            <SelectItem disabled value="no-items">
-                              No items available
-                            </SelectItem>
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-
+                    className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
                     {/* Item Code */}
-                    <div className="flex flex-col flex-1 min-w-[180px]">
-                      <Label htmlFor={`item-code-${index}`}>Item Code</Label>
-                      <input
-                        type="text"
-                        id={`item-code-${index}`}
-                        value={item.itemCode || ""}
-                        readOnly
-                        className="text-sm w-full bg-muted px-3 py-2 rounded border border-input"
-                      />
-                    </div>
-
-                    {/* Unit of Measure */}
-                    <div className="flex flex-col flex-1 min-w-[180px]">
-                      <Label htmlFor={`item-unit-type-${index}`}>
-                        Unit of Measure
-                      </Label>
-                      <input
-                        type="text"
-                        id={`item-unit-type-${index}`}
-                        value={item.unitType || ""}
-                        readOnly
-                        className="text-sm w-full bg-muted px-3 py-2 rounded border border-input"
-                      />
-                    </div>
-
-                    {/* Purchase Price */}
-                    <div className="flex flex-col flex-1 min-w-[180px]">
-                      <Label htmlFor={`item-purchasePrice-${index}`}>
-                        Purchase Price
-                      </Label>
-                      <input
-                        type="text"
-                        id={`item-purchasePrice-${index}`}
-                        value={
-                          item.purchasePrice !== undefined
-                            ? item.purchasePrice.toLocaleString("en-PH", {
-                                style: "currency",
-                                currency: "PHP",
-                              })
-                            : ""
-                        }
-                        readOnly
-                        className="text-sm w-full bg-muted px-3 py-2 rounded border border-input"
-                      />
-                    </div>
+                    <input
+                      type="text"
+                      value={item.itemCode || ""}
+                      readOnly
+                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                    />
+                    {/* Item Name */}
+                    <Select
+                      value={item.itemName}
+                      onValueChange={(value) => {
+                        const normalized = value.toUpperCase().trim();
+                        const selected = items.find(
+                          (option) =>
+                            option.itemName?.toUpperCase().trim() === normalized
+                        );
+                        if (!selected) return;
+                        setItemsData((prev) => {
+                          const updated = [...prev];
+                          updated[index] = {
+                            ...updated[index],
+                            itemName: normalized,
+                            itemCode: selected.itemCode || "",
+                            unitType: selected.unitType || "",
+                            purchasePrice: selected.purchasePrice || 0,
+                          };
+                          return updated;
+                        });
+                      }}>
+                      <SelectTrigger
+                        id={`item-name-${index}`}
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 uppercase focus:outline-none focus:ring-1 focus:ring-primary">
+                        {item.itemName || "Select Item"}
+                      </SelectTrigger>
+                      <SelectContent>
+                        {items.length > 0 ? (
+                          items.map((option) => {
+                            const label =
+                              option.itemName?.trim() || "Unnamed Item";
+                            return (
+                              <SelectItem
+                                key={option._id || label}
+                                value={label.toUpperCase()}>
+                                {label}
+                              </SelectItem>
+                            );
+                          })
+                        ) : (
+                          <SelectItem disabled value="no-items">
+                            No items available
+                          </SelectItem>
+                        )}
+                      </SelectContent>
+                    </Select>
 
                     {/* Quantity */}
-                    <div className="flex flex-col flex-1 min-w-[180px]">
-                      <Label htmlFor={`item-quantity-${index}`}>Quantity</Label>
-                      <input
-                        type="number"
-                        id={`item-quantity-${index}`}
-                        min={1}
-                        value={item.quantity}
-                        onChange={(e) => {
-                          const value = Number(e.target.value);
-                          setItemsData((prev) => {
-                            const updated = [...prev];
-                            updated[index].quantity = value;
-                            return updated;
-                          });
-                        }}
-                        className="text-sm w-full px-3 py-2 rounded border border-input"
-                      />
-                    </div>
+                    <input
+                      type="number"
+                      min={1}
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const value = Number(e.target.value);
+                        setItemsData((prev) => {
+                          const updated = [...prev];
+                          updated[index].quantity = value;
+                          return updated;
+                        });
+                      }}
+                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+
+                    {/* Unit Type */}
+                    <input
+                      type="text"
+                      value={item.unitType || ""}
+                      readOnly
+                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                    />
+
+                    {/* Purchase Price */}
+                    <input
+                      type="text"
+                      value={
+                        item.purchasePrice !== undefined
+                          ? item.purchasePrice.toLocaleString("en-PH", {
+                              style: "currency",
+                              currency: "PHP",
+                            })
+                          : ""
+                      }
+                      readOnly
+                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                    />
 
                     {/* Amount */}
-                    <div className="flex flex-col flex-1 min-w-[180px]">
-                      <Label htmlFor={`item-amount-${index}`}>Amount</Label>
-                      <input
-                        type="text"
-                        id={`item-amount-${index}`}
-                        value={
-                          item.purchasePrice && item.quantity
-                            ? (
-                                item.purchasePrice * item.quantity
-                              ).toLocaleString("en-PH", {
+                    <input
+                      type="text"
+                      value={
+                        item.purchasePrice && item.quantity
+                          ? (item.purchasePrice * item.quantity).toLocaleString(
+                              "en-PH",
+                              {
                                 style: "currency",
                                 currency: "PHP",
-                              })
-                            : ""
-                        }
-                        readOnly
-                        className="text-sm w-full bg-muted px-3 py-2 rounded border border-input"
-                      />
-                    </div>
+                              }
+                            )
+                          : ""
+                      }
+                      readOnly
+                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                    />
 
                     {/* Trash Button */}
-                    <div className="flex flex-col justify-center min-w-[40px] pt-[1rem]">
-                      <Button
-                        variant="destructive"
-                        size="icon"
-                        className="p-4 w-6 h-6 flex items-center justify-center"
-                        onClick={() => handleRemoveItem(index)}
-                        title="Remove item">
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      className="w-full h-full flex items-center justify-center border border-border border-l-0 border-t-0"
+                      onClick={() => handleRemoveItem(index)}
+                      title="Remove item">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
                   </div>
                 ))}
-                <div className="flex w-full justify-end mt-4">
-                  <div className="flex flex-col min-w-[180px]">
-                    <Label htmlFor="total-amount">Total</Label>
+                <div className="flex w-full justify-end mt-4 gap-6">
+                  {/* Total Quantity */}
+                  <div className="flex items-center gap-2 min-w-[180px]">
+                    <span className="text-sm font-medium">Total Qty:</span>
+                    <input
+                      type="text"
+                      id="total-quantity"
+                      value={formData.totalQuantity}
+                      readOnly
+                      disabled
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
+                    />
+                  </div>
+
+                  {/* Total Amount */}
+                  <div className="flex items-center gap-2 min-w-[180px]">
+                    <span className="text-sm font-medium">Total Amount:</span>
                     <input
                       type="text"
                       id="total-amount"
                       value={formattedTotal}
                       readOnly
                       disabled
-                      className="text-sm font-semibold w-full bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
                     />
                   </div>
                 </div>

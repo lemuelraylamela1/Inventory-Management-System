@@ -98,6 +98,7 @@ export type PurchaseOrderType = {
   warehouse: string;
   itemName: string;
   total: number;
+  totalQuantity: number;
   balance: number;
   remarks?: string;
   status: "Pending" | "Approved" | "Rejected" | "Completed";
