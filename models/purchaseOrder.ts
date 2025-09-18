@@ -4,30 +4,34 @@ const PurchaseOrderSchema = new mongoose.Schema(
   {
     poNumber: {
       type: String,
-      required: true,
       unique: true,
     },
     referenceNumber: String,
     supplierName: {
       type: String,
-      required: true,
+
       trim: true,
       uppercase: true,
     },
     warehouse: {
       type: String,
-      required: true,
+
       trim: true,
       uppercase: true,
     },
-    amount: {
+
+    itemName: {
+      type: String,
+      trim: true,
+      uppercase: true,
+    },
+
+    total: {
       type: Number,
-      required: true,
       default: 0,
     },
     balance: {
       type: Number,
-      required: true,
       default: 0,
     },
     remarks: String,

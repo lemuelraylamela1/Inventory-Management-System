@@ -92,15 +92,16 @@ export type Customer = {
 };
 
 export type PurchaseOrderType = {
-  _id: string;
   poNumber: string;
-  referenceNumber?: string;
-  supplierName: string; // ← added
-  warehouse: string; // ← added
-  amount: number;
+  referenceNumber: string;
+  supplierName: string;
+  warehouse: string;
+  itemName: string;
+  total: number;
   balance: number;
   remarks?: string;
   status: "Pending" | "Approved" | "Rejected" | "Completed";
+  _id: string;
   createdAt: string;
   updatedAt: string;
 };

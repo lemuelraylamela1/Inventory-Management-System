@@ -82,6 +82,30 @@ function DialogHeader({ className, ...props }: React.ComponentProps<"div">) {
   );
 }
 
+const DialogPanel = React.forwardRef<
+  React.ElementRef<typeof DialogPrimitive.Content>,
+  React.ComponentPropsWithoutRef<typeof DialogPrimitive.Content>
+>(({ className, children, ...props }, ref) => (
+  <DialogPortal>
+    <DialogOverlay />
+    <DialogPrimitive.Content
+      ref={ref}
+      data-slot="dialog-panel"
+      className={cn(
+        "bg-background fixed top-[50%] left-[50%] z-50 transform -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-lg border shadow-xl outline outline-white/10 outline-offset-[-1px] transition-all duration-300 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=open]:fade-in-0 data-[state=closed]:fade-out-0 data-[state=open]:zoom-in-95 data-[state=closed]:zoom-out-95 w-full sm:max-w-screen-xl p-6",
+        className
+      )}
+      {...props}>
+      {children}
+      <DialogPrimitive.Close className="absolute top-4 right-4 opacity-70 transition-opacity hover:opacity-100 focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 rounded-xs [&_svg]:size-4">
+        <XIcon />
+        <span className="sr-only">Close</span>
+      </DialogPrimitive.Close>
+    </DialogPrimitive.Content>
+  </DialogPortal>
+));
+DialogPanel.displayName = "DialogPanel";
+
 function DialogFooter({ className, ...props }: React.ComponentProps<"div">) {
   return (
     <div
@@ -129,6 +153,7 @@ export {
   DialogFooter,
   DialogHeader,
   DialogOverlay,
+  DialogPanel,
   DialogPortal,
   DialogTitle,
   DialogTrigger,
