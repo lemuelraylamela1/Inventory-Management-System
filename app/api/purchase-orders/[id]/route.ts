@@ -1,47 +1,59 @@
 import PurchaseOrder from "@/models/purchaseOrder";
 import mongoose from "mongoose";
 import { NextRequest, NextResponse } from "next/server";
+import { PurchaseOrderType } from "@/app/components/sections/type";
+
+const allowedStatuses = [
+  "Pending",
+  "Approved",
+  "Rejected",
+  "Completed",
+] as const;
+
+function normalizeUpdateFields(fields: PurchaseOrderType) {
+  const allowedStatuses = [
+    "Pending",
+    "Approved",
+    "Rejected",
+    "Completed",
+  ] as const;
+
+  return {
+    poNumber: fields.poNumber?.trim() || "",
+    referenceNumber: fields.referenceNumber?.trim() || "",
+    supplierName: fields.supplierName?.trim().toUpperCase() || "",
+    warehouse: fields.warehouse?.trim().toUpperCase() || "",
+    itemName: fields.itemName?.trim().toUpperCase() || "",
+    total: Number(fields.total) || 0,
+    totalQuantity: Number(fields.totalQuantity) || 0,
+    balance: Number(fields.balance ?? fields.total) || 0,
+    remarks: fields.remarks?.trim() || "",
+    status: allowedStatuses.includes(
+      fields.status?.trim() as (typeof allowedStatuses)[number]
+    )
+      ? fields.status!.trim()
+      : "Pending",
+  };
+}
 
 // PUT: Update a purchase order
-export async function PUT(request: Request) {
+export async function PUT(
+  request: NextRequest,
+  { params }: { params: { id: string } }
+) {
   try {
     const body = await request.json();
-    const { id, ...updateFields } = body;
+    const id = params.id;
+    const rawFields = body;
 
-    if (!id) {
+    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
-        { error: "Missing purchase order ID" },
+        { error: "Invalid or missing purchase order ID" },
         { status: 400 }
       );
     }
 
-    // Normalize string fields
-    if (updateFields.supplierName) {
-      updateFields.supplierName = updateFields.supplierName
-        .trim()
-        .toUpperCase();
-    }
-    if (updateFields.warehouse) {
-      updateFields.warehouse = updateFields.warehouse.trim().toUpperCase();
-    }
-    if (updateFields.itemName) {
-      updateFields.itemName = updateFields.itemName.trim().toUpperCase();
-    }
-    if (typeof updateFields.total !== "undefined") {
-      updateFields.total = Number(updateFields.total) || 0;
-    }
-    if (typeof updateFields.balance !== "undefined") {
-      updateFields.balance = Number(updateFields.balance) || 0;
-    }
-    if (updateFields.remarks) {
-      updateFields.remarks = updateFields.remarks.trim();
-    }
-    if (updateFields.status) {
-      const allowedStatuses = ["Pending", "Approved", "Rejected", "Completed"];
-      updateFields.status = allowedStatuses.includes(updateFields.status)
-        ? updateFields.status
-        : "Pending";
-    }
+    const updateFields = normalizeUpdateFields(rawFields);
 
     const updatedPO = await PurchaseOrder.findByIdAndUpdate(id, updateFields, {
       new: true,
@@ -89,7 +101,7 @@ export async function DELETE(request: NextRequest) {
     }
 
     return NextResponse.json(
-      { message: "Purchase order deleted successfully" },
+      { message: "Purchase order deleted successfully", id },
       { status: 200 }
     );
   } catch (error) {

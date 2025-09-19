@@ -23,6 +23,7 @@ export type ItemType = {
   unitStatus: "ACTIVE" | "INACTIVE";
   createdAt?: Date;
   updatedAt?: Date;
+  quantity?: number;
 };
 
 export type WarehouseType = {

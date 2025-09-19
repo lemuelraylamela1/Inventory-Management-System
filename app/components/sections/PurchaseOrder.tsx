@@ -338,41 +338,81 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     // setIsCreateDialogOpen(false);
   };
 
+  const defaultValidationErrors: Record<
+    keyof Omit<PurchaseOrderType, "_id" | "createdAt" | "updatedAt">,
+    string
+  > = {
+    poNumber: "",
+    referenceNumber: "",
+    supplierName: "",
+    warehouse: "",
+    itemName: "",
+    total: "",
+    totalQuantity: "",
+    balance: "",
+    remarks: "",
+    status: "",
+  };
+
+  const allowedStatuses: PurchaseOrderType["status"][] = [
+    "Pending",
+    "Approved",
+    "Rejected",
+    "Completed",
+  ];
+
   const handleEdit = (po: PurchaseOrderType) => {
     setEditingPO(po);
 
-    setFormData({
-      poNumber: po.poNumber || "",
-      referenceNumber: po.referenceNumber || "",
-      supplierName: po.supplierName || "",
-      warehouse: po.warehouse || "",
-      itemName: po.itemName || "",
-      total: po.total ?? 0,
-      totalQuantity: po.totalQuantity ?? 0,
-      balance: po.balance ?? 0,
-      remarks: po.remarks || "",
-      status: po.status || "Pending",
-    });
+    const normalizedFormData: Omit<
+      PurchaseOrderType,
+      "_id" | "createdAt" | "updatedAt"
+    > = {
+      poNumber: po.poNumber?.trim() || "",
+      referenceNumber: po.referenceNumber?.trim() || "",
+      supplierName: po.supplierName?.trim().toUpperCase() || "",
+      warehouse: po.warehouse?.trim().toUpperCase() || "",
+      itemName: po.itemName?.trim().toUpperCase() || "",
+      total: Number(po.total) || 0,
+      totalQuantity: Number(po.totalQuantity) || 0,
+      balance: Number(po.balance ?? po.total) || 0,
+      remarks: po.remarks?.trim() || "",
+      status: allowedStatuses.includes(
+        po.status?.trim() as PurchaseOrderType["status"]
+      )
+        ? (po.status.trim() as PurchaseOrderType["status"])
+        : "Pending",
+    };
 
-    setValidationErrors({
-      poNumber: "",
-      referenceNumber: "",
-      supplierName: "",
-      warehouse: "",
-      itemName: "",
-      total: "",
-      totalQuantity: "",
-      balance: "",
-      remarks: "",
-      status: "",
-    });
+    setFormData(normalizedFormData);
+    setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(true);
   };
 
   const handleUpdate = async () => {
     if (!editingPO || !validateForm(true)) {
+      console.warn("Validation failed or editingPO is missing:", { editingPO });
       return;
     }
+
+    const payload = {
+      poNumber: formData.poNumber.trim(),
+      referenceNumber: formData.referenceNumber.trim(),
+      supplierName: formData.supplierName.trim().toUpperCase(),
+      warehouse: formData.warehouse.trim().toUpperCase(),
+      itemName: formData.itemName.trim().toUpperCase(),
+      total: Number(formData.total) || 0,
+      totalQuantity: Number(formData.totalQuantity) || 0,
+      balance: Number(formData.balance ?? formData.total) || 0,
+      remarks: formData.remarks?.trim() || "",
+      status: allowedStatuses.includes(
+        formData.status?.trim() as PurchaseOrderType["status"]
+      )
+        ? (formData.status?.trim() as PurchaseOrderType["status"])
+        : "Pending",
+    };
+
+    console.log("📦 Sending update payload:", payload);
 
     try {
       const res = await fetch(`/api/purchase-orders/${editingPO._id}`, {
@@ -380,32 +420,38 @@ export default function PurchaseOrder({ onSuccess }: Props) {
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          poNumber: formData.poNumber.trim(),
-          referenceNumber: formData.referenceNumber?.trim(),
-          supplierName: formData.supplierName.trim().toUpperCase(),
-          warehouse: formData.warehouse.trim().toUpperCase(),
-          itemName: formData.itemName.trim().toUpperCase(), // ← added
-          total: Number(formData.total),
-          totalQuantity: Number(formData.totalQuantity),
-          balance: Number(formData.balance),
-          remarks: formData.remarks?.trim(),
-          status: formData.status.trim(),
-        }),
+        body: JSON.stringify(payload),
       });
 
+      console.log("📡 Response status:", res.status);
+      const text = await res.text();
+      console.log("📨 Raw response body:", text);
+
       if (!res.ok) {
-        throw new Error("Failed to update purchase order");
+        console.error("❌ Update failed:", res.status, text);
+        alert(`Update failed: ${text}`);
+        return;
       }
 
-      const updatedPO = await res.json();
+      let updatedPO: PurchaseOrderType;
+      try {
+        updatedPO = JSON.parse(text);
+      } catch (parseErr) {
+        console.error("⚠️ Failed to parse JSON:", parseErr, text);
+        alert("Unexpected server response. Please try again.");
+        return;
+      }
 
-      // Update local state
+      console.log("✅ Parsed updated PO:", updatedPO);
+
       setPurchaseOrders((prev) =>
-        prev.map((po) => (po._id === editingPO._id ? updatedPO : po))
+        Array.isArray(prev)
+          ? prev.map((po) => (po._id === editingPO._id ? updatedPO : po))
+          : [updatedPO]
       );
     } catch (err) {
-      console.error("Update error:", err);
+      console.error("🔥 Network or unexpected error:", err);
+      alert("Something went wrong while updating the purchase order.");
       return;
     }
 
@@ -423,18 +469,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       remarks: "",
       status: "Pending",
     });
-    setValidationErrors({
-      poNumber: "",
-      referenceNumber: "",
-      supplierName: "",
-      warehouse: "",
-      itemName: "",
-      total: "",
-      totalQuantity: "",
-      balance: "",
-      remarks: "",
-      status: "",
-    });
+    setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(false);
   };
 
@@ -1372,6 +1407,9 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                             </DropdownMenuTrigger>
 
                             <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuLabel>
+                                Export Options
+                              </DropdownMenuLabel>
                               <DropdownMenuSeparator />
                               <DropdownMenuItem
                                 onClick={() =>
