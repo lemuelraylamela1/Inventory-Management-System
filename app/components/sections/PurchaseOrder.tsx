@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Eye, MoreVertical, FileText, FileSpreadsheet } from "lucide-react";
+import { Eye, MoreVertical, FileText } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import {
   Table,
@@ -1486,62 +1486,47 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Purchase Orders</DialogTitle>
           </DialogHeader>
 
-          <div className="grid gap-4 py-4">
-            <Card className="p-4">
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="edit-supplier-name">Supplier Name</Label>
-                  <Select
-                    value={formData.supplierName}
-                    onValueChange={(value) => {
-                      const normalized = value.toUpperCase().trim();
-                      setFormData((prev) => ({
-                        ...prev,
-                        supplierName: normalized,
-                      }));
-                      setValidationErrors((prev) => ({
-                        ...prev,
-                        supplierName: "",
-                      }));
-                    }}>
-                    <SelectTrigger
-                      className={`text-sm uppercase w-full ${
-                        validationErrors.supplierName
-                          ? "border-destructive"
-                          : ""
-                      }`}>
-                      {formData.supplierName || "Select Supplier"}
-                    </SelectTrigger>
-
-                    <SelectContent>
-                      {Array.isArray(suppliers) &&
-                        suppliers.map((supplier) => {
-                          const label =
-                            supplier.supplierName || "Unnamed Supplier";
-                          return (
-                            <SelectItem
-                              key={supplier._id}
-                              value={label.toUpperCase()}>
-                              {label}
-                            </SelectItem>
-                          );
-                        })}
-                    </SelectContent>
-                  </Select>
-
-                  {validationErrors.supplierName && (
-                    <p className="text-sm text-destructive">
-                      {validationErrors.supplierName}
-                    </p>
-                  )}
+          {/* Form Fields */}
+          <div className="space-y-4">
+            <div className="grid gap-4 py-4">
+              {/* First Row */}
+              <div className="flex flex-row flex-wrap gap-4">
+                {/* PO Number */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="edit-po-number">PO Number</Label>
+                  <Input
+                    id="edit-po-number"
+                    value={formData.poNumber}
+                    readOnly
+                    disabled
+                    placeholder="Auto-generated"
+                    className="text-sm uppercase bg-muted cursor-not-allowed"
+                  />
                 </div>
 
-                <div className="grid gap-2 col-span-2">
+                {/* Requested Date */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="edit-requested-date">Requested Date</Label>
+                  <Input
+                    id="edit-requested-date"
+                    value={new Date().toLocaleDateString("en-PH", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                    readOnly
+                    disabled
+                    className="text-sm bg-muted cursor-not-allowed"
+                  />
+                </div>
+
+                {/* Reference Number */}
+                <div className="flex flex-col flex-[2] min-w-[300px]">
                   <Label htmlFor="edit-reference-number">
                     Reference Number
                   </Label>
@@ -1572,8 +1557,64 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                     </p>
                   )}
                 </div>
+              </div>
 
-                <div className="grid gap-2">
+              {/* Second Row */}
+              <div className="flex flex-row flex-wrap gap-4">
+                {/* Supplier Name */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="edit-supplier-name">Supplier Name</Label>
+                  <Select
+                    value={formData.supplierName}
+                    onValueChange={(value) => {
+                      const normalized = value.toUpperCase().trim();
+                      setFormData((prev) => ({
+                        ...prev,
+                        supplierName: normalized,
+                      }));
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        supplierName: "",
+                      }));
+                    }}>
+                    <SelectTrigger
+                      className={`text-sm uppercase w-full ${
+                        validationErrors.supplierName
+                          ? "border-destructive"
+                          : ""
+                      }`}>
+                      {formData.supplierName || "Select Supplier"}
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.isArray(suppliers) && suppliers.length > 0 ? (
+                        suppliers.map((supplier) => {
+                          const label =
+                            supplier.supplierName?.trim() || "Unnamed Supplier";
+                          const value = label.toUpperCase();
+                          return (
+                            <SelectItem
+                              key={supplier._id || value}
+                              value={value}>
+                              {label}
+                            </SelectItem>
+                          );
+                        })
+                      ) : (
+                        <SelectItem disabled value="no-suppliers">
+                          No suppliers available
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {validationErrors.supplierName && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.supplierName}
+                    </p>
+                  )}
+                </div>
+
+                {/* Warehouse */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
                   <Label htmlFor="edit-warehouse">Warehouse</Label>
                   <Select
                     value={formData.warehouse}
@@ -1594,54 +1635,276 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       }`}>
                       {formData.warehouse || "Select Warehouse"}
                     </SelectTrigger>
-
                     <SelectContent>
-                      {Array.isArray(warehouses) &&
+                      {Array.isArray(warehouses) && warehouses.length > 0 ? (
                         warehouses.map((warehouse) => {
                           const label =
-                            warehouse.warehouse_name || "Unnamed Warehouse";
+                            warehouse.warehouse_name?.trim() ||
+                            "Unnamed Warehouse";
                           return (
                             <SelectItem
-                              key={warehouse._id}
+                              key={warehouse._id || label}
                               value={label.toUpperCase()}>
                               {label}
                             </SelectItem>
                           );
-                        })}
+                        })
+                      ) : (
+                        <SelectItem disabled value="no-warehouses">
+                          No warehouses available
+                        </SelectItem>
+                      )}
                     </SelectContent>
                   </Select>
-
                   {validationErrors.warehouse && (
                     <p className="text-sm text-destructive">
                       {validationErrors.warehouse}
                     </p>
                   )}
                 </div>
+
+                {/* Remarks */}
+                <div className="flex flex-col flex-[2] min-w-[300px]">
+                  <Label htmlFor="edit-remarks">Remarks</Label>
+                  <Textarea
+                    id="edit-remarks"
+                    value={formData.remarks}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData((prev) => ({ ...prev, remarks: value }));
+                      setValidationErrors((prev) => ({ ...prev, remarks: "" }));
+                    }}
+                    placeholder="Add any additional notes or comments here"
+                    className={`text-sm ${
+                      validationErrors.remarks ? "border-destructive" : ""
+                    }`}
+                  />
+                  {validationErrors.remarks && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.remarks}
+                    </p>
+                  )}
+                </div>
               </div>
-            </Card>
+            </div>
+            <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
+              {/* Header Row */}
+              <div className="text-xs font-semibold uppercase text-center">
+                Item Code
+              </div>
+              <div className="text-xs font-semibold uppercase text-center">
+                Item Name
+              </div>
+              <div className="text-xs font-semibold uppercase text-center">
+                Qty
+              </div>
+              <div className="text-xs font-semibold uppercase text-center">
+                UOM
+              </div>
+              <div className="text-xs font-semibold uppercase text-center">
+                Purchase Price
+              </div>
+              <div className="text-xs font-semibold uppercase text-center">
+                Amount
+              </div>
+              <div className="text-center"></div> {/* Trash icon column */}
+            </div>
           </div>
-          <div className="flex justify-end gap-2">
-            <Button
-              variant="outline"
-              onClick={() => {
-                setIsEditDialogOpen(false);
-                setEditingPO(null);
-                resetForm();
-              }}>
-              Cancel
-            </Button>
-            <Button
-              onClick={handleUpdate}
-              // disabled={
-              //   !formData.customerCode.trim() ||
-              //   !formData.customerName.trim() ||
-              //   Object.values(validationErrors).some((error) => error !== "")
-              // }>
-            >
-              Update
-            </Button>
+
+          {itemsData.map((item, index) => (
+            <div
+              key={index}
+              className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
+              {/* Item Code */}
+              <input
+                type="text"
+                value={item.itemCode || ""}
+                readOnly
+                className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+              />
+
+              {/* Item Name */}
+              <Select
+                value={item.itemName}
+                onValueChange={(value) => {
+                  const normalized = value.toUpperCase().trim();
+                  const selected = items.find(
+                    (option) =>
+                      option.itemName?.toUpperCase().trim() === normalized
+                  );
+                  if (!selected) return;
+
+                  setItemsData((prev) => {
+                    const updated = [...prev];
+                    updated[index] = {
+                      ...updated[index],
+                      itemName: normalized,
+                      itemCode: selected.itemCode || "",
+                      unitType: selected.unitType || "",
+                      purchasePrice: selected.purchasePrice || 0,
+                    };
+                    return updated;
+                  });
+
+                  // Optional: sync to formData if needed
+                  setFormData((prev) => ({
+                    ...prev,
+                    itemName: normalized,
+                  }));
+                }}>
+                <SelectTrigger
+                  id={`edit-item-name-${index}`}
+                  className="w-full px-2 py-1 border border-border border-l-0 border-t-0 uppercase focus:outline-none focus:ring-1 focus:ring-primary">
+                  {item.itemName || "Select Item"}
+                </SelectTrigger>
+
+                <SelectContent>
+                  {items.length > 0 ? (
+                    items.map((option) => {
+                      const label = option.itemName?.trim() || "Unnamed Item";
+                      return (
+                        <SelectItem
+                          key={option._id || label}
+                          value={label.toUpperCase()}>
+                          {label}
+                        </SelectItem>
+                      );
+                    })
+                  ) : (
+                    <SelectItem disabled value="no-items">
+                      No items available
+                    </SelectItem>
+                  )}
+                </SelectContent>
+              </Select>
+
+              {/* Quantity */}
+              <input
+                type="number"
+                min={1}
+                value={item.quantity}
+                onChange={(e) => {
+                  const value = Number(e.target.value);
+                  setItemsData((prev) => {
+                    const updated = [...prev];
+                    updated[index].quantity = value;
+                    return updated;
+                  });
+                }}
+                className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+              />
+
+              {/* Unit Type */}
+              <input
+                type="text"
+                value={item.unitType || ""}
+                readOnly
+                className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+              />
+
+              {/* Purchase Price */}
+              <input
+                type="text"
+                value={
+                  item.purchasePrice !== undefined
+                    ? item.purchasePrice.toLocaleString("en-PH", {
+                        style: "currency",
+                        currency: "PHP",
+                      })
+                    : ""
+                }
+                readOnly
+                className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+              />
+
+              {/* Amount */}
+              <input
+                type="text"
+                value={
+                  item.purchasePrice && item.quantity
+                    ? (item.purchasePrice * item.quantity).toLocaleString(
+                        "en-PH",
+                        {
+                          style: "currency",
+                          currency: "PHP",
+                        }
+                      )
+                    : ""
+                }
+                readOnly
+                className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+              />
+
+              {/* Trash Button */}
+              <Button
+                variant="destructive"
+                size="icon"
+                className="w-full h-full flex items-center justify-center border border-border border-l-0 border-t-0"
+                onClick={() => handleRemoveItem(index)}
+                title="Remove item">
+                <Trash2 className="w-4 h-4" />
+              </Button>
+            </div>
+          ))}
+
+          {/* Totals */}
+          <div className="flex w-full justify-end mt-4 gap-6">
+            <div className="flex items-center gap-2 min-w-[180px]">
+              <span className="text-sm font-medium">Total Qty:</span>
+              <input
+                type="text"
+                id="edit-total-quantity"
+                value={formData.totalQuantity}
+                readOnly
+                disabled
+                className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 min-w-[180px]">
+              <span className="text-sm font-medium">Total Amount:</span>
+              <input
+                type="text"
+                id="edit-total-amount"
+                value={formattedTotal}
+                readOnly
+                disabled
+                className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
+              />
+            </div>
           </div>
-        </DialogContent>
+
+          {/* Footer Actions */}
+          <DialogFooter className="pt-4 border-t">
+            <div className="flex w-full justify-between items-center">
+              {/* Left: Add Item */}
+              <Button onClick={handleAddItem}>➕ Add Item</Button>
+
+              {/* Right: Cancel & Update */}
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingPO(null);
+                    resetForm();
+                  }}>
+                  Cancel
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  {/* Primary Update Button */}
+                  <Button
+                    onClick={handleUpdate}
+                    className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150"
+                    aria-label="Update">
+                    ✏️ Update
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogPanel>
       </Dialog>
 
       {/* View Dialog */}
