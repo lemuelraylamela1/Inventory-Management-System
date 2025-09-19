@@ -92,18 +92,30 @@ export type Customer = {
   updatedAt?: Date;
 };
 
+export type PurchaseOrderItem = {
+  itemName: string;
+  quantity: number;
+  unitType?: string;
+  purchasePrice: number;
+  itemCode?: string;
+};
+
 export type PurchaseOrderType = {
-  poNumber: string;
+  _id: string;
   referenceNumber: string;
   supplierName: string;
   warehouse: string;
-  itemName: string;
-  total: number;
-  totalQuantity: number;
-  balance: number;
+  items: PurchaseOrderItem[];
+  total?: number;
+  totalQuantity?: number;
+  balance?: number;
   remarks?: string;
   status: "Pending" | "Approved" | "Rejected" | "Completed";
+};
+
+export type PurchaseOrderResponse = PurchaseOrderType & {
   _id: string;
+  poNumber: string;
   createdAt: string;
   updatedAt: string;
 };

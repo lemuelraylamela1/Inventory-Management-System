@@ -1,41 +1,73 @@
 import mongoose from "mongoose";
 
+const ItemSchema = new mongoose.Schema(
+  {
+    itemName: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    unitType: {
+      type: String,
+      trim: true,
+      uppercase: true,
+    },
+    purchasePrice: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    itemCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+    },
+  },
+  { _id: false }
+);
+
 const PurchaseOrderSchema = new mongoose.Schema(
   {
     poNumber: {
       type: String,
       unique: true,
     },
-    referenceNumber: String,
+    referenceNumber: {
+      type: String,
+      trim: true,
+      uppercase: true,
+    },
     supplierName: {
       type: String,
-
       trim: true,
       uppercase: true,
     },
     warehouse: {
       type: String,
-
       trim: true,
       uppercase: true,
     },
-
-    itemName: {
-      type: String,
-      trim: true,
-      uppercase: true,
+    items: {
+      type: [ItemSchema],
+      validate: [
+        (val: { itemName: string }[]) => val.length > 0,
+        "At least one item is required",
+      ],
     },
-
     total: {
       type: Number,
       default: 0,
     },
-
     totalQuantity: {
       type: Number,
       default: 0,
     },
-
     balance: {
       type: Number,
       default: 0,
