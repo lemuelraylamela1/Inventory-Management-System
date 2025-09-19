@@ -1207,10 +1207,25 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       value={item.quantity}
                       onChange={(e) => {
                         const value = Number(e.target.value);
+
+                        // ✅ Update itemsData
                         setItemsData((prev) => {
                           const updated = [...prev];
                           updated[index].quantity = value;
                           return updated;
+                        });
+
+                        // ✅ Sync to formData.items
+                        setFormData((prev) => {
+                          const updatedItems = [...prev.items];
+                          updatedItems[index] = {
+                            ...updatedItems[index],
+                            quantity: value,
+                          };
+                          return {
+                            ...prev,
+                            items: updatedItems,
+                          };
                         });
                       }}
                       className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
