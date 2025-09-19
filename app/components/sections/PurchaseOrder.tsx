@@ -3,7 +3,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Eye } from "lucide-react";
+import { Eye, MoreVertical, FileText, FileSpreadsheet } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import {
   Table,
@@ -50,8 +50,19 @@ import {
   CardHeader,
   CardTitle,
 } from "../ui/card";
+import {
+  DropdownMenu,
+  DropdownMenuTrigger,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+} from "../ui/dropdown-menu";
 
 import { Plus, Search, Edit, Trash2 } from "lucide-react";
+
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 import type {
   ItemType,
@@ -324,7 +335,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       alert("Something went wrong. Please check your connection or try again.");
     }
 
-    setIsCreateDialogOpen(false);
+    // setIsCreateDialogOpen(false);
   };
 
   const handleEdit = (po: PurchaseOrderType) => {
@@ -616,6 +627,113 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     setItemsData((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const handleSave = async () => {
+    if (!validateForm()) {
+      return;
+    }
+
+    handleCreate();
+    setIsCreateDialogOpen(false);
+  };
+
+  const handleSaveAndCreate = () => {
+    if (!validateForm()) {
+      return;
+    }
+    handleCreate();
+    resetForm();
+    setIsCreateDialogOpen(true);
+  };
+
+  const enrichedPOs = purchaseOrders.map((po) => {
+    const matchedItem = items.find(
+      (item) =>
+        item.itemName?.toUpperCase().trim() ===
+        po.itemName?.toUpperCase().trim()
+    );
+
+    return {
+      ...po,
+      itemCode: matchedItem?.itemCode || "",
+      unitType: matchedItem?.unitType || "",
+      purchasePrice: matchedItem?.purchasePrice || 0,
+      // You can also calculate amount if needed
+      amount: matchedItem?.purchasePrice
+        ? matchedItem.purchasePrice * po.totalQuantity
+        : 0,
+    };
+  });
+
+  const handleExportPDF = (
+    items: ItemType[],
+    poMeta: {
+      poNumber: string;
+      referenceNumber: string;
+      supplierName: string;
+      warehouse: string;
+      status: string;
+      remarks?: string;
+    }
+  ) => {
+    if (!items || items.length === 0) {
+      toast.error("No items to export");
+      return;
+    }
+
+    const doc = new jsPDF();
+
+    const title = "Purchase Order Summary";
+    const summaryLines = [
+      `PO Number: ${poMeta.poNumber}`,
+      `Reference No: ${poMeta.referenceNumber}`,
+      `Supplier: ${poMeta.supplierName}`,
+      `Warehouse: ${poMeta.warehouse}`,
+      `Status: ${poMeta.status}`,
+      `Remarks: ${poMeta.remarks || "—"}`,
+    ];
+
+    doc.setFontSize(16);
+    doc.text(title, 14, 20);
+
+    doc.setFontSize(10);
+    summaryLines.forEach((line, i) => {
+      doc.text(line, 14, 28 + i * 6);
+    });
+
+    const tableStartY = 28 + summaryLines.length * 6 + 10;
+
+    const tableHead = [["Item Code", "Item Name", "UOM", "Purchase Price"]];
+    const tableBody = items.map((item) => [
+      item.itemCode,
+      item.itemName,
+      item.unitType,
+      `₱${item.purchasePrice.toFixed(2)}`,
+    ]);
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: tableHead,
+      body: tableBody,
+      styles: {
+        fontSize: 9,
+        halign: "center",
+        cellPadding: 4,
+      },
+      headStyles: {
+        fillColor: [41, 98, 255],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245],
+      },
+    });
+
+    const filename = `PO-${poMeta.poNumber}.pdf`;
+    doc.save(filename);
+    toast.success("PDF exported successfully");
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -646,6 +764,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
               onOpenChange={(open) => {
                 if (open) {
                   resetForm();
+                  setItemsData([]);
                 }
                 setIsCreateDialogOpen(open);
               }}>
@@ -916,6 +1035,8 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                             option.itemName?.toUpperCase().trim() === normalized
                         );
                         if (!selected) return;
+
+                        // ✅ Update itemsData
                         setItemsData((prev) => {
                           const updated = [...prev];
                           updated[index] = {
@@ -927,12 +1048,19 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                           };
                           return updated;
                         });
+
+                        // ✅ Sync to formData for backend
+                        setFormData((prev) => ({
+                          ...prev,
+                          itemName: normalized,
+                        }));
                       }}>
                       <SelectTrigger
                         id={`item-name-${index}`}
                         className="w-full px-2 py-1 border border-border border-l-0 border-t-0 uppercase focus:outline-none focus:ring-1 focus:ring-primary">
                         {item.itemName || "Select Item"}
                       </SelectTrigger>
+
                       <SelectContent>
                         {items.length > 0 ? (
                           items.map((option) => {
@@ -1066,7 +1194,50 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                         }}>
                         Cancel
                       </Button>
-                      <Button onClick={handleCreate}>Create</Button>
+                      {/* <Button onClick={handleCreate}>Create</Button> */}
+                      <div className="flex items-center gap-2">
+                        {/* Primary Save Button */}
+                        <Button
+                          onClick={handleSave}
+                          className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150"
+                          aria-label="Save">
+                          💾 Save
+                        </Button>
+
+                        {/* Dropdown for More Actions */}
+                        <DropdownMenu>
+                          <DropdownMenuTrigger asChild>
+                            <Button
+                              className="bg-muted text-foreground hover:bg-muted/80 px-3 py-2 rounded-md shadow-sm transition-colors duration-150"
+                              aria-label="Open more save options">
+                              ▾ More
+                            </Button>
+                          </DropdownMenuTrigger>
+
+                          <DropdownMenuContent
+                            align="end"
+                            sideOffset={8}
+                            className="w-[220px] rounded-md border border-border bg-white shadow-lg animate-in fade-in slide-in-from-top-2">
+                            <DropdownMenuLabel className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                              Additional actions
+                            </DropdownMenuLabel>
+
+                            <DropdownMenuSeparator />
+
+                            <DropdownMenuItem
+                              onClick={handleSaveAndCreate}
+                              className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">
+                              🆕 Save & New
+                            </DropdownMenuItem>
+
+                            {/* <DropdownMenuItem
+                              onClick={handleSaveAndPreview}
+                              className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">
+                              👁️ Save & Preview
+                            </DropdownMenuItem> */}
+                          </DropdownMenuContent>
+                        </DropdownMenu>
+                      </div>
                     </div>
                   </div>
                 </DialogFooter>
@@ -1190,6 +1361,34 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                               </AlertDialogFooter>
                             </AlertDialogContent>
                           </AlertDialog>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="More actions">
+                                <MoreVertical className="w-4 h-4" />
+                              </Button>
+                            </DropdownMenuTrigger>
+
+                            <DropdownMenuContent align="end" className="w-40">
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() =>
+                                  handleExportPDF(items, {
+                                    poNumber: po.poNumber,
+                                    referenceNumber: po.referenceNumber,
+                                    supplierName: po.supplierName,
+                                    warehouse: po.warehouse,
+                                    status: po.status,
+                                    remarks: po.remarks,
+                                  })
+                                }>
+                                <FileText className="w-4 h-4 mr-2 text-red-600" />
+                                Export as PDF
+                              </DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -1409,138 +1608,131 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-xl p-6 scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-transparent">
+        <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-xl p-6 scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-transparent bg-white shadow-xl border border-border">
           <DialogHeader>
             <DialogTitle>PO Details</DialogTitle>
           </DialogHeader>
+
           {viewingPO && (
             <div className="grid gap-6 py-4">
-              <Card className="p-4">
-                <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
+              <Card className="p-6 rounded-xl shadow-sm border border-border">
+                <h4 className="text-xl font-bold text-primary text-center mb-6 tracking-tight">
                   Purchase Order Info
                 </h4>
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  {/* PO Number */}
-                  {viewingPO.poNumber && (
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-xs text-muted-foreground">
-                        PO Number
-                      </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                        {viewingPO.poNumber}
-                      </div>
-                    </div>
-                  )}
 
-                  {/* Reference Number */}
-                  {viewingPO.referenceNumber && (
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-xs text-muted-foreground">
-                        Reference Number
-                      </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                        {viewingPO.referenceNumber}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Supplier Name */}
-                  {viewingPO.supplierName && (
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-xs text-muted-foreground">
-                        Supplier
-                      </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                        {viewingPO.supplierName}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Warehouse */}
-                  {viewingPO.warehouse && (
-                    <div className="flex flex-col gap-1">
-                      <Label className="text-xs text-muted-foreground">
-                        Warehouse
-                      </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                        {viewingPO.warehouse}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Amount */}
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Total Amount
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      ₱{viewingPO.total.toLocaleString()}
-                    </div>
+                {/* Header Row */}
+                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] border-b py-3 mb-4 bg-primary text-primary-foreground rounded-t shadow-sm">
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide">
+                    PO Number
                   </div>
-
-                  {/* Balance */}
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Balance
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      ₱{viewingPO.balance.toLocaleString()}
-                    </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
+                    Reference Number
                   </div>
-
-                  {/* Status */}
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Status
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {viewingPO.status}
-                    </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
+                    Supplier
                   </div>
-
-                  {/* Remarks */}
-                  {viewingPO.remarks && (
-                    <div className="flex flex-col gap-1 col-span-2">
-                      <Label className="text-xs text-muted-foreground">
-                        Remarks
-                      </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                        {viewingPO.remarks}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Created At */}
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Created At
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {formatDate(viewingPO.createdAt)}
-                    </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
+                    Warehouse
                   </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
+                    Status
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
+                    Remarks
+                  </div>
+                  <div className="text-center border-l border-border"></div>{" "}
+                  {/* Trash icon column */}
+                </div>
 
-                  {/* Updated At */}
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Updated At
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {formatDate(viewingPO.updatedAt)}
-                    </div>
+                {/* Data Row */}
+                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-b py-2 text-sm">
+                  <div className="text-center uppercase">
+                    {viewingPO.poNumber || "—"}
+                  </div>
+                  <div className="text-center uppercase border-l border-border">
+                    {viewingPO.referenceNumber || "—"}
+                  </div>
+                  <div className="text-center uppercase border-l border-border">
+                    {viewingPO.supplierName || "—"}
+                  </div>
+                  <div className="text-center uppercase border-l border-border">
+                    {viewingPO.warehouse || "—"}
+                  </div>
+                  <div className="text-center uppercase border-l border-border">
+                    {viewingPO.status || "—"}
+                  </div>
+                  <div className="text-center uppercase border-l border-border">
+                    {viewingPO.remarks || "—"}
                   </div>
                 </div>
+
+                {/* Divider */}
+                <div className="col-span-full border-t border-border my-4" />
+
+                {/* Header Row */}
+                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 border-b py-3 mb-2 bg-primary text-primary-foreground rounded-t shadow-sm">
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
+                    Item Code
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
+                    Item Name
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
+                    UOM
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
+                    Purchase Price
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
+                    Total Quantity
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
+                    Total Amount
+                  </div>
+                </div>
+
+                {enrichedPOs.map((po, index) => (
+                  <div
+                    key={index}
+                    className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 py-2 text-sm">
+                    <div className="text-center uppercase border-l border-border">
+                      {po.itemCode || "—"}
+                    </div>
+                    <div className="text-center uppercase border-l border-border">
+                      {po.itemName || "—"}
+                    </div>
+                    <div className="text-center uppercase border-l border-border">
+                      {po.unitType || "—"}
+                    </div>
+                    <div className="text-center uppercase border-l border-border">
+                      {po.purchasePrice.toLocaleString("en-PH", {
+                        style: "currency",
+                        currency: "PHP",
+                      })}
+                    </div>
+                    <div className="text-center uppercase border-l border-border">
+                      {po.totalQuantity ?? 0}
+                    </div>
+                    <div className="text-center uppercase border-l border-border">
+                      {(po.amount || 0).toLocaleString("en-PH", {
+                        style: "currency",
+                        currency: "PHP",
+                      })}
+                    </div>
+                  </div>
+                ))}
               </Card>
             </div>
           )}
-          <div className="flex justify-end">
+
+          <div className="flex justify-end mt-4">
             <Button
               variant="outline"
               onClick={() => setIsViewDialogOpen(false)}>
               Close
             </Button>
           </div>
-        </DialogContent>
+        </DialogPanel>
       </Dialog>
     </div>
   );
