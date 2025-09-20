@@ -120,3 +120,19 @@ export type PurchaseOrderResponse = PurchaseOrderType & {
   createdAt: string;
   updatedAt: string;
 };
+
+export type PurchaseReceiptType = {
+  _id?: string;
+  prNumber?: string;
+  supplierInvoiceNum: string;
+  poNumber: string[];
+  amount?: number;
+  supplierName?: string;
+  warehouse?: string;
+  status?: "draft" | "received" | "cancelled";
+  remarks?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type PurchaseReceiptResponse = Required<PurchaseReceiptType>;

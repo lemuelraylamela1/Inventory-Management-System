@@ -1649,7 +1649,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                   <TableHead>Reference Number</TableHead>
                   <TableHead>Supplier</TableHead>
                   <TableHead>Warehouse</TableHead>
-                  <TableHead>Total</TableHead>
+                  <TableHead>Total Amount</TableHead>
                   <TableHead>Remarks</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-32">Actions</TableHead>
@@ -1684,7 +1684,11 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       <TableCell>
                         {po.total?.toLocaleString("en-PH") || "—"}
                       </TableCell>
-                      <TableCell>{po.remarks || "—"}</TableCell>
+                      <TableCell
+                        className="max-w-[160px] truncate whitespace-nowrap overflow-hidden"
+                        title={po.remarks}>
+                        {po.remarks || "—"}
+                      </TableCell>
                       <TableCell>{po.status}</TableCell>
                       <TableCell>
                         <div className="flex gap-1">
@@ -2325,7 +2329,9 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                   <div className="text-center uppercase border-l border-border">
                     {viewingPO.status || "—"}
                   </div>
-                  <div className="text-center uppercase border-l border-border">
+                  <div
+                    className="text-center uppercase border-l border-border max-w-[160px] truncate whitespace-nowrap overflow-hidden"
+                    title={viewingPO.remarks}>
                     {viewingPO.remarks || "—"}
                   </div>
                 </div>
