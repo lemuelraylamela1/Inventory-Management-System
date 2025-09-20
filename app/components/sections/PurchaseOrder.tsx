@@ -736,27 +736,26 @@ export default function PurchaseOrder({ onSuccess }: Props) {
         cache: "no-store",
       });
 
-      if (!res.ok) throw new Error("Failed to fetch purchase order");
+      if (!res.ok) throw new Error("Failed to fetch PO");
 
       const data = await res.json();
 
-      // Normalize items before setting
       const normalizedItems = (data.items || []).map(
         (item: PurchaseOrderItem) => ({
           itemName: item.itemName?.trim().toUpperCase() || "",
           quantity: Number(item.quantity) || 0,
-          unitType: item.unitType?.trim().toUpperCase() || "",
+          unit: item.unitType?.trim().toUpperCase() || "",
           purchasePrice: Number(item.purchasePrice) || 0,
           itemCode: item.itemCode?.trim().toUpperCase() || "",
         })
       );
 
-      setFormData({ ...data, items: normalizedItems });
       setItemsData(normalizedItems);
+      setFormData({ ...data, items: normalizedItems });
     } catch (error) {
       console.error("Error loading PO:", error);
-      setFormData({} as PurchaseOrderType);
       setItemsData([]);
+      setFormData({} as PurchaseOrderType);
     }
   };
 
@@ -779,6 +778,37 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     ]);
   };
 
+  const handleAddItemEdit = () => {
+    const newItem: PurchaseOrderItem = {
+      itemCode: "",
+      itemName: "",
+      unitType: "",
+      purchasePrice: 0,
+      quantity: 1,
+    };
+
+    setFormData((prev) => {
+      const updatedItems = [...prev.items, newItem];
+
+      const totalQuantity = updatedItems.reduce(
+        (sum, item) => sum + (item.quantity || 0),
+        0
+      );
+
+      const total = updatedItems.reduce(
+        (sum, item) => sum + (item.quantity * item.purchasePrice || 0),
+        0
+      );
+
+      return {
+        ...prev,
+        items: updatedItems,
+        totalQuantity,
+        total,
+      };
+    });
+  };
+
   const handleRemoveItem = (index: number) => {
     const updatedItems = itemsData.filter((_, i) => i !== index);
 
@@ -798,6 +828,19 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       totalQuantity,
       total: totalAmount,
     }));
+  };
+
+  const recalculateTotals = (items: PurchaseOrderItem[]) => {
+    const totalQuantity = items.reduce(
+      (sum, item) => sum + (item.quantity || 0),
+      0
+    );
+    const totalAmount = items.reduce(
+      (sum, item) => sum + (item.quantity * item.purchasePrice || 0),
+      0
+    );
+
+    return { totalQuantity, total: totalAmount };
   };
 
   const handleSave = async () => {
@@ -1890,7 +1933,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
             </div>
           </div>
 
-          {itemsData.map((item, index) => (
+          {formData.items?.map((item, index) => (
             <div
               key={index}
               className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
@@ -1913,19 +1956,6 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                   );
                   if (!selected) return;
 
-                  setItemsData((prev) => {
-                    const updated = [...prev];
-                    updated[index] = {
-                      ...updated[index],
-                      itemName: normalized,
-                      itemCode: selected.itemCode || "",
-                      unitType: selected.unitType || "",
-                      purchasePrice: selected.purchasePrice || 0,
-                    };
-                    return updated;
-                  });
-
-                  // Optional: sync to formData if needed
                   setFormData((prev) => {
                     const updatedItems = [...prev.items];
                     updatedItems[index] = {
@@ -1936,9 +1966,15 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       purchasePrice: selected.purchasePrice || 0,
                       quantity: updatedItems[index]?.quantity || 1,
                     };
+
+                    const { totalQuantity, total } =
+                      recalculateTotals(updatedItems);
+
                     return {
                       ...prev,
                       items: updatedItems,
+                      totalQuantity,
+                      total,
                     };
                   });
                 }}>
@@ -1975,10 +2011,19 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                 value={item.quantity}
                 onChange={(e) => {
                   const value = Number(e.target.value);
-                  setItemsData((prev) => {
-                    const updated = [...prev];
-                    updated[index].quantity = value;
-                    return updated;
+                  setFormData((prev) => {
+                    const updatedItems = [...prev.items];
+                    updatedItems[index].quantity = value;
+
+                    const { totalQuantity, total } =
+                      recalculateTotals(updatedItems);
+
+                    return {
+                      ...prev,
+                      items: updatedItems,
+                      totalQuantity,
+                      total,
+                    };
                   });
                 }}
                 className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
@@ -2030,37 +2075,46 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                 variant="destructive"
                 size="icon"
                 className="w-full h-full flex items-center justify-center border border-border border-l-0 border-t-0"
-                onClick={() => handleRemoveItem(index)}
+                onClick={() => {
+                  setFormData((prev) => {
+                    const updatedItems = prev.items.filter(
+                      (_, i) => i !== index
+                    );
+                    const { totalQuantity, total } =
+                      recalculateTotals(updatedItems);
+
+                    return {
+                      ...prev,
+                      items: updatedItems,
+                      totalQuantity,
+                      total,
+                    };
+                  });
+                }}
                 title="Remove item">
                 <Trash2 className="w-4 h-4" />
               </Button>
             </div>
           ))}
-
           {/* Totals */}
           <div className="flex w-full justify-end mt-4 gap-6">
+            {/* Total Quantity */}
             <div className="flex items-center gap-2 min-w-[180px]">
               <span className="text-sm font-medium">Total Qty:</span>
-              <input
-                type="text"
-                id="edit-total-quantity"
-                value={formData.totalQuantity}
-                readOnly
-                disabled
-                className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
-              />
+              <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
+                {formData.totalQuantity ?? 0}
+              </span>
             </div>
 
+            {/* Total Amount */}
             <div className="flex items-center gap-2 min-w-[180px]">
               <span className="text-sm font-medium">Total Amount:</span>
-              <input
-                type="text"
-                id="edit-total-amount"
-                value={formattedTotal}
-                readOnly
-                disabled
-                className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
-              />
+              <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
+                {formData.total?.toLocaleString("en-PH", {
+                  style: "currency",
+                  currency: "PHP",
+                })}
+              </span>
             </div>
           </div>
 
@@ -2068,7 +2122,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
           <DialogFooter className="pt-4 border-t">
             <div className="flex w-full justify-between items-center">
               {/* Left: Add Item */}
-              <Button onClick={handleAddItem}>➕ Add Item</Button>
+              <Button onClick={handleAddItemEdit}>➕ Add Item</Button>
 
               {/* Right: Cancel & Update */}
               <div className="flex gap-2">
@@ -2137,9 +2191,9 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
                 {/* Data Row */}
                 <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-b py-2 text-sm">
-                  {/* <div className="text-center uppercase">
+                  <div className="text-center uppercase border-l border-border">
                     {viewingPO.poNumber || "—"}
-                  </div> */}
+                  </div>
                   <div className="text-center uppercase border-l border-border">
                     {viewingPO.referenceNumber || "—"}
                   </div>
@@ -2157,9 +2211,6 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                   </div>
                 </div>
 
-                {/* Divider */}
-                <div className="col-span-full border-t border-border my-4" />
-
                 {/* Header Row */}
                 <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 border-b py-3 mb-2 bg-primary text-primary-foreground rounded-t shadow-sm">
                   <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
@@ -2175,43 +2226,69 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                     Purchase Price
                   </div>
                   <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Total Quantity
+                    Quantity
                   </div>
                   <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Total Amount
+                    Amount
                   </div>
                 </div>
 
-                {/* {enrichedPOs.map((po, index) => (
+                {viewingPO.items?.map((item, index) => (
                   <div
                     key={index}
                     className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 py-2 text-sm">
                     <div className="text-center uppercase border-l border-border">
-                      {po.itemCode || "—"}
+                      {item.itemCode || "—"}
                     </div>
+
                     <div className="text-center uppercase border-l border-border">
-                      {po.itemName || "—"}
+                      {item.itemName || "—"}
                     </div>
+
                     <div className="text-center uppercase border-l border-border">
-                      {po.unitType || "—"}
+                      {item.unitType || "—"}
                     </div>
+
                     <div className="text-center uppercase border-l border-border">
-                      {po.purchasePrice.toLocaleString("en-PH", {
+                      {item.purchasePrice?.toLocaleString("en-PH", {
                         style: "currency",
                         currency: "PHP",
-                      })}
+                      }) || "—"}
                     </div>
+
                     <div className="text-center uppercase border-l border-border">
-                      {po.totalQuantity ?? 0}
+                      {item.quantity ?? 0}
                     </div>
+
                     <div className="text-center uppercase border-l border-border">
-                      {(po.amount || 0).toLocaleString("en-PH", {
-                        style: "currency",
-                        currency: "PHP",
-                      })}
+                      {(item.quantity * item.purchasePrice || 0).toLocaleString(
+                        "en-PH",
+                        {
+                          style: "currency",
+                          currency: "PHP",
+                        }
+                      )}
                     </div>
                   </div>
-                ))} */}
+                ))}
+                <div className="flex w-full justify-end mt-4 gap-6">
+                  <div className="flex items-center gap-2 min-w-[180px]">
+                    <span className="text-sm font-medium">Total Qty:</span>
+                    <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
+                      {viewingPO.totalQuantity ?? 0}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 min-w-[180px]">
+                    <span className="text-sm font-medium">Total Amount:</span>
+                    <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
+                      {(viewingPO.total || 0).toLocaleString("en-PH", {
+                        style: "currency",
+                        currency: "PHP",
+                      })}
+                    </span>
+                  </div>
+                </div>
               </Card>
             </div>
           )}
