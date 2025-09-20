@@ -5,7 +5,13 @@ import { useParams } from "next/navigation";
 
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Eye, MoreVertical, FileText } from "lucide-react";
+import {
+  Eye,
+  MoreVertical,
+  FileText,
+  Filter,
+  CalendarDays,
+} from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import {
   Table,
@@ -100,6 +106,10 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   const [viewingPO, setViewingPO] = useState<PurchaseOrderType | null>(null);
 
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [dateFilter, setDateFilter] = useState("");
+  const [supplierFilter, setSupplierFilter] = useState("all");
+  const [statusFilter, setStatusFilter] = useState("all");
+  const [filteredPOs, setFilteredPOs] = useState<PurchaseOrderType[]>([]);
 
   const [suppliers, setSuppliers] = useState<SupplierType[]>([]);
   const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
@@ -203,19 +213,24 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   // Filter and paginate data
   const filteredPurchaseOrders = useMemo(() => {
     const query = searchTerm.toLowerCase().trim();
-    if (!query) return purchaseOrders;
 
     return purchaseOrders.filter((po) => {
-      // const poNumber = po.poNumber?.toLowerCase() || "";
-      const reference = po.referenceNumber?.toLowerCase() || "";
-      const remarks = po.remarks?.toLowerCase() || "";
+      const matchesSearch =
+        !query ||
+        po.poNumber?.toString().toLowerCase().includes(query) ||
+        po.referenceNumber?.toLowerCase().includes(query);
 
-      return (
-        // poNumber.includes(query) ||
-        reference.includes(query) || remarks.includes(query)
-      );
+      const matchesDate = !dateFilter || po.createdAt?.startsWith(dateFilter);
+
+      const matchesSupplier =
+        supplierFilter === "all" || po.supplierName === supplierFilter;
+
+      const matchesStatus =
+        statusFilter === "all" || po.status?.toLowerCase() === statusFilter;
+
+      return matchesSearch && matchesDate && matchesSupplier && matchesStatus;
     });
-  }, [purchaseOrders, searchTerm]);
+  }, [purchaseOrders, searchTerm, dateFilter, supplierFilter, statusFilter]);
 
   const totalPages = Math.ceil(filteredPurchaseOrders.length / rowsPerPage);
 
@@ -224,6 +239,18 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       (currentPage - 1) * rowsPerPage,
       currentPage * rowsPerPage
     );
+
+  const clearFilters = () => {
+    setSearchTerm("");
+    setDateFilter("");
+    setSupplierFilter("all");
+    setStatusFilter("all");
+  };
+
+  const allSelected =
+    paginatedPurchaseOrders.length > 0 &&
+    selectedIds.length === paginatedPurchaseOrders.length;
+
   // Reset to first page when search changes
   React.useEffect(() => {
     setCurrentPage(1);
@@ -620,9 +647,6 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       status: "",
     });
   };
-  const allSelected =
-    paginatedPurchaseOrders.length > 0 &&
-    selectedIds.length === paginatedPurchaseOrders.length;
 
   const toggleSelectAll = (checked: boolean | "indeterminate") => {
     if (checked === true) {
@@ -986,7 +1010,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Search purchase orders types..."
+                placeholder="Search PO Number or Reference Number..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -1516,6 +1540,79 @@ export default function PurchaseOrder({ onSuccess }: Props) {
               </DialogPanel>
             </Dialog>
           </div>
+
+          <Card>
+            <CardContent className="pt-4">
+              <div className="flex items-center gap-4 flex-wrap">
+                <div className="flex items-center gap-2">
+                  <Filter className="w-4 h-4 text-muted-foreground" />
+                  <Label className="text-sm">Filters:</Label>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-muted-foreground" />
+                  <Label htmlFor="date-filter" className="text-sm">
+                    Date:
+                  </Label>
+                  <Input
+                    id="date-filter"
+                    type="date"
+                    value={dateFilter}
+                    onChange={(e) => setDateFilter(e.target.value)}
+                    className="w-40"
+                  />
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="supplier-filter" className="text-sm">
+                    Supplier:
+                  </Label>
+                  <Select
+                    value={supplierFilter}
+                    onValueChange={setSupplierFilter}>
+                    <SelectTrigger className="w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {suppliers.map((supplier) => (
+                        <SelectItem
+                          key={supplier._id}
+                          value={supplier.supplierName}>
+                          {supplier.supplierName}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <div className="flex items-center gap-2">
+                  <Label htmlFor="status-filter" className="text-sm">
+                    Status:
+                  </Label>
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(
+                      value: PurchaseOrderType["status"] | "all"
+                    ) => setStatusFilter(value)}>
+                    <SelectTrigger className="w-32">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">All</SelectItem>
+                      <SelectItem value="pending">Pending</SelectItem>
+                      <SelectItem value="partial">Partial</SelectItem>
+                      <SelectItem value="completed">Completed</SelectItem>
+                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Button variant="outline" size="sm" onClick={clearFilters}>
+                  Clear Filters
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
 
           {selectedIds.length > 0 && (
             <div className="flex items-center justify-between mb-4">
