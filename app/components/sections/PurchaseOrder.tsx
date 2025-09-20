@@ -553,11 +553,12 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   const handleDelete = async (poId: string) => {
     if (!poId || typeof poId !== "string") {
       console.warn("Invalid PO ID:", poId);
+      toast.error("Invalid purchase order ID");
       return;
     }
 
     try {
-      const res = await fetch(`/api/purchase-orders?id=${poId}`, {
+      const res = await fetch(`/api/purchase-orders/${poId}`, {
         method: "DELETE",
       });
 
@@ -566,7 +567,9 @@ export default function PurchaseOrder({ onSuccess }: Props) {
         throw new Error(error?.error || "Failed to delete purchase order");
       }
 
+      // Remove from local state
       setPurchaseOrders((prev) => prev.filter((po) => po._id !== poId));
+
       console.log("✅ Deleted purchase order:", poId);
       toast.success(`Purchase order #${poId} deleted`);
     } catch (error) {
@@ -647,44 +650,48 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   };
 
   const handleDeleteMany = async (_ids: string[]) => {
+    if (!_ids || _ids.length === 0) {
+      toast.error("No purchase orders selected for deletion.");
+      return;
+    }
+
     try {
       // Optimistically remove from UI
       setPurchaseOrders((prev) => prev.filter((po) => !_ids.includes(po._id)));
 
-      const results = await Promise.all(
+      const results = await Promise.allSettled(
         _ids.map(async (_id) => {
-          const res = await fetch(`/api/purchase-orders?id=${_id}`, {
+          const res = await fetch(`/api/purchase-orders/${_id}`, {
             method: "DELETE",
           });
 
           if (!res.ok) {
             const error = await res.json();
-            console.warn(`Failed to delete ${_id}:`, error.message);
+            console.warn(`❌ Failed to delete ${_id}:`, error.message);
+            throw new Error(error.message || `Failed to delete ${_id}`);
           }
 
           return res;
         })
       );
 
-      const failures = results.filter((res) => !res.ok);
+      const failures = results.filter(
+        (result) => result.status === "rejected"
+      ) as PromiseRejectedResult[];
+
       if (failures.length > 0) {
-        alert(
+        toast.warning(
           `Some purchase orders could not be deleted (${failures.length} failed).`
         );
       } else {
-        toast(
-          <div>
-            <strong>Success</strong>
-            <p>Selected purchase orders deleted.</p>
-          </div>
-        );
+        toast.success("✅ Selected purchase orders deleted.");
       }
 
       setSelectedIds([]);
       onSuccess?.(); // refresh list
     } catch (err) {
-      console.error("Bulk delete failed:", err);
-      alert("Failed to delete selected purchase orders.");
+      console.error("❌ Bulk delete failed:", err);
+      toast.error("Failed to delete selected purchase orders.");
     }
   };
 
