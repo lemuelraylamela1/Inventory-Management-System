@@ -778,6 +778,17 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     ]);
   };
 
+  const handleRemoveAllItems = () => {
+    setItemsData([]);
+
+    setFormData((prev) => ({
+      ...prev,
+      items: [],
+      totalQuantity: 0,
+      total: 0,
+    }));
+  };
+
   const handleAddItemEdit = () => {
     const newItem: PurchaseOrderItem = {
       itemCode: "",
@@ -858,33 +869,34 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     }
     handleCreate();
     resetForm();
+    handleRemoveAllItems();
     setIsCreateDialogOpen(true);
   };
 
-  const enrichedPOs = purchaseOrders.map((po) => {
-    const enrichedItems = po.items.map((poItem) => {
-      const matchedItem = items.find(
-        (item) =>
-          item.itemName?.trim().toUpperCase() ===
-          poItem.itemName?.trim().toUpperCase()
-      );
+  // const enrichedPOs = purchaseOrders.map((po) => {
+  //   const enrichedItems = po.items.map((poItem) => {
+  //     const matchedItem = items.find(
+  //       (item) =>
+  //         item.itemName?.trim().toUpperCase() ===
+  //         poItem.itemName?.trim().toUpperCase()
+  //     );
 
-      return {
-        ...poItem,
-        itemCode: matchedItem?.itemCode || "",
-        unitType: matchedItem?.unitType || "",
-        purchasePrice: matchedItem?.purchasePrice || poItem.purchasePrice || 0,
-        amount:
-          (matchedItem?.purchasePrice ?? poItem.purchasePrice ?? 0) *
-          (poItem.quantity ?? 0),
-      };
-    });
+  //     return {
+  //       ...poItem,
+  //       itemCode: matchedItem?.itemCode || "",
+  //       unitType: matchedItem?.unitType || "",
+  //       purchasePrice: matchedItem?.purchasePrice || poItem.purchasePrice || 0,
+  //       amount:
+  //         (matchedItem?.purchasePrice ?? poItem.purchasePrice ?? 0) *
+  //         (poItem.quantity ?? 0),
+  //     };
+  //   });
 
-    return {
-      ...po,
-      items: enrichedItems,
-    };
-  });
+  //   return {
+  //     ...po,
+  //     items: enrichedItems,
+  //   };
+  // });
 
   const handleExportPDF = (
     items: ItemType[],
@@ -1480,6 +1492,12 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
                             <DropdownMenuItem
                               onClick={handleSaveAndCreate}
+                              disabled={
+                                !formData.items.length ||
+                                formData.items.every(
+                                  (item) => !item.itemName?.trim()
+                                )
+                              }
                               className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">
                               🆕 Save & New
                             </DropdownMenuItem>
@@ -2140,6 +2158,10 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                   {/* Primary Update Button */}
                   <Button
                     onClick={handleUpdate}
+                    disabled={
+                      !formData.items.length ||
+                      formData.items.every((item) => !item.itemName?.trim())
+                    }
                     className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150"
                     aria-label="Update">
                     ✏️ Update
