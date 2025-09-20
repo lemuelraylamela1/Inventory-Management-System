@@ -102,6 +102,7 @@ export type PurchaseOrderItem = {
 
 export type PurchaseOrderType = {
   _id: string;
+  poNumber: string;
   referenceNumber: string;
   supplierName: string;
   warehouse: string;

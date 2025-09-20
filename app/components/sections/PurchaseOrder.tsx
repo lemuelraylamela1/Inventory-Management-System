@@ -1,6 +1,8 @@
 "use client";
 
 import React, { useState, useMemo, useEffect } from "react";
+import { useParams } from "next/navigation";
+
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Eye, MoreVertical, FileText } from "lucide-react";
@@ -71,6 +73,7 @@ import type {
   PurchaseOrderType,
 } from "./type";
 import { PurchaseOrderResponse } from "../sections/type";
+import { PurchaseOrderItem } from "./type";
 
 import { useRouter } from "next/navigation";
 import { Checkbox } from "../ui/checkbox";
@@ -166,6 +169,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   const [formData, setFormData] = useState<
     Omit<PurchaseOrderType, "_id" | "createdAt" | "updatedAt">
   >({
+    poNumber: "",
     referenceNumber: "",
     supplierName: "",
     warehouse: "",
@@ -186,6 +190,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       string
     >
   >({
+    poNumber: "",
     referenceNumber: "",
     supplierName: "",
     warehouse: "",
@@ -233,6 +238,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       >,
       string
     > = {
+      poNumber: "",
       referenceNumber: "",
       supplierName: "",
       warehouse: "",
@@ -386,6 +392,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     keyof Omit<PurchaseOrderType, "_id" | "createdAt" | "updatedAt" | "items">,
     string
   > = {
+    poNumber: "",
     referenceNumber: "",
     supplierName: "",
     warehouse: "",
@@ -410,6 +417,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       PurchaseOrderType,
       "_id" | "createdAt" | "updatedAt"
     > = {
+      poNumber: po.poNumber.trim().toUpperCase(),
       referenceNumber: po.referenceNumber?.trim().toUpperCase() || "",
       supplierName: po.supplierName?.trim().toUpperCase() || "",
       warehouse: po.warehouse?.trim().toUpperCase() || "",
@@ -527,6 +535,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     // Reset form and close dialog
     setEditingPO(null);
     setFormData({
+      poNumber: "",
       referenceNumber: "",
       supplierName: "",
       warehouse: "",
@@ -584,6 +593,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
   const resetForm = () => {
     setFormData({
+      poNumber: "",
       referenceNumber: "",
       supplierName: "",
       warehouse: "",
@@ -596,6 +606,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     });
 
     setValidationErrors({
+      poNumber: "",
       referenceNumber: "",
       supplierName: "",
       warehouse: "",
@@ -705,6 +716,43 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     return () => clearInterval(interval); // cleanup on unmount
   }, []);
 
+  const params = useParams();
+  const poId = params?.id as string;
+
+  useEffect(() => {
+    if (poId) fetchSinglePO(poId);
+  }, [poId]);
+
+  const fetchSinglePO = async (poId: string) => {
+    try {
+      const res = await fetch(`/api/purchase-orders/${poId}`, {
+        cache: "no-store",
+      });
+
+      if (!res.ok) throw new Error("Failed to fetch purchase order");
+
+      const data = await res.json();
+
+      // Normalize items before setting
+      const normalizedItems = (data.items || []).map(
+        (item: PurchaseOrderItem) => ({
+          itemName: item.itemName?.trim().toUpperCase() || "",
+          quantity: Number(item.quantity) || 0,
+          unitType: item.unitType?.trim().toUpperCase() || "",
+          purchasePrice: Number(item.purchasePrice) || 0,
+          itemCode: item.itemCode?.trim().toUpperCase() || "",
+        })
+      );
+
+      setFormData({ ...data, items: normalizedItems });
+      setItemsData(normalizedItems);
+    } catch (error) {
+      console.error("Error loading PO:", error);
+      setFormData({} as PurchaseOrderType);
+      setItemsData([]);
+    }
+  };
+
   //   const selectedItem = items.find(
   //   (item) =>
   //     item.itemName?.trim().toUpperCase() ===
@@ -725,7 +773,24 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   };
 
   const handleRemoveItem = (index: number) => {
-    setItemsData((prev) => prev.filter((_, i) => i !== index));
+    const updatedItems = itemsData.filter((_, i) => i !== index);
+
+    const totalQuantity = updatedItems.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+    const totalAmount = updatedItems.reduce(
+      (sum, item) => sum + item.quantity * item.purchasePrice,
+      0
+    );
+
+    setItemsData(updatedItems);
+    setFormData((prev) => ({
+      ...prev,
+      items: updatedItems,
+      totalQuantity,
+      total: totalAmount,
+    }));
   };
 
   const handleSave = async () => {
@@ -1604,7 +1669,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
               {/* First Row */}
               <div className="flex flex-row flex-wrap gap-4">
                 {/* PO Number */}
-                {/* <div className="flex flex-col flex-1 min-w-[200px]">
+                <div className="flex flex-col flex-1 min-w-[200px]">
                   <Label htmlFor="edit-po-number">PO Number</Label>
                   <Input
                     id="edit-po-number"
@@ -1614,7 +1679,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                     placeholder="Auto-generated"
                     className="text-sm uppercase bg-muted cursor-not-allowed"
                   />
-                </div> */}
+                </div>
 
                 {/* Requested Date */}
                 <div className="flex flex-col flex-1 min-w-[200px]">
@@ -1854,10 +1919,21 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                   });
 
                   // Optional: sync to formData if needed
-                  setFormData((prev) => ({
-                    ...prev,
-                    itemName: normalized,
-                  }));
+                  setFormData((prev) => {
+                    const updatedItems = [...prev.items];
+                    updatedItems[index] = {
+                      ...updatedItems[index],
+                      itemName: normalized,
+                      itemCode: selected.itemCode || "",
+                      unitType: selected.unitType || "",
+                      purchasePrice: selected.purchasePrice || 0,
+                      quantity: updatedItems[index]?.quantity || 1,
+                    };
+                    return {
+                      ...prev,
+                      items: updatedItems,
+                    };
+                  });
                 }}>
                 <SelectTrigger
                   id={`edit-item-name-${index}`}

@@ -1,17 +1,10 @@
+// app/api/purchase-orders/route.ts
 import PurchaseOrder from "@/models/purchaseOrder";
-import mongoose from "mongoose";
-import { NextRequest, NextResponse } from "next/server";
+import { NextResponse } from "next/server";
 import {
   PurchaseOrderType,
   PurchaseOrderItem,
 } from "@/app/components/sections/type";
-
-const allowedStatuses = [
-  "Pending",
-  "Approved",
-  "Rejected",
-  "Completed",
-] as const;
 
 function normalizeItems(items: PurchaseOrderItem[]): PurchaseOrderItem[] {
   return items.map((item) => ({
@@ -23,41 +16,9 @@ function normalizeItems(items: PurchaseOrderItem[]): PurchaseOrderItem[] {
   }));
 }
 
-function normalizeUpdateFields(fields: PurchaseOrderType) {
-  const normalizedItems = normalizeItems(fields.items || []);
-
-  const totalQuantity = normalizedItems.reduce(
-    (sum, item) => sum + item.quantity,
-    0
-  );
-
-  const totalAmount = normalizedItems.reduce(
-    (sum, item) => sum + item.quantity * item.purchasePrice,
-    0
-  );
-
-  return {
-    referenceNumber: fields.referenceNumber?.trim().toUpperCase() || "",
-    supplierName: fields.supplierName?.trim().toUpperCase() || "",
-    warehouse: fields.warehouse?.trim().toUpperCase() || "",
-    items: normalizedItems,
-    total: totalAmount,
-    totalQuantity: totalQuantity,
-    balance: Number(fields.balance ?? totalAmount) || 0,
-    remarks: fields.remarks?.trim() || "",
-    status: allowedStatuses.includes(
-      fields.status?.trim() as (typeof allowedStatuses)[number]
-    )
-      ? fields.status!.trim()
-      : "Pending",
-  };
-}
-
-// POST: Create a new purchase order
 export async function POST(request: Request) {
   try {
     const body: PurchaseOrderType = await request.json();
-
     const normalizedItems = normalizeItems(body.items || []);
 
     if (normalizedItems.length === 0) {
@@ -68,13 +29,11 @@ export async function POST(request: Request) {
     }
 
     const totalQuantity = normalizedItems.reduce(
-      (sum: number, item: PurchaseOrderItem) => sum + item.quantity,
+      (sum, item) => sum + item.quantity,
       0
     );
-
     const totalAmount = normalizedItems.reduce(
-      (sum: number, item: PurchaseOrderItem) =>
-        sum + item.quantity * item.purchasePrice,
+      (sum, item) => sum + item.quantity * item.purchasePrice,
       0
     );
 
@@ -84,7 +43,7 @@ export async function POST(request: Request) {
       warehouse: body.warehouse?.trim().toUpperCase(),
       items: normalizedItems,
       total: totalAmount,
-      totalQuantity: totalQuantity,
+      totalQuantity,
       balance: Number(body.balance ?? totalAmount) || 0,
       remarks: body.remarks?.trim() || "",
       status: body.status?.trim() || "Pending",
@@ -100,47 +59,6 @@ export async function POST(request: Request) {
   }
 }
 
-// PUT: Update a purchase order
-export async function PUT(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const body: PurchaseOrderType = await request.json();
-    const id = params.id;
-
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { error: "Invalid or missing purchase order ID" },
-        { status: 400 }
-      );
-    }
-
-    const updateFields = normalizeUpdateFields(body);
-
-    const updatedPO = await PurchaseOrder.findByIdAndUpdate(id, updateFields, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!updatedPO) {
-      return NextResponse.json(
-        { error: "Purchase order not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(updatedPO, { status: 200 });
-  } catch (error) {
-    console.error("Error updating PO:", error);
-    return NextResponse.json(
-      { error: "Failed to update purchase order" },
-      { status: 500 }
-    );
-  }
-}
-
-// GET: Retrieve all purchase orders
 export async function GET() {
   try {
     const purchaseOrders = await PurchaseOrder.find().sort({ createdAt: -1 });
@@ -149,41 +67,6 @@ export async function GET() {
     console.error("Error fetching purchase orders:", error);
     return NextResponse.json(
       { error: "Failed to retrieve purchase orders" },
-      { status: 500 }
-    );
-  }
-}
-
-// DELETE: Remove a purchase order by ID
-export async function DELETE(request: NextRequest) {
-  try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-
-    if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-      return NextResponse.json(
-        { error: "Invalid or missing purchase order ID" },
-        { status: 400 }
-      );
-    }
-
-    const deletedPO = await PurchaseOrder.findByIdAndDelete(id);
-
-    if (!deletedPO) {
-      return NextResponse.json(
-        { error: "Purchase order not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json(
-      { message: "Purchase order deleted successfully", id },
-      { status: 200 }
-    );
-  } catch (error) {
-    console.error("Error deleting PO:", error);
-    return NextResponse.json(
-      { error: "Failed to delete purchase order" },
       { status: 500 }
     );
   }
