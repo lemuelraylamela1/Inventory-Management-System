@@ -119,6 +119,13 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderType[]>([]);
   const [items, setItems] = useState<ItemType[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [editableItems, setEditableItems] = useState<Record<number, number>>(
+    {}
+  );
+  const [selectedItems, setSelectedItems] = useState<Record<number, boolean>>(
+    {}
+  );
+  const isAnyItemSelected = Object.values(selectedItems).some(Boolean);
 
   // Optional: for previewing merged items from linked POs
   const [itemsData, setItemsData] = useState([
@@ -280,12 +287,40 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
   const handleCreate = async () => {
     if (!validateForm()) return;
 
+    const matchedPO = purchaseOrders.find(
+      (po) => po.poNumber.trim().toUpperCase() === formData.poNumber[0]
+    );
+
+    const selectedItemsPayload =
+      matchedPO?.items
+        ?.map((item, index) => {
+          if (!selectedItems[index]) return null;
+
+          return {
+            selected: true, // ✅ Add this flag
+            itemCode: item.itemCode,
+            itemName: item.itemName,
+            quantity: editableItems[index] ?? item.quantity,
+            unitType: item.unitType,
+            purchasePrice: item.purchasePrice,
+            amount:
+              item.purchasePrice * (editableItems[index] ?? item.quantity),
+          };
+        })
+        .filter(Boolean) ?? [];
+
+    if (selectedItemsPayload.length === 0) {
+      alert("Please select at least one item before creating.");
+      return;
+    }
+
     const payload = {
       supplierInvoiceNum: formData.supplierInvoiceNum.trim().toUpperCase(),
       poNumber: Array.isArray(formData.poNumber)
         ? formData.poNumber.map((po) => po.trim().toUpperCase())
         : [],
-      remarks: formData.remarks?.trim() || "", // ✅ Include remarks
+      remarks: formData.remarks?.trim() || "",
+      items: selectedItemsPayload,
     };
 
     console.log("Creating purchase receipt:", payload);
@@ -322,8 +357,10 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       alert("Something went wrong. Please check your connection or try again.");
     }
 
-    // setIsCreateDialogOpen(false);
+    setSelectedItems({});
+    setIsCreateDialogOpen(false);
   };
+  const isDisabled = !formData.poNumber[0] || !isAnyItemSelected;
 
   const defaultValidationErrors: Record<
     keyof Pick<PurchaseReceiptType, "supplierInvoiceNum">,
@@ -865,6 +902,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                 if (open) {
                   resetForm();
                   setItemsData([]);
+                  setSelectedItems({});
                 }
                 setIsCreateDialogOpen(open);
               }}>
@@ -996,14 +1034,18 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                             {showSuggestions && (
                               <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
                                 {(formData.poNumber[0]
-                                  ? purchaseOrders.filter((po) =>
-                                      po.poNumber
-                                        .toUpperCase()
-                                        .includes(
-                                          formData.poNumber[0].toUpperCase()
-                                        )
+                                  ? purchaseOrders.filter(
+                                      (po) =>
+                                        po.status !== "Completed" &&
+                                        po.poNumber
+                                          .toUpperCase()
+                                          .includes(
+                                            formData.poNumber[0].toUpperCase()
+                                          )
                                     )
-                                  : purchaseOrders
+                                  : purchaseOrders.filter(
+                                      (po) => po.status !== "Completed"
+                                    )
                                 ).map((po) => {
                                   const normalized = po.poNumber
                                     .trim()
@@ -1033,14 +1075,18 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                   );
                                 })}
                                 {(formData.poNumber[0]
-                                  ? purchaseOrders.filter((po) =>
-                                      po.poNumber
-                                        .toUpperCase()
-                                        .includes(
-                                          formData.poNumber[0].toUpperCase()
-                                        )
+                                  ? purchaseOrders.filter(
+                                      (po) =>
+                                        po.status !== "Completed" &&
+                                        po.poNumber
+                                          .toUpperCase()
+                                          .includes(
+                                            formData.poNumber[0].toUpperCase()
+                                          )
                                     ).length === 0
-                                  : purchaseOrders.length === 0) && (
+                                  : purchaseOrders.filter(
+                                      (po) => po.status !== "Completed"
+                                    ).length === 0) && (
                                   <li className="px-3 py-2 text-muted-foreground">
                                     No matching PO found
                                   </li>
@@ -1132,80 +1178,156 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
 
                 {formData.poNumber[0] && (
                   <div className="mt-4 border rounded-md overflow-hidden">
-                    {/* Header */}
-                    <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
-                      <div className="text-xs font-semibold uppercase text-center">
-                        Item Code
-                      </div>
-                      <div className="text-xs font-semibold uppercase text-center">
-                        Item Name
-                      </div>
-                      <div className="text-xs font-semibold uppercase text-center">
-                        Qty
-                      </div>
-                      <div className="text-xs font-semibold uppercase text-center">
-                        UOM
-                      </div>
-                      <div className="text-xs font-semibold uppercase text-center">
-                        Purchase Price
-                      </div>
-                      <div className="text-xs font-semibold uppercase text-center">
-                        Amount
-                      </div>
-                    </div>
+                    <div className="overflow-auto max-h-96">
+                      {/* Header */}
+                      <div className="grid w-full grid-cols-[40px_1fr_1fr_1fr_1fr_1fr_1fr] gap-4 border-b px-0 py-2 bg-primary text-primary-foreground sticky top-0 z-10">
+                        <div className="flex items-center justify-end  min-w-[40px]">
+                          <input
+                            type="checkbox"
+                            checked={
+                              Object.keys(selectedItems).length > 0 &&
+                              Object.values(selectedItems).every(Boolean)
+                            }
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              const matchedPO = purchaseOrders.find(
+                                (po) =>
+                                  po.poNumber.trim().toUpperCase() ===
+                                  formData.poNumber[0]
+                              );
+                              if (!matchedPO || !Array.isArray(matchedPO.items))
+                                return;
 
-                    {/* Rows */}
-                    {(() => {
-                      const matchedPO = purchaseOrders.find(
-                        (po) =>
-                          po.poNumber.trim().toUpperCase() ===
-                          formData.poNumber[0]
-                      );
-                      if (!matchedPO || !Array.isArray(matchedPO.items))
-                        return null;
+                              const allSelected = matchedPO.items.reduce(
+                                (acc, _, index) => {
+                                  acc[index] = checked;
+                                  return acc;
+                                },
+                                {} as Record<number, boolean>
+                              );
 
-                      return matchedPO.items.map((item, index) => (
-                        <div
-                          key={index}
-                          className="grid grid-cols-[1fr_1.5fr_1fr_1fr_1fr_1fr] border-t border-border text-sm px-3 py-2">
-                          <div className="uppercase">
-                            {item.itemCode || "-"}
-                          </div>
+                              setSelectedItems(allSelected);
+                            }}
+                            className="form-checkbox h-4 w-4 text-primary focus:ring-2 focus:ring-primary/50 hover:scale-105 transition-transform"
+                          />
+                        </div>
+                        <div className="text-xs font-semibold uppercase text-left">
+                          Item Code
+                        </div>
+                        <div className="text-xs font-semibold uppercase text-left">
+                          Item Name
+                        </div>
+                        <div className="text-xs font-semibold uppercase text-left">
+                          Qty
+                        </div>
+                        <div className="text-xs font-semibold uppercase text-left">
+                          UOM
+                        </div>
+                        <div className="text-xs font-semibold uppercase text-left">
+                          Purchase Price
+                        </div>
+                        <div className="text-xs font-semibold uppercase text-left">
+                          Amount
+                        </div>
+                      </div>
 
-                          <div className="uppercase border-l border-border px-2">
-                            {item.itemName || "-"}
-                          </div>
+                      {/* Rows */}
+                      {(() => {
+                        const matchedPO = purchaseOrders.find(
+                          (po) =>
+                            po.poNumber.trim().toUpperCase() ===
+                            formData.poNumber[0]
+                        );
+                        if (!matchedPO || !Array.isArray(matchedPO.items))
+                          return null;
 
-                          <div className="text-left border-l border-border px-2">
-                            {item.quantity || "-"}
-                          </div>
+                        return matchedPO.items.map((item, index) => (
+                          <div
+                            key={index}
+                            className={` grid grid-cols-[40px_1fr_1fr_1fr_1fr_1fr_1fr] border-t border-border text-sm px-3 py-2 ${
+                              selectedItems[index]
+                                ? "bg-accent/10 border-accent"
+                                : "hover:bg-muted/10"
+                            }`}>
+                            <div className="flex items-center justify-center px-2 min-w-[40px]">
+                              <input
+                                type="checkbox"
+                                checked={selectedItems[index] || false}
+                                onChange={(e) => {
+                                  setSelectedItems((prev) => ({
+                                    ...prev,
+                                    [index]: e.target.checked,
+                                  }));
+                                }}
+                                className="form-checkbox h-4 w-4 text-primary focus:ring-2 focus:ring-primary/50 hover:scale-105 transition-transform"
+                              />
+                            </div>
 
-                          <div className="uppercase border-l border-border px-2">
-                            {item.unitType || "-"}
-                          </div>
+                            <div className="flex items-center uppercase text-sm font-medium">
+                              {item.itemCode || "-"}
+                            </div>
 
-                          <div className="text-right border-l border-border px-2">
-                            {item.purchasePrice !== undefined
-                              ? item.purchasePrice.toLocaleString("en-PH", {
+                            <div className="uppercase border-l border-border px-2 flex items-center  text-sm font-medium">
+                              {item.itemName || "-"}
+                            </div>
+
+                            <div className="uppercase border-l border-border px-2 flex items-center  text-sm font-medium">
+                              <input
+                                type="number"
+                                min={0}
+                                max={item.quantity}
+                                value={editableItems[index] ?? item.quantity}
+                                onChange={(e) => {
+                                  const value = Math.min(
+                                    Number(e.target.value),
+                                    item.quantity
+                                  );
+                                  setEditableItems((prev) => ({
+                                    ...prev,
+                                    [index]: value,
+                                  }));
+                                }}
+                                className="w-full px-2 py-1 border border-border rounded-md bg-background text-right focus:outline-none focus:ring-2 focus:ring-primary"
+                                inputMode="numeric"
+                              />
+                            </div>
+
+                            <div className="uppercase border-l border-border px-2 flex items-center  text-sm font-medium">
+                              {item.unitType || "-"}
+                            </div>
+
+                            <div className="uppercase border-l border-border px-2 flex items-center  text-sm font-medium">
+                              {item.purchasePrice !== undefined ? (
+                                item.purchasePrice.toLocaleString("en-PH", {
                                   style: "currency",
                                   currency: "PHP",
                                 })
-                              : "-"}
-                          </div>
+                              ) : (
+                                <span className="text-muted-foreground">
+                                  ₱0.00
+                                </span>
+                              )}
+                            </div>
 
-                          <div className="text-right border-l border-border px-2">
-                            {item.purchasePrice && item.quantity
-                              ? (
-                                  item.purchasePrice * item.quantity
+                            <div className="text-right border-l border-border px-2 text-sm font-medium">
+                              {item.purchasePrice && item.quantity ? (
+                                (
+                                  item.purchasePrice *
+                                  (editableItems[index] ?? item.quantity)
                                 ).toLocaleString("en-PH", {
                                   style: "currency",
                                   currency: "PHP",
                                 })
-                              : "-"}
+                              ) : (
+                                <span className="text-muted-foreground">
+                                  ₱0.00
+                                </span>
+                              )}
+                            </div>
                           </div>
-                        </div>
-                      ));
-                    })()}
+                        ));
+                      })()}
+                    </div>
                   </div>
                 )}
 
@@ -1218,15 +1340,17 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                         onClick={() => {
                           setIsCreateDialogOpen(false);
                           resetForm();
+                          setSelectedItems({});
                         }}>
                         Cancel
                       </Button>
 
                       <Button
-                        onClick={handleSave}
-                        disabled={!formData.poNumber[0]}
-                        className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                        aria-label="Save Receipt">
+                        onClick={handleCreate}
+                        disabled={isDisabled}
+                        className={`mt-4 bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 ${
+                          isDisabled ? "opacity-50 cursor-not-allowed" : ""
+                        }`}>
                         Create
                       </Button>
                     </div>

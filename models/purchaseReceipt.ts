@@ -1,6 +1,18 @@
 import mongoose, { Schema, Document, model } from "mongoose";
 import PurchaseOrder from "./purchaseOrder";
 
+export type ReceiptStatus = "draft" | "received" | "cancelled";
+
+export interface ReceiptItem {
+  itemCode: string;
+  itemName: string;
+  quantity: number;
+  unitType: string;
+  purchasePrice: number;
+  amount: number;
+  selected?: boolean; // ✅ Optional flag for frontend filtering
+}
+
 export interface PurchaseReceiptType extends Document {
   prNumber: string;
   supplierInvoiceNum: string;
@@ -8,8 +20,9 @@ export interface PurchaseReceiptType extends Document {
   amount: number;
   supplierName: string;
   warehouse: string;
-  status: "draft" | "received" | "cancelled";
+  status: ReceiptStatus;
   remarks?: string;
+  items?: ReceiptItem[];
   createdAt?: Date;
   updatedAt?: Date;
 }
@@ -68,6 +81,19 @@ const PurchaseReceiptSchema = new Schema<PurchaseReceiptType>(
       trim: true,
       default: "",
     },
+    items: {
+      type: [
+        {
+          itemCode: { type: String, required: true },
+          itemName: { type: String, required: true },
+          quantity: { type: Number, required: true },
+          unitType: { type: String, required: true },
+          purchasePrice: { type: Number, required: true },
+          amount: { type: Number, required: true },
+        },
+      ],
+      default: [],
+    },
   },
   { timestamps: true }
 );
@@ -87,7 +113,13 @@ PurchaseReceiptSchema.pre("validate", async function (next) {
       this.supplierName =
         pos[0].supplierName?.trim().toUpperCase() || "UNKNOWN";
       this.warehouse = pos[0].warehouse?.trim().toUpperCase() || "UNKNOWN";
-      this.amount = pos.reduce((sum, po) => sum + (po.total || 0), 0);
+
+      // ✅ Respect frontend-calculated amount if provided
+      if (typeof this.amount !== "number" || isNaN(this.amount)) {
+        this.amount = Array.isArray(this.items)
+          ? this.items.reduce((sum, item) => sum + (item.amount || 0), 0)
+          : 0;
+      }
     }
   }
 

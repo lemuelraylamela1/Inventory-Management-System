@@ -1,7 +1,15 @@
-import PurchaseReceipt from "@/models/purchaseReceipt";
-import PurchaseOrder from "@/models/purchaseOrder";
-import { generateNextPRNumber } from "../../../libs/generateNextPRNumbers";
 import { NextResponse } from "next/server";
+import PurchaseOrder from "@/models/purchaseOrder";
+import PurchaseReceipt, { ReceiptItem } from "@/models/purchaseReceipt";
+import { generateNextPRNumber } from "../../../libs/generateNextPRNumbers";
+
+type POItem = {
+  itemCode: string;
+  itemName: string;
+  quantity: number;
+  unitType: string;
+  purchasePrice: number;
+};
 
 export async function POST(request: Request) {
   try {
@@ -29,25 +37,141 @@ export async function POST(request: Request) {
       );
     }
 
-    const supplierName =
-      purchaseOrders[0]?.supplierName?.trim().toUpperCase() || "UNKNOWN";
-    const warehouse =
-      purchaseOrders[0]?.warehouse?.trim().toUpperCase() || "UNKNOWN";
-    const amount = purchaseOrders.reduce((sum, po) => sum + (po.total || 0), 0);
+    const completedPOs = purchaseOrders.filter(
+      (po) => po.status === "Completed"
+    );
+
+    if (completedPOs.length > 0) {
+      const completedNumbers = completedPOs.map((po) => po.poNumber).join(", ");
+      return NextResponse.json(
+        {
+          error: `Cannot create receipt: the following PO(s) are already completed — ${completedNumbers}`,
+        },
+        { status: 400 }
+      );
+    }
+
+    const selectedItems: ReceiptItem[] = Array.isArray(body.items)
+      ? (body.items
+          .filter(
+            (item: Partial<ReceiptItem> & { selected?: boolean }) =>
+              item?.selected
+          )
+          .map((item: Partial<ReceiptItem>) => {
+            const quantity = Number(item.quantity);
+            const purchasePrice = Number(item.purchasePrice);
+
+            return {
+              itemCode: item.itemCode?.trim().toUpperCase() || "",
+              itemName: item.itemName?.trim() || "",
+              quantity,
+              unitType: item.unitType?.trim().toUpperCase() || "",
+              purchasePrice,
+              amount: quantity * purchasePrice,
+            };
+          })
+          .filter(Boolean) as ReceiptItem[])
+      : [];
+
+    if (selectedItems.length === 0) {
+      return NextResponse.json(
+        { error: "No items were selected for receipt creation" },
+        { status: 400 }
+      );
+    }
+
+    const totalAmount = selectedItems.reduce(
+      (sum, item) => sum + item.amount,
+      0
+    );
+    const totalQuantity = selectedItems.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+
+    for (const po of purchaseOrders) {
+      let mutated = false;
+
+      for (const receiptItem of selectedItems) {
+        const poItem = po.items.find(
+          (i: POItem) =>
+            i.itemCode?.trim().toUpperCase() ===
+            receiptItem.itemCode?.trim().toUpperCase()
+        );
+
+        if (poItem) {
+          poItem.quantity = Math.max(poItem.quantity - receiptItem.quantity, 0);
+          po.total = Math.max(po.total - receiptItem.amount, 0);
+          mutated = true;
+        }
+      }
+
+      po.items = po.items.filter((i: POItem) => i.quantity > 0);
+
+      // ✅ Recalculate totalQuantity from remaining items
+      po.totalQuantity = po.items.reduce(
+        (sum: number, item: POItem) => sum + item.quantity,
+        0
+      );
+
+      if (po.items.length === 0) {
+        try {
+          await PurchaseOrder.updateOne(
+            { _id: po._id },
+            {
+              $set: {
+                items: [],
+                status: "Completed",
+                total: 0,
+                totalQuantity: 0,
+              },
+            }
+          );
+          console.log(
+            `📦 PO ${po.poNumber} marked as Completed and items cleared`
+          );
+        } catch (err) {
+          console.error(`❌ Failed to update PO ${po.poNumber}:`, err);
+        }
+      } else if (mutated) {
+        try {
+          await PurchaseOrder.updateOne(
+            { _id: po._id },
+            {
+              $set: {
+                items: po.items,
+                status: "Partial",
+                total: po.total,
+                totalQuantity: po.totalQuantity,
+              },
+            }
+          );
+          console.log(
+            `🟡 PO ${po.poNumber} marked as Partial with remaining items`
+          );
+        } catch (err) {
+          console.error(`❌ Failed to update PO ${po.poNumber}:`, err);
+        }
+      }
+    }
 
     const newReceipt = await PurchaseReceipt.create({
       prNumber: await generateNextPRNumber(),
       supplierInvoiceNum: body.supplierInvoiceNum?.trim().toUpperCase(),
       poNumber: poNumbers,
-      supplierName,
-      warehouse,
-      amount,
+      supplierName:
+        purchaseOrders[0]?.supplierName?.trim().toUpperCase() || "UNKNOWN",
+      warehouse:
+        purchaseOrders[0]?.warehouse?.trim().toUpperCase() || "UNKNOWN",
+      amount: totalAmount,
+      quantity: totalQuantity,
       status: body.status?.trim().toLowerCase() || "draft",
-      remarks: body.remarks?.trim() || "", // ✅ Add this line
+      remarks: body.remarks?.trim() || "",
+      items: selectedItems,
     });
 
     return NextResponse.json(newReceipt, { status: 201 });
-  } catch (error: unknown) {
+  } catch (error) {
     console.error("❌ Error creating receipt:", error);
     return NextResponse.json(
       { error: "Failed to create receipt" },

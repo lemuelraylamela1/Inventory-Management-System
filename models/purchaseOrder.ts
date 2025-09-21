@@ -55,10 +55,14 @@ const PurchaseOrderSchema = new mongoose.Schema(
     },
     items: {
       type: [ItemSchema],
-      validate: [
-        (val: { itemName: string }[]) => val.length > 0,
-        "At least one item is required",
-      ],
+      validate: {
+        validator: function (val: { itemName: string }[]) {
+          // Cast `this` to the correct document type
+          const po = this as mongoose.Document & { status?: string };
+          return po.status === "Completed" || val.length > 0;
+        },
+        message: "At least one item is required unless PO is completed",
+      },
     },
     total: {
       type: Number,

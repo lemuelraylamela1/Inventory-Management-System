@@ -133,6 +133,23 @@ export type PurchaseReceiptType = {
   remarks?: string;
   createdAt?: string;
   updatedAt?: string;
+  items?: {
+    itemCode: string;
+    itemName: string;
+    quantity: number;
+    unitType: string;
+    purchasePrice: number;
+    amount: number;
+  }[];
+};
+
+export type ReceiptItem = {
+  itemCode: string;
+  itemName: string;
+  quantity: number;
+  unitType: string;
+  purchasePrice: number;
+  amount: number;
 };
 
 export type PurchaseReceiptResponse = Required<PurchaseReceiptType>;
