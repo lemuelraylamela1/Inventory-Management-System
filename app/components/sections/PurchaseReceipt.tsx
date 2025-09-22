@@ -77,7 +77,7 @@ import {
   PurchaseReceiptResponse,
   PurchaseOrderType,
   SupplierType,
-  WarehouseType,
+  ReceiptItem,
   ItemType,
 } from "@/app/components/sections/type";
 
@@ -137,6 +137,14 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       quantity: 1,
     },
   ]);
+
+  type POItem = {
+    itemCode?: string;
+    itemName?: string;
+    quantity: number;
+    unitType?: string;
+    purchasePrice: number;
+  };
 
   useEffect(() => {
     console.log("Fetching purchase orders...");
@@ -284,30 +292,47 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
     );
   };
 
+  function buildSelectedItemsPayload(
+    items: POItem[],
+    selectedItems: Record<number, boolean>,
+    editableItems: Record<number, number>
+  ): ReceiptItem[] {
+    return items
+      .map((item, index) => {
+        if (!selectedItems[index]) return null;
+        const quantity = editableItems[index] ?? item.quantity;
+
+        return {
+          selected: true,
+          itemCode: item.itemCode,
+          itemName: item.itemName,
+          quantity,
+          unitType: item.unitType,
+          purchasePrice: item.purchasePrice,
+          amount: item.purchasePrice * quantity,
+        };
+      })
+      .filter(Boolean) as ReceiptItem[];
+  }
+
   const handleCreate = async () => {
     if (!validateForm()) return;
 
+    const normalizedPO = formData.poNumber?.[0]?.trim().toUpperCase();
     const matchedPO = purchaseOrders.find(
-      (po) => po.poNumber.trim().toUpperCase() === formData.poNumber[0]
+      (po) => po.poNumber.trim().toUpperCase() === normalizedPO
     );
 
-    const selectedItemsPayload =
-      matchedPO?.items
-        ?.map((item, index) => {
-          if (!selectedItems[index]) return null;
+    if (!matchedPO) {
+      alert(`PO ${normalizedPO} not found.`);
+      return;
+    }
 
-          return {
-            selected: true, // ✅ Add this flag
-            itemCode: item.itemCode,
-            itemName: item.itemName,
-            quantity: editableItems[index] ?? item.quantity,
-            unitType: item.unitType,
-            purchasePrice: item.purchasePrice,
-            amount:
-              item.purchasePrice * (editableItems[index] ?? item.quantity),
-          };
-        })
-        .filter(Boolean) ?? [];
+    const selectedItemsPayload = buildSelectedItemsPayload(
+      matchedPO.items,
+      selectedItems,
+      editableItems
+    );
 
     if (selectedItemsPayload.length === 0) {
       alert("Please select at least one item before creating.");
@@ -315,7 +340,8 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
     }
 
     const payload = {
-      supplierInvoiceNum: formData.supplierInvoiceNum.trim().toUpperCase(),
+      supplierInvoiceNum:
+        formData.supplierInvoiceNum?.trim().toUpperCase() || "",
       poNumber: Array.isArray(formData.poNumber)
         ? formData.poNumber.map((po) => po.trim().toUpperCase())
         : [],
@@ -323,7 +349,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       items: selectedItemsPayload,
     };
 
-    console.log("Creating purchase receipt:", payload);
+    console.log("📤 Creating purchase receipt with payload:", payload);
 
     try {
       const res = await fetch("/api/purchase-receipts", {
@@ -335,25 +361,23 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       });
 
       const result = await res.json();
-      console.log("Server response:", result);
+      console.log("✅ Server response:", result);
 
       if (!res.ok) {
-        console.error("Create failed:", result.message || result);
+        console.error("❌ Create failed:", result.message || result);
         alert("Failed to create purchase receipt. Please try again.");
         return;
       }
 
       toast.success("Purchase receipt created successfully!");
 
-      if (typeof onSuccess === "function") {
-        onSuccess();
-      }
+      onSuccess?.();
 
       setTimeout(() => {
         router.push("/");
       }, 300);
     } catch (error) {
-      console.error("Network or unexpected error:", error);
+      console.error("🚨 Network or unexpected error:", error);
       alert("Something went wrong. Please check your connection or try again.");
     }
 

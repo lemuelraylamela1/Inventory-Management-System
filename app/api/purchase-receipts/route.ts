@@ -14,6 +14,7 @@ type POItem = {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
+    console.log("📥 Incoming items:", JSON.stringify(body.items, null, 2));
 
     const poNumbers = Array.isArray(body.poNumber)
       ? body.poNumber.map((po: string) => po.trim().toUpperCase())
