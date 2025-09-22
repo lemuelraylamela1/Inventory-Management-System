@@ -1294,17 +1294,18 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                             <div className="uppercase border-l border-border px-2 flex items-center  text-sm font-medium">
                               <input
                                 type="number"
-                                min={0}
+                                min={1} // ✅ Enforce minimum of 1
                                 max={item.quantity}
                                 value={editableItems[index] ?? item.quantity}
                                 onChange={(e) => {
-                                  const value = Math.min(
-                                    Number(e.target.value),
-                                    item.quantity
-                                  );
+                                  const raw = Number(e.target.value);
+                                  const clamped = Math.max(
+                                    1,
+                                    Math.min(raw, item.quantity)
+                                  ); // ✅ Clamp between 1 and item.quantity
                                   setEditableItems((prev) => ({
                                     ...prev,
-                                    [index]: value,
+                                    [index]: clamped,
                                   }));
                                 }}
                                 className="w-full px-2 py-1 border border-border rounded-md bg-background text-right focus:outline-none focus:ring-2 focus:ring-primary"

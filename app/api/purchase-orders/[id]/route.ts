@@ -17,7 +17,7 @@ const allowedStatuses = [
 function normalizeItems(items: PurchaseOrderItem[]): PurchaseOrderItem[] {
   return items.map((item) => ({
     itemName: item.itemName?.trim().toUpperCase() || "",
-    quantity: Number(item.quantity) || 0,
+    quantity: Math.max(Number(item.quantity) || 0, 1), // ✅ Enforce min 1
     unitType: item.unitType?.trim().toUpperCase() || "",
     purchasePrice: Number(item.purchasePrice) || 0,
     itemCode: item.itemCode?.trim().toUpperCase() || "",
@@ -35,6 +35,13 @@ function normalizeUpdateFields(fields: PurchaseOrderType) {
     0
   );
 
+  const normalizedStatus = fields.status?.trim().toUpperCase();
+  const validStatus = allowedStatuses.includes(
+    normalizedStatus as (typeof allowedStatuses)[number]
+  )
+    ? normalizedStatus
+    : "PENDING";
+
   return {
     referenceNumber: fields.referenceNumber?.trim().toUpperCase() || "",
     supplierName: fields.supplierName?.trim().toUpperCase() || "",
@@ -42,13 +49,9 @@ function normalizeUpdateFields(fields: PurchaseOrderType) {
     items: normalizedItems,
     total: totalAmount,
     totalQuantity,
-    balance: Number(fields.balance ?? totalAmount) || 0,
+    balance: totalAmount, // ✅ Always match totalAmount
     remarks: fields.remarks?.trim() || "",
-    status: allowedStatuses.includes(
-      fields.status?.trim() as (typeof allowedStatuses)[number]
-    )
-      ? fields.status!.trim()
-      : "Pending",
+    status: validStatus,
   };
 }
 
