@@ -46,7 +46,7 @@ export async function POST(request: Request) {
       totalQuantity,
       balance: Number(body.balance ?? totalAmount) || 0,
       remarks: body.remarks?.trim() || "",
-      status: body.status?.trim() || "Pending",
+      status: body.status?.trim() || "PENDING",
     });
 
     return NextResponse.json(newPO, { status: 201 });

@@ -14,7 +14,6 @@ type POItem = {
 export async function POST(request: Request) {
   try {
     const body = await request.json();
-    console.log("📥 Incoming items:", JSON.stringify(body.items, null, 2));
 
     const poNumbers = Array.isArray(body.poNumber)
       ? body.poNumber.map((po: string) => po.trim().toUpperCase())
@@ -39,7 +38,7 @@ export async function POST(request: Request) {
     }
 
     const completedPOs = purchaseOrders.filter(
-      (po) => po.status === "Completed"
+      (po) => po.status === "COMPLETED"
     );
 
     if (completedPOs.length > 0) {
@@ -122,7 +121,7 @@ export async function POST(request: Request) {
             {
               $set: {
                 items: [],
-                status: "Completed",
+                status: "COMPLETED",
                 total: 0,
                 totalQuantity: 0,
               },
@@ -141,7 +140,7 @@ export async function POST(request: Request) {
             {
               $set: {
                 items: po.items,
-                status: "Partial",
+                status: "PARTIAL",
                 total: po.total,
                 totalQuantity: po.totalQuantity,
               },
@@ -166,7 +165,7 @@ export async function POST(request: Request) {
         purchaseOrders[0]?.warehouse?.trim().toUpperCase() || "UNKNOWN",
       amount: totalAmount,
       quantity: totalQuantity,
-      status: body.status?.trim().toUpperCase() || "RECEIVED",
+      status: body.status || "RECEIVED",
       remarks: body.remarks?.trim() || "",
       items: selectedItems,
     });

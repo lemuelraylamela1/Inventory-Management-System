@@ -79,8 +79,8 @@ const PurchaseOrderSchema = new mongoose.Schema(
     remarks: String,
     status: {
       type: String,
-      enum: ["Pending", "Approved", "Rejected", "Completed"],
-      default: "Pending",
+      enum: ["PENDING", "APPROVED", "REJECTD", "COMPLETED"],
+      default: "PENDING",
     },
   },
   { timestamps: true }

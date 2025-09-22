@@ -72,7 +72,6 @@ const PurchaseReceiptSchema = new Schema<PurchaseReceiptType>(
     status: {
       type: String,
       enum: ["RECEIVED"],
-      lowercase: true,
       trim: true,
     },
     remarks: {

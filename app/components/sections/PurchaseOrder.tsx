@@ -188,7 +188,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     totalQuantity: 0,
     balance: 0,
     remarks: "",
-    status: "Pending",
+    status: "PENDING",
   });
 
   const [validationErrors, setValidationErrors] = useState<
@@ -431,10 +431,10 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   };
 
   const allowedStatuses: PurchaseOrderType["status"][] = [
-    "Pending",
-    "Approved",
-    "Rejected",
-    "Completed",
+    "PENDING",
+    "APPROVED",
+    "REJECTED",
+    "COMPLETED",
   ];
 
   const handleEdit = (po: PurchaseOrderType) => {
@@ -463,7 +463,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
         po.status?.trim() as PurchaseOrderType["status"]
       )
         ? (po.status?.trim() as PurchaseOrderType["status"])
-        : "Pending",
+        : "PENDING",
     };
 
     setFormData(normalizedFormData);
@@ -571,7 +571,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       totalQuantity: 0,
       balance: 0,
       remarks: "",
-      status: "Pending",
+      status: "PENDING",
     });
     setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(false);
@@ -632,7 +632,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       totalQuantity: 0,
       balance: 0,
       remarks: "",
-      status: "Pending",
+      status: "PENDING",
     });
 
     setValidationErrors({
