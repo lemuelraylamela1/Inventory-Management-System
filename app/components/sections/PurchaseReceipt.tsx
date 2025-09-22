@@ -393,11 +393,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
     supplierInvoiceNum: "",
   };
 
-  const allowedStatuses: PurchaseReceiptType["status"][] = [
-    "draft",
-    "received",
-    "cancelled",
-  ];
+  const allowedStatuses: PurchaseReceiptType["status"][] = ["RECEIVED"];
 
   const handleEdit = (receipt: PurchaseReceiptType) => {
     setEditingReceipt(receipt);
@@ -1060,7 +1056,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                 {(formData.poNumber[0]
                                   ? purchaseOrders.filter(
                                       (po) =>
-                                        po.status !== "Completed" &&
+                                        po.status !== "COMPLETED" &&
                                         po.poNumber
                                           .toUpperCase()
                                           .includes(
@@ -1068,7 +1064,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                           )
                                     )
                                   : purchaseOrders.filter(
-                                      (po) => po.status !== "Completed"
+                                      (po) => po.status !== "COMPLETED"
                                     )
                                 ).map((po) => {
                                   const normalized = po.poNumber
@@ -1101,7 +1097,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                 {(formData.poNumber[0]
                                   ? purchaseOrders.filter(
                                       (po) =>
-                                        po.status !== "Completed" &&
+                                        po.status !== "COMPLETED" &&
                                         po.poNumber
                                           .toUpperCase()
                                           .includes(
@@ -1109,7 +1105,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                           )
                                     ).length === 0
                                   : purchaseOrders.filter(
-                                      (po) => po.status !== "Completed"
+                                      (po) => po.status !== "COMPLETED"
                                     ).length === 0) && (
                                   <li className="px-3 py-2 text-muted-foreground">
                                     No matching PO found
@@ -1534,7 +1530,9 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                         </TableCell>
                         <TableCell>{receipt.remarks || "—"}</TableCell>
                         <TableCell>{receipt.amount || "—"}</TableCell>
-                        <TableCell>{receipt.status || "—"}</TableCell>
+                        <TableCell>
+                          {receipt.status.toUpperCase() || "—"}
+                        </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
                             <Button

@@ -71,8 +71,7 @@ const PurchaseReceiptSchema = new Schema<PurchaseReceiptType>(
     },
     status: {
       type: String,
-      enum: ["draft", "received", "cancelled"],
-      default: "draft",
+      enum: ["RECEIVED"],
       lowercase: true,
       trim: true,
     },

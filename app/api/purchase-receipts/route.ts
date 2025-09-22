@@ -166,7 +166,7 @@ export async function POST(request: Request) {
         purchaseOrders[0]?.warehouse?.trim().toUpperCase() || "UNKNOWN",
       amount: totalAmount,
       quantity: totalQuantity,
-      status: body.status?.trim().toLowerCase() || "draft",
+      status: body.status?.trim().toUpperCase() || "RECEIVED",
       remarks: body.remarks?.trim() || "",
       items: selectedItems,
     });
