@@ -21,7 +21,6 @@ import Bank from "./components/sections/Bank";
 import Customer from "./components/sections/Customer";
 import UnitOFMeasure from "./components/sections/UnitOfMeasurement";
 import Production from "./components/sections/Production";
-import PurchaseRequest from "./components/sections/PurchaseRequest";
 import PurchaseOrder from "./components/sections/PurchaseOrder";
 import PurchaseReceipt from "./components/sections/PurchaseReceipt";
 import PurchaseReturn from "./components/sections/PurchaseReturn";
@@ -95,8 +94,6 @@ export default function App() {
         return <PurchaseOrder />;
       case "purchase-receipt":
         return <PurchaseReceipt />;
-      case "purchase-request":
-        return <PurchaseRequest />;
       case "purchase-return":
         return <PurchaseReturn />;
       case "sales-person":

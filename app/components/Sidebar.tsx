@@ -71,7 +71,6 @@ export function Sidebar({
   const purchase = [
     { id: "purchase-order", label: "Purchase Order", icon: ShoppingCart },
     { id: "purchase-receipt", label: "Purchase Receipt", icon: Receipt },
-    { id: "purchase-request", label: "Purchase Request", icon: ClipboardList },
     { id: "purchase-return", label: "Purchase Return", icon: Undo2 },
   ];
 
