@@ -1650,6 +1650,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                   <TableHead>Supplier</TableHead>
                   <TableHead>Warehouse</TableHead>
                   <TableHead>Total Amount</TableHead>
+                  <TableHead>Balance</TableHead>
                   <TableHead>Remarks</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="w-32">Actions</TableHead>
@@ -1682,7 +1683,16 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       <TableCell>{po.supplierName || "—"}</TableCell>
                       <TableCell>{po.warehouse || "—"}</TableCell>
                       <TableCell>
-                        {po.total?.toLocaleString("en-PH") || "—"}
+                        ₱
+                        {po.total?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
+                      </TableCell>
+                      <TableCell>
+                        ₱
+                        {po.balance?.toLocaleString(undefined, {
+                          minimumFractionDigits: 2,
+                        })}
                       </TableCell>
                       <TableCell
                         className="max-w-[160px] truncate whitespace-nowrap overflow-hidden"

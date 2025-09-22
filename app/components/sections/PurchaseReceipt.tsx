@@ -1529,7 +1529,13 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                             : "—"}
                         </TableCell>
                         <TableCell>{receipt.remarks || "—"}</TableCell>
-                        <TableCell>{receipt.amount || "—"}</TableCell>
+
+                        <TableCell>
+                          ₱
+                          {receipt.amount?.toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                          })}
+                        </TableCell>
                         <TableCell>
                           {receipt.status.toUpperCase() || "—"}
                         </TableCell>

@@ -44,7 +44,7 @@ export async function POST(request: Request) {
       items: normalizedItems,
       total: totalAmount,
       totalQuantity,
-      balance: Number(body.balance ?? totalAmount) || 0,
+      balance: totalAmount,
       remarks: body.remarks?.trim() || "",
       status: body.status?.trim() || "PENDING",
     });

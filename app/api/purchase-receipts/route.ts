@@ -89,8 +89,20 @@ export async function POST(request: Request) {
       0
     );
 
+    const updatedPOs: {
+      poNumber: string;
+      balance: number;
+      status: string;
+      totalQuantity: number;
+    }[] = [];
+
     for (const po of purchaseOrders) {
       let mutated = false;
+      let totalDeducted = 0;
+
+      if (typeof po.balance !== "number") {
+        po.balance = po.total;
+      }
 
       for (const receiptItem of selectedItems) {
         const poItem = po.items.find(
@@ -101,57 +113,67 @@ export async function POST(request: Request) {
 
         if (poItem) {
           poItem.quantity = Math.max(poItem.quantity - receiptItem.quantity, 0);
-          po.total = Math.max(po.total - receiptItem.amount, 0);
+          totalDeducted += receiptItem.amount;
           mutated = true;
         }
       }
 
+      po.balance = Math.max(po.balance - totalDeducted, 0);
       po.items = po.items.filter((i: POItem) => i.quantity > 0);
-
-      // ✅ Recalculate totalQuantity from remaining items
       po.totalQuantity = po.items.reduce(
         (sum: number, item: POItem) => sum + item.quantity,
         0
       );
 
-      if (po.items.length === 0) {
-        try {
-          await PurchaseOrder.updateOne(
-            { _id: po._id },
-            {
-              $set: {
-                items: [],
-                status: "COMPLETED",
-                total: 0,
-                totalQuantity: 0,
-              },
-            }
-          );
-          console.log(
-            `📦 PO ${po.poNumber} marked as Completed and items cleared`
-          );
-        } catch (err) {
-          console.error(`❌ Failed to update PO ${po.poNumber}:`, err);
-        }
+      let newStatus = po.status;
+
+      if (po.items.length === 0 && po.balance === 0) {
+        newStatus = "COMPLETED";
+        await PurchaseOrder.updateOne(
+          { _id: po._id },
+          {
+            $set: {
+              items: [],
+              status: newStatus,
+              total: po.total,
+              balance: 0,
+              totalQuantity: 0,
+            },
+          }
+        );
+        console.log(
+          `📦 PO ${po.poNumber} marked as Completed and items cleared`
+        );
       } else if (mutated) {
-        try {
-          await PurchaseOrder.updateOne(
-            { _id: po._id },
-            {
-              $set: {
-                items: po.items,
-                status: "PARTIAL",
-                total: po.total,
-                totalQuantity: po.totalQuantity,
-              },
-            }
-          );
-          console.log(
-            `🟡 PO ${po.poNumber} marked as Partial with remaining items`
-          );
-        } catch (err) {
-          console.error(`❌ Failed to update PO ${po.poNumber}:`, err);
-        }
+        newStatus = "PARTIAL";
+        await PurchaseOrder.updateOne(
+          { _id: po._id },
+          {
+            $set: {
+              items: po.items,
+              status: newStatus,
+              total: po.total,
+              balance: po.balance,
+              totalQuantity: po.totalQuantity,
+            },
+          }
+        );
+        console.log(
+          `🟡 PO ${po.poNumber} marked as Partial with remaining items`
+        );
+      }
+
+      const refreshedPO = await PurchaseOrder.findOne({
+        poNumber: po.poNumber,
+      }).select("poNumber balance status totalQuantity");
+
+      if (refreshedPO) {
+        updatedPOs.push({
+          poNumber: refreshedPO.poNumber,
+          balance: refreshedPO.balance,
+          status: refreshedPO.status,
+          totalQuantity: refreshedPO.totalQuantity,
+        });
       }
     }
 
@@ -170,7 +192,13 @@ export async function POST(request: Request) {
       items: selectedItems,
     });
 
-    return NextResponse.json(newReceipt, { status: 201 });
+    return NextResponse.json(
+      {
+        receipt: newReceipt,
+        updatedPurchaseOrders: updatedPOs,
+      },
+      { status: 201 }
+    );
   } catch (error) {
     console.error("❌ Error creating receipt:", error);
     return NextResponse.json(
