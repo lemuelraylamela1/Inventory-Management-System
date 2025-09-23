@@ -223,13 +223,11 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
         statusFilter === "all" ||
         receipt.status?.toLowerCase() === statusFilter;
 
-      // Optional: enrich supplier name from linked PO metadata
-      // const matchesSupplier =
-      //   supplierFilter === "all" ||
-      //   enrichedSupplierName(receipt.poNumber)?.toLowerCase() ===
-      //     supplierFilter.toLowerCase();
+      const matchesSupplier =
+        supplierFilter === "all" ||
+        receipt.supplierName?.toLowerCase() === supplierFilter.toLowerCase();
 
-      return matchesSearch && matchesDate && matchesStatus; // && matchesSupplier;
+      return matchesSearch && matchesDate && matchesStatus && matchesSupplier;
     });
   }, [purchaseReceipts, searchTerm, dateFilter, supplierFilter, statusFilter]);
 
@@ -1069,7 +1067,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Search PO Number or Reference Number..."
+                placeholder="Search PR Number or Supplier Invoice No...."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -1585,26 +1583,23 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                   </Select>
                 </div>
 
-                {/* <div className="flex items-center gap-2">
+                <div className="flex items-center gap-2">
                   <Label htmlFor="status-filter" className="text-sm">
                     Status:
                   </Label>
                   <Select
                     value={statusFilter}
-                    onValueChange={(
-                      value: PurchaseReceiptType["status"] | "all"
-                    ) => setStatusFilter(value)}>
+                    onValueChange={(value) => setStatusFilter(value as string)}>
                     <SelectTrigger className="w-32">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="draft">Draft</SelectItem>
                       <SelectItem value="received">Received</SelectItem>
-                      <SelectItem value="cancelled">Cancelled</SelectItem>
+                      <SelectItem value="open">Open</SelectItem>
                     </SelectContent>
                   </Select>
-                </div> */}
+                </div>
 
                 <Button variant="outline" size="sm" onClick={clearFilters}>
                   Clear Filters
