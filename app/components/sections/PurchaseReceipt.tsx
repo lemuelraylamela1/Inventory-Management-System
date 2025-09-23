@@ -610,12 +610,31 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       return;
     }
 
+    // Get the receipts from local state
+    const receiptsToDelete = purchaseReceipts.filter((r) =>
+      _ids.includes(r._id)
+    );
+
+    // Filter out RECEIVED receipts
+    const deletableReceipts = receiptsToDelete.filter(
+      (r) => r.status !== "RECEIVED"
+    );
+
+    if (deletableReceipts.length === 0) {
+      toast.info("Receipts with RECEIVED status cannot be deleted.");
+      return;
+    }
+
+    const deletableIds = deletableReceipts.map((r) => r._id);
+
     try {
       // Optimistically remove from UI
-      setPurchaseReceipts((prev) => prev.filter((r) => !_ids.includes(r._id)));
+      setPurchaseReceipts((prev) =>
+        prev.filter((r) => !deletableIds.includes(r._id))
+      );
 
       const results = await Promise.allSettled(
-        _ids.map(async (_id) => {
+        deletableIds.map(async (_id) => {
           const res = await fetch(`/api/purchase-receipts/${_id}`, {
             method: "DELETE",
           });
@@ -636,10 +655,16 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
 
       if (failures.length > 0) {
         toast.warning(
-          `Some purchase receipts could not be deleted (${failures.length} failed).`
+          `Some receipts could not be deleted (${failures.length} failed).`
         );
       } else {
         toast.success("✅ Selected purchase receipts deleted.");
+      }
+
+      // Notify if some were skipped due to RECEIVED status
+      const skippedCount = _ids.length - deletableIds.length;
+      if (skippedCount > 0) {
+        toast.info(`${skippedCount} RECEIVED receipt(s) were skipped.`);
       }
 
       setSelectedIds([]);
@@ -1599,8 +1624,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                     variant="ghost"
                                     size="sm"
                                     title="Delete Receipt"
-                                    className="text-red-600 hover:text-red-700"
-                                    onClick={() => handleDelete(receipt._id)}>
+                                    className="text-red-600 hover:text-red-700">
                                     <Trash2 className="w-4 h-4" />
                                   </Button>
                                 )}

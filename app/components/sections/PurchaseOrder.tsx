@@ -2431,10 +2431,16 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                   <div className="flex items-center gap-2 min-w-[180px]">
                     <span className="text-sm font-medium">Total Amount:</span>
                     <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                      {(viewingPO.total || 0).toLocaleString("en-PH", {
-                        style: "currency",
-                        currency: "PHP",
-                      })}
+                      {viewingPO.items
+                        ?.reduce(
+                          (sum, item) =>
+                            sum + (item.quantity * item.purchasePrice || 0),
+                          0
+                        )
+                        ?.toLocaleString("en-PH", {
+                          style: "currency",
+                          currency: "PHP",
+                        }) ?? "₱0.00"}
                     </span>
                   </div>
                 </div>
