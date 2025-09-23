@@ -153,3 +153,35 @@ export type ReceiptItem = {
 };
 
 export type PurchaseReceiptResponse = Required<PurchaseReceiptType>;
+
+export type PurchaseReturnType = {
+  _id: string;
+  returnNumber: string;
+  prNumber: string;
+  supplierName: string;
+  reason: string;
+  status: string;
+  notes?: string;
+  items: ReceiptItem[];
+  createdAt: string;
+  updatedAt?: string;
+};
+
+export type PurchaseReturnResponse = {
+  _id: string;
+  returnNumber: string;
+  prNumber: string;
+  supplierName: string;
+  status: string;
+  notes?: string;
+  reason: string; // ✅ Add this
+  createdAt?: string;
+  items: {
+    itemCode: string;
+    itemName: string;
+    unitType: string;
+    purchasePrice: number;
+    quantity: number;
+    amount?: number;
+  }[];
+};
