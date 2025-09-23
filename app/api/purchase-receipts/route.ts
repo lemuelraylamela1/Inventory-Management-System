@@ -96,79 +96,65 @@ export async function POST(request: Request) {
       totalQuantity: number;
     }[] = [];
 
-    for (const po of purchaseOrders) {
-      let mutated = false;
-      let totalDeducted = 0;
+    const isReceived =
+      (body.status?.trim().toUpperCase() || "OPEN") === "RECEIVED";
 
+    for (const po of purchaseOrders) {
       if (typeof po.balance !== "number") {
         po.balance = po.total;
       }
 
-      for (const receiptItem of selectedItems) {
-        const poItem = po.items.find(
-          (i: POItem) =>
-            i.itemCode?.trim().toUpperCase() ===
-            receiptItem.itemCode?.trim().toUpperCase()
-        );
+      let totalDeducted = 0;
 
-        if (poItem) {
-          poItem.quantity = Math.max(poItem.quantity - receiptItem.quantity, 0);
-          totalDeducted += receiptItem.amount;
-          mutated = true;
+      if (isReceived) {
+        for (const receiptItem of selectedItems) {
+          const poItem = po.items.find(
+            (i: POItem) =>
+              i.itemCode?.trim().toUpperCase() ===
+              receiptItem.itemCode?.trim().toUpperCase()
+          );
+
+          if (poItem) {
+            totalDeducted += receiptItem.amount;
+          }
         }
-      }
 
-      po.balance = Math.max(po.balance - totalDeducted, 0);
-      po.items = po.items.filter((i: POItem) => i.quantity > 0);
-      po.totalQuantity = po.items.reduce(
-        (sum: number, item: POItem) => sum + item.quantity,
-        0
-      );
+        const newBalance = Math.max(po.balance - totalDeducted, 0);
+        const newStatus = newBalance === 0 ? "COMPLETED" : "PARTIAL";
 
-      let newStatus = po.status;
-
-      if (po.items.length === 0 && po.balance === 0) {
-        newStatus = "COMPLETED";
         await PurchaseOrder.updateOne(
           { _id: po._id },
           {
             $set: {
-              items: [],
+              balance: newBalance,
               status: newStatus,
-              total: po.total,
-              balance: 0,
-              totalQuantity: 0,
+              locked: newStatus === "COMPLETED",
             },
           }
         );
+
         console.log(
-          `📦 PO ${po.poNumber} marked as Completed and items cleared`
+          `📦 PO ${po.poNumber} updated — Status: ${newStatus}, Balance: ${newBalance}`
         );
-      } else if (mutated) {
-        newStatus = "PARTIAL";
-        await PurchaseOrder.updateOne(
-          { _id: po._id },
-          {
-            $set: {
-              items: po.items,
-              status: newStatus,
-              total: po.total,
-              balance: po.balance,
-              totalQuantity: po.totalQuantity,
-            },
-          }
-        );
+
+        updatedPOs.push({
+          poNumber: po.poNumber,
+          balance: newBalance,
+          status: newStatus,
+          totalQuantity: po.totalQuantity,
+        });
+      } else {
+        updatedPOs.push({
+          poNumber: po.poNumber,
+          balance: po.balance,
+          status: po.status,
+          totalQuantity: po.totalQuantity,
+        });
+
         console.log(
-          `🟡 PO ${po.poNumber} marked as Partial with remaining items`
+          `⏸️ PO ${po.poNumber} left untouched — Receipt status: ${body.status}`
         );
       }
-
-      updatedPOs.push({
-        poNumber: po.poNumber,
-        balance: po.balance,
-        status: newStatus,
-        totalQuantity: po.totalQuantity,
-      });
     }
 
     const newReceipt = await PurchaseReceipt.create({

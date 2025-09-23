@@ -373,6 +373,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
         ? formData.poNumber.map((po) => po.trim().toUpperCase())
         : [],
       remarks: formData.remarks?.trim() || "",
+      status: formData.status?.trim().toUpperCase() || "OPEN",
       items: selectedItemsPayload,
     };
 

@@ -1716,6 +1716,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
+                          {/* Always show View button */}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -1723,45 +1724,56 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                             title="View Details">
                             <Eye className="w-4 h-4" />
                           </Button>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(po)}
-                            title="Edit Purchase Order">
-                            <Edit className="w-4 h-4" />
-                          </Button>
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
+
+                          {/* Hide Edit and Delete if status is COMPLETED */}
+                          {po.status !== "COMPLETED" && (
+                            <>
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                title="Delete Purchase Order"
-                                className="text-red-600 hover:text-red-700">
-                                <Trash2 className="w-4 h-4" />
+                                onClick={() => handleEdit(po)}
+                                title="Edit Purchase Order">
+                                <Edit className="w-4 h-4" />
                               </Button>
-                            </AlertDialogTrigger>
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Delete Purchase Order
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  Are you sure you want to delete PO&nbsp;
-                                  <span className="font-semibold">
-                                    {po.poNumber}
-                                  </span>
-                                  ? This action cannot be undone.
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
-                              <AlertDialogFooter>
-                                <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                <AlertDialogAction
-                                  onClick={() => handleDelete(po._id)}>
-                                  Delete
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
+
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Delete Purchase Order"
+                                    className="text-red-600 hover:text-red-700">
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Delete Purchase Order
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to delete PO&nbsp;
+                                      <span className="font-semibold">
+                                        {po.poNumber}
+                                      </span>
+                                      ? This action cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() => handleDelete(po._id)}>
+                                      Delete
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </>
+                          )}
+
+                          {/* Always show Export dropdown */}
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
                               <Button
