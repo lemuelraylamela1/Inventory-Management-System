@@ -109,7 +109,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-
+  const [viewingPR, setViewingPR] = useState<PurchaseReceiptType | null>(null);
   const [editingReceipt, setEditingReceipt] =
     useState<PurchaseReceiptType | null>(null);
   const [viewingReceipt, setViewingReceipt] =
@@ -1925,6 +1925,148 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
           <DialogHeader>
             <DialogTitle>PO Details</DialogTitle>
           </DialogHeader>
+
+          {viewingReceipt && (
+            <div className="grid gap-6 py-4">
+              <Card className="p-6 rounded-xl shadow-sm border border-border">
+                <h4 className="text-xl font-bold text-primary text-center mb-6 tracking-tight">
+                  Purchase Receipt Info
+                </h4>
+
+                {/* Header Row */}
+                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] border-b py-3 mb-4 bg-primary text-primary-foreground rounded-t shadow-sm">
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide">
+                    PR Number
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
+                    Supplier Invoice #
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
+                    Supplier
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
+                    Warehouse
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
+                    Status
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
+                    Remarks
+                  </div>
+                  <div className="text-center border-l border-border"></div>
+                </div>
+
+                {/* Data Row */}
+                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-b py-2 text-sm">
+                  <div className="text-center uppercase border-l border-border">
+                    {viewingReceipt.prNumber || "—"}
+                  </div>
+                  <div className="text-center uppercase border-l border-border">
+                    {viewingReceipt.supplierInvoiceNum || "—"}
+                  </div>
+                  <div className="text-center uppercase border-l border-border">
+                    {viewingReceipt.supplierName || "—"}
+                  </div>
+                  <div className="text-center uppercase border-l border-border">
+                    {viewingReceipt.warehouse || "—"}
+                  </div>
+                  <div className="text-center uppercase border-l border-border">
+                    {viewingReceipt.status || "—"}
+                  </div>
+                  <div
+                    className="text-center uppercase border-l border-border max-w-[160px] truncate whitespace-nowrap overflow-hidden"
+                    title={viewingReceipt.remarks}>
+                    {viewingReceipt.remarks || "—"}
+                  </div>
+                </div>
+
+                {/* Items Header */}
+                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 border-b py-3 mb-2 bg-primary text-primary-foreground rounded-t shadow-sm">
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
+                    Item Code
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
+                    Item Name
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
+                    UOM
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
+                    Purchase Price
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
+                    Quantity
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
+                    Amount
+                  </div>
+                </div>
+
+                {viewingReceipt.items?.map((item, index) => (
+                  <div
+                    key={index}
+                    className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 py-2 text-sm">
+                    <div className="text-center uppercase border-l border-border">
+                      {item.itemCode || "—"}
+                    </div>
+                    <div className="text-center uppercase border-l border-border">
+                      {item.itemName || "—"}
+                    </div>
+                    <div className="text-center uppercase border-l border-border">
+                      {item.unitType || "—"}
+                    </div>
+                    <div className="text-center uppercase border-l border-border">
+                      {item.purchasePrice?.toLocaleString("en-PH", {
+                        style: "currency",
+                        currency: "PHP",
+                      }) || "—"}
+                    </div>
+                    <div className="text-center uppercase border-l border-border">
+                      {item.quantity ?? 0}
+                    </div>
+                    <div className="text-center uppercase border-l border-border">
+                      {(item.quantity * item.purchasePrice || 0).toLocaleString(
+                        "en-PH",
+                        {
+                          style: "currency",
+                          currency: "PHP",
+                        }
+                      )}
+                    </div>
+                  </div>
+                ))}
+
+                {/* Totals */}
+                <div className="flex w-full justify-end mt-4 gap-6">
+                  <div className="flex items-center gap-2 min-w-[180px]">
+                    <span className="text-sm font-medium">Total Qty:</span>
+                    <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
+                      {viewingReceipt.items?.reduce(
+                        (sum, item) => sum + (item.quantity || 0),
+                        0
+                      ) ?? 0}
+                    </span>
+                  </div>
+
+                  <div className="flex items-center gap-2 min-w-[180px]">
+                    <span className="text-sm font-medium">Total Amount:</span>
+                    <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
+                      {viewingReceipt.items
+                        ?.reduce(
+                          (sum, item) =>
+                            sum + (item.quantity * item.purchasePrice || 0),
+                          0
+                        )
+                        ?.toLocaleString("en-PH", {
+                          style: "currency",
+                          currency: "PHP",
+                        }) ?? "₱0.00"}
+                    </span>
+                  </div>
+                </div>
+              </Card>
+            </div>
+          )}
 
           <div className="flex justify-end mt-4">
             <Button
