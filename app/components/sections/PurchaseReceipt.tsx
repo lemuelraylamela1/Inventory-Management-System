@@ -90,6 +90,14 @@ type Props = {
   onSuccess?: () => void;
 };
 
+declare module "jspdf" {
+  interface jsPDF {
+    lastAutoTable?: {
+      finalY?: number;
+    };
+  }
+}
+
 export default function PurchaseReceipt({ onSuccess }: Props) {
   const [purchaseReceipts, setPurchaseReceipts] = useState<
     PurchaseReceiptResponse[]
@@ -937,6 +945,112 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
   //   toast.success("PDF exported successfully");
   // };
 
+  const handleExportPDF = (
+    items: ReceiptItem[],
+    receiptMeta: {
+      prNumber: string;
+      supplierInvoiceNum?: string;
+      supplierName: string;
+      warehouse: string;
+      status: string;
+      remarks?: string;
+      poNumbers: string[];
+    }
+  ) => {
+    if (!items || items.length === 0) {
+      toast.error("No items to export");
+      return;
+    }
+
+    const doc = new jsPDF();
+
+    // Header
+    doc.setFontSize(14);
+    doc.setFont("helvetica", "bold");
+    doc.text("NCM Marketing Corporation", 14, 20);
+    doc.setFontSize(10);
+    doc.setFont("helvetica", "normal");
+    doc.text(
+      "Freeman Compound, #10 Nardruta St., cor. 4th Ave., Caloocan City",
+      14,
+      26
+    );
+    doc.text(`Date: ${new Date().toLocaleDateString("en-PH")}`, 160, 26);
+
+    // Receipt Metadata
+    doc.text(`PR #: ${receiptMeta.prNumber}`, 14, 34);
+    doc.text(`PO #: ${receiptMeta.poNumbers.join(", ")}`, 80, 34);
+    doc.text(`Warehouse: ${receiptMeta.warehouse}`, 140, 34);
+    doc.text(`Supplier: ${receiptMeta.supplierName}`, 14, 40);
+    doc.text(`Invoice #: ${receiptMeta.supplierInvoiceNum || "—"}`, 80, 40);
+    doc.text(`Status: ${receiptMeta.status}`, 140, 40);
+    doc.text(`Remarks: ${receiptMeta.remarks || "—"}`, 14, 46);
+
+    // Table Header
+    const tableStartY = 52;
+    const tableHead = [["Qty", "Unit", "Description", "Unit Price", "Amount"]];
+    const tableBody = items.map((item) => [
+      item.quantity,
+      item.unitType,
+      item.itemName,
+      `₱${item.purchasePrice.toFixed(2)}`,
+      `₱${(item.quantity * item.purchasePrice).toFixed(2)}`,
+    ]);
+
+    autoTable(doc, {
+      startY: tableStartY,
+      head: tableHead,
+      body: tableBody,
+      styles: {
+        fontSize: 9,
+        cellPadding: 3,
+        halign: "center",
+        valign: "middle",
+      },
+      columnStyles: {
+        3: { halign: "right" },
+        4: { halign: "right" },
+      },
+      headStyles: {
+        fillColor: [0, 0, 0],
+        textColor: 255,
+        fontStyle: "bold",
+      },
+      alternateRowStyles: {
+        fillColor: [245, 245, 245],
+      },
+    });
+
+    // Totals
+    const finalY = doc.lastAutoTable?.finalY ?? tableStartY + 10;
+    const totalAmount = items.reduce(
+      (sum, item) => sum + item.quantity * item.purchasePrice,
+      0
+    );
+
+    doc.setFontSize(10);
+    doc.text(`VATable Sales: ₱${totalAmount.toFixed(2)}`, 140, finalY + 10);
+    doc.text(`VAT-Exempt Sales: ₱0.00`, 140, finalY + 16);
+    doc.text(`Zero-Rated Sales: ₱0.00`, 140, finalY + 22);
+    doc.text(`Total Sales: ₱${totalAmount.toFixed(2)}`, 140, finalY + 28);
+    doc.text(`Less: VAT: ₱0.00`, 140, finalY + 34);
+    doc.text(`Total Discount: ₱0.00`, 140, finalY + 40);
+    doc.setFont("helvetica", "bold");
+    doc.text(`Amount Due: ₱${totalAmount.toFixed(2)}`, 140, finalY + 46);
+
+    // Signature Block
+    doc.setFont("helvetica", "normal");
+    doc.text("Authorized Representative:", 14, finalY + 60);
+    doc.line(60, finalY + 60, 120, finalY + 60);
+    doc.text("Date Received:", 140, finalY + 60);
+    doc.line(170, finalY + 60, 195, finalY + 60);
+
+    // Save
+    const filename = `PR-${receiptMeta.prNumber}.pdf`;
+    doc.save(filename);
+    toast.success("PDF exported successfully");
+  };
+
   return (
     <div className="space-y-6">
       <Card>
@@ -1674,10 +1788,22 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                 </DropdownMenuItem>
 
                                 {/* Optional: Export PDF */}
-                                {/* <DropdownMenuItem onClick={() => handleExportPDF(...)}>
-          <FileText className="w-4 h-4 mr-2 text-red-600" />
-          Export as PDF
-        </DropdownMenuItem> */}
+                                <DropdownMenuItem
+                                  onClick={() =>
+                                    handleExportPDF(receipt.items, {
+                                      prNumber: receipt.prNumber,
+                                      supplierInvoiceNum:
+                                        receipt.supplierInvoiceNum,
+                                      supplierName: receipt.supplierName,
+                                      warehouse: receipt.warehouse,
+                                      status: receipt.status,
+                                      remarks: receipt.remarks,
+                                      poNumbers: receipt.poNumber, // assuming this is an array
+                                    })
+                                  }>
+                                  <FileText className="w-4 h-4 mr-2 text-red-600" />
+                                  Export as PDF
+                                </DropdownMenuItem>
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
