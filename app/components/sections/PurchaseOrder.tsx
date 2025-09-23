@@ -1426,11 +1426,10 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                     {/* Trash Button */}
                     <Button
                       variant="destructive"
-                      size="icon"
-                      className="w-full h-full flex items-center justify-center border border-border border-l-0 border-t-0"
+                      className="w-full h-[32px] px-1 text-xs border border-border bg-red-50 hover:bg-red-100 text-red-700 rounded transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus:ring-1 focus:ring-red-400 flex items-center justify-center"
                       onClick={() => handleRemoveItem(index)}
                       title="Remove item">
-                      <Trash2 className="w-4 h-4" />
+                      <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
                     </Button>
                   </div>
                 ))}
@@ -1699,7 +1698,22 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                         title={po.remarks}>
                         {po.remarks || "—"}
                       </TableCell>
-                      <TableCell>{po.status}</TableCell>
+                      <TableCell>
+                        <span
+                          className={`inline-block text-sm font-medium px-2 py-1 rounded-full ${
+                            po.status === "COMPLETED"
+                              ? "bg-green-100 text-green-800"
+                              : po.status === "APPROVED"
+                              ? "bg-blue-100 text-blue-800"
+                              : po.status === "PENDING"
+                              ? "bg-yellow-100 text-yellow-800"
+                              : po.status === "REJECTED"
+                              ? "bg-red-100 text-red-800"
+                              : "bg-gray-100 text-gray-800"
+                          }`}>
+                          {po.status.toUpperCase() || "—"}
+                        </span>
+                      </TableCell>
                       <TableCell>
                         <div className="flex gap-1">
                           <Button

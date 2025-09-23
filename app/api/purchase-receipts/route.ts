@@ -163,18 +163,12 @@ export async function POST(request: Request) {
         );
       }
 
-      const refreshedPO = await PurchaseOrder.findOne({
+      updatedPOs.push({
         poNumber: po.poNumber,
-      }).select("poNumber balance status totalQuantity");
-
-      if (refreshedPO) {
-        updatedPOs.push({
-          poNumber: refreshedPO.poNumber,
-          balance: refreshedPO.balance,
-          status: refreshedPO.status,
-          totalQuantity: refreshedPO.totalQuantity,
-        });
-      }
+        balance: po.balance,
+        status: newStatus,
+        totalQuantity: po.totalQuantity,
+      });
     }
 
     const newReceipt = await PurchaseReceipt.create({
@@ -187,7 +181,7 @@ export async function POST(request: Request) {
         purchaseOrders[0]?.warehouse?.trim().toUpperCase() || "UNKNOWN",
       amount: totalAmount,
       quantity: totalQuantity,
-      status: body.status || "RECEIVED",
+      status: body.status || "OPEN",
       remarks: body.remarks?.trim() || "",
       items: selectedItems,
     });

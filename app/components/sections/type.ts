@@ -129,7 +129,7 @@ export type PurchaseReceiptType = {
   amount?: number;
   supplierName?: string;
   warehouse?: string;
-  status?: "RECEIVED";
+  status?: "OPEN" | "RECEIVED";
   remarks?: string;
   createdAt?: string;
   updatedAt?: string;

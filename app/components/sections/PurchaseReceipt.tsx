@@ -67,7 +67,7 @@ import {
   DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, CheckCircle } from "lucide-react";
 import { Combobox } from "@headlessui/react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -161,24 +161,6 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       })
       .catch((err) => console.error("Failed to fetch purchase orders", err));
   }, []);
-
-  // useEffect(() => {
-  //   console.log("Fetching warehouses...");
-
-  //   fetch("/api/warehouses")
-  //     .then((res) => res.json())
-  //     .then((response) => {
-  //       console.log("Raw response:", response);
-
-  //       const data = Array.isArray(response?.warehouses)
-  //         ? response.warehouses
-  //         : [];
-  //       console.log("Parsed warehouses:", data);
-
-  //       setWarehouses(data);
-  //     })
-  //     .catch((err) => console.error("Failed to fetch warehouses", err));
-  // }, []);
 
   useEffect(() => {
     console.log("Fetching items...");
@@ -315,6 +297,45 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       .filter(Boolean) as ReceiptItem[];
   }
 
+  type ReceiptSummary = {
+    prNumber: string;
+    poNumber: string[]; // or string if it's a single PO
+    status: string;
+    locked?: boolean;
+  };
+
+  const handlePostReceipt = async (receipt: ReceiptSummary) => {
+    if (receipt.status === "RECEIVED" || receipt.locked) {
+      toast.info("This receipt is already finalized.");
+      return;
+    }
+
+    try {
+      const res = await fetch("/api/purchase-receipts/post", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          prNumber: receipt.prNumber,
+          poNumber: receipt.poNumber,
+        }),
+      });
+
+      const result = await res.json();
+
+      if (!res.ok) {
+        console.error("❌ Post failed:", result.error || result);
+        toast.error("Failed to post receipt.");
+        return;
+      }
+
+      toast.success("Receipt posted successfully. PO locked.");
+      router.refresh?.();
+    } catch (error) {
+      console.error("🚨 Network error:", error);
+      toast.error("Something went wrong while posting.");
+    }
+  };
+
   const handleCreate = async () => {
     if (!validateForm()) return;
 
@@ -393,7 +414,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
     supplierInvoiceNum: "",
   };
 
-  const allowedStatuses: PurchaseReceiptType["status"][] = ["RECEIVED"];
+  const allowedStatuses: PurchaseReceiptType["status"][] = ["RECEIVED", "OPEN"];
 
   const handleEdit = (receipt: PurchaseReceiptType) => {
     setEditingReceipt(receipt);
@@ -1538,7 +1559,17 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                           })}
                         </TableCell>
                         <TableCell>
-                          {receipt.status.toUpperCase() || "—"}
+                          <span
+                            className={`inline-block text-sm font-medium px-2 py-1 rounded-full
+                              ${
+                                receipt.status === "OPEN"
+                                  ? "bg-blue-100 text-blue-800"
+                                  : receipt.status === "RECEIVED"
+                                  ? "bg-green-100 text-green-800"
+                                  : "bg-neutral-100 text-neutral-800"
+                              }`}>
+                            {receipt.status?.toUpperCase() || "—"}
+                          </span>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
@@ -1549,22 +1580,30 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                               title="View Details">
                               <Eye className="w-4 h-4" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(receipt)}
-                              title="Edit Receipt">
-                              <Edit className="w-4 h-4" />
-                            </Button>
+
+                            {/* ✅ Only show Edit if PR is not posted */}
+                            {receipt.status === "OPEN" && (
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                onClick={() => handleEdit(receipt)}
+                                title="Edit Receipt">
+                                <Edit className="w-4 h-4" />
+                              </Button>
+                            )}
+
                             <AlertDialog>
                               <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  title="Delete Receipt"
-                                  className="text-red-600 hover:text-red-700">
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
+                                {receipt.status !== "RECEIVED" && (
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    title="Delete Receipt"
+                                    className="text-red-600 hover:text-red-700"
+                                    onClick={() => handleDelete(receipt._id)}>
+                                    <Trash2 className="w-4 h-4" />
+                                  </Button>
+                                )}
                               </AlertDialogTrigger>
                               <AlertDialogContent>
                                 <AlertDialogHeader>
@@ -1588,6 +1627,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                 </AlertDialogFooter>
                               </AlertDialogContent>
                             </AlertDialog>
+
                             <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
@@ -1597,24 +1637,23 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                   <MoreVertical className="w-4 h-4" />
                                 </Button>
                               </DropdownMenuTrigger>
+
                               <DropdownMenuContent align="end" className="w-40">
-                                <DropdownMenuLabel>
-                                  Export Options
-                                </DropdownMenuLabel>
+                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                 <DropdownMenuSeparator />
-                                {/* <DropdownMenuItem
-                                  onClick={() =>
-                                    handleExportPDF(itemsData, {
-                                      prNumber: receipt.prNumber,
-                                      invoiceNumber: receipt.invoiceNumber,
-                                      poNumber: receipt.poNumber,
-                                      receivedBy: receipt.receivedBy,
-                                      status: receipt.status,
-                                    })
-                                  }>
-                                  <FileText className="w-4 h-4 mr-2 text-red-600" />
-                                  Export as PDF
-                                </DropdownMenuItem> */}
+
+                                {/* ✅ POST Button */}
+                                <DropdownMenuItem
+                                  onClick={() => handlePostReceipt(receipt)}>
+                                  <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
+                                  Post Receipt
+                                </DropdownMenuItem>
+
+                                {/* Optional: Export PDF */}
+                                {/* <DropdownMenuItem onClick={() => handleExportPDF(...)}>
+          <FileText className="w-4 h-4 mr-2 text-red-600" />
+          Export as PDF
+        </DropdownMenuItem> */}
                               </DropdownMenuContent>
                             </DropdownMenu>
                           </div>
