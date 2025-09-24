@@ -55,20 +55,32 @@ export async function POST(request: Request) {
         typeof po.balance === "number" ? po.balance : po.total;
       let totalDeducted = 0;
 
-      const remainingItems = po.items.filter((poItem: POItem) => {
-        const matched = receipt.items.find(
-          (receiptItem: ReceiptItem) =>
-            receiptItem.itemCode?.trim().toUpperCase() ===
-            poItem.itemCode?.trim().toUpperCase()
-        );
+      const updatedItems = po.items
+        .map((poItem: POItem) => {
+          const matched = receipt.items.find(
+            (receiptItem: ReceiptItem) =>
+              receiptItem.itemCode?.trim().toUpperCase() ===
+              poItem.itemCode?.trim().toUpperCase()
+          );
 
-        if (matched) {
-          totalDeducted += matched.amount;
-          return false; // remove this item
-        }
+          if (matched) {
+            const remainingQuantity = Math.max(
+              poItem.quantity - matched.quantity,
+              0
+            );
+            const remainingAmount = remainingQuantity * poItem.purchasePrice;
+            totalDeducted += matched.amount;
 
-        return true; // keep this item
-      });
+            return {
+              ...poItem,
+              quantity: remainingQuantity,
+              amount: remainingAmount,
+            };
+          }
+
+          return poItem;
+        })
+        .filter((item: POItem) => item.quantity > 0); // Only remove fully fulfilled items
 
       const newBalance = Math.max(originalBalance - totalDeducted, 0);
       const newStatus = newBalance === 0 ? "COMPLETED" : "PARTIAL";
@@ -77,10 +89,10 @@ export async function POST(request: Request) {
         { _id: po._id },
         {
           $set: {
-            items: remainingItems,
+            items: updatedItems,
             balance: newBalance,
             status: newStatus,
-            totalQuantity: remainingItems.reduce(
+            totalQuantity: updatedItems.reduce(
               (sum: number, item: POItem) => sum + item.quantity,
               0
             ),

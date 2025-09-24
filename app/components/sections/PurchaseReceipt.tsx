@@ -155,35 +155,55 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
   };
 
   useEffect(() => {
-    console.log("Fetching purchase orders...");
+    console.log("Starting purchase order polling every 1 second...");
 
-    fetch("/api/purchase-orders")
-      .then((res) => res.json())
-      .then((response) => {
-        console.log("Raw response:", response);
+    const fetchPurchaseOrders = () => {
+      fetch("/api/purchase-orders")
+        .then((res) => res.json())
+        .then((response) => {
+          console.log("Raw response:", response);
+          const data = Array.isArray(response)
+            ? response
+            : response.items || [];
+          console.log("Parsed purchase orders:", data);
+          setPurchaseOrders(data); // ✅ Should match PurchaseOrderType[]
+        })
+        .catch((err) => console.error("Failed to fetch purchase orders", err));
+    };
 
-        const data = Array.isArray(response) ? response : response.items || [];
+    // Initial fetch
+    fetchPurchaseOrders();
 
-        console.log("Parsed purchase orders:", data);
-        setPurchaseOrders(data); // ✅ Should match PurchaseOrderType[]
-      })
-      .catch((err) => console.error("Failed to fetch purchase orders", err));
+    // Poll every 1 second
+    const intervalId = setInterval(fetchPurchaseOrders, 1000);
+
+    // Cleanup on unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   useEffect(() => {
-    console.log("Fetching items...");
+    console.log("Starting item polling every 1 second...");
 
-    fetch("/api/items")
-      .then((res) => res.json())
-      .then((response) => {
-        console.log("Raw response:", response);
+    const fetchItems = () => {
+      fetch("/api/items")
+        .then((res) => res.json())
+        .then((response) => {
+          console.log("Raw response:", response);
+          const data = Array.isArray(response?.items) ? response.items : [];
+          console.log("Parsed items:", data);
+          setItems(data);
+        })
+        .catch((err) => console.error("Failed to fetch items", err));
+    };
 
-        const data = Array.isArray(response?.items) ? response.items : [];
-        console.log("Parsed items:", data);
+    // Initial fetch
+    fetchItems();
 
-        setItems(data);
-      })
-      .catch((err) => console.error("Failed to fetch items", err));
+    // Poll every 1 second
+    const intervalId = setInterval(fetchItems, 1000);
+
+    // Cleanup on unmount
+    return () => clearInterval(intervalId);
   }, []);
 
   const router = useRouter();
