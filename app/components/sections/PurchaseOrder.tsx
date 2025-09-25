@@ -440,6 +440,25 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   const handleEdit = (po: PurchaseOrderType) => {
     setEditingPO(po);
 
+    const editableItems = po.items
+      .filter((item) => Number(item.quantity) > 0)
+      .map((item) => ({
+        itemName: item.itemName?.trim().toUpperCase() || "",
+        quantity: Math.max(Number(item.quantity) || 1, 1),
+        unitType: item.unitType?.trim().toUpperCase() || "",
+        purchasePrice: Number(item.purchasePrice) || 0,
+        itemCode: item.itemCode?.trim().toUpperCase() || "",
+      }));
+
+    const totalQuantity = editableItems.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+    const totalAmount = editableItems.reduce(
+      (sum, item) => sum + item.quantity * item.purchasePrice,
+      0
+    );
+
     const normalizedFormData: Omit<
       PurchaseOrderType,
       "_id" | "createdAt" | "updatedAt"
@@ -448,16 +467,10 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       referenceNumber: po.referenceNumber?.trim().toUpperCase() || "",
       supplierName: po.supplierName?.trim().toUpperCase() || "",
       warehouse: po.warehouse?.trim().toUpperCase() || "",
-      items: po.items.map((item) => ({
-        itemName: item.itemName?.trim().toUpperCase() || "",
-        quantity: Math.max(Number(item.quantity) || 0, 1), // Enforce min 1
-        unitType: item.unitType?.trim().toUpperCase() || "",
-        purchasePrice: Number(item.purchasePrice) || 0,
-        itemCode: item.itemCode?.trim().toUpperCase() || "",
-      })),
-      total: Number(po.total) || 0,
-      totalQuantity: Number(po.totalQuantity) || 0,
-      balance: Number(po.balance ?? po.total) || 0,
+      items: editableItems,
+      total: totalAmount,
+      totalQuantity,
+      balance: Number(po.balance ?? totalAmount),
       remarks: po.remarks?.trim() || "",
       status: allowedStatuses.includes(
         po.status?.trim() as PurchaseOrderType["status"]
@@ -479,7 +492,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
     const normalizedItems = formData.items.map((item) => ({
       itemName: item.itemName.trim().toUpperCase(),
-      quantity: Math.max(Number(item.quantity) || 0, 1),
+      quantity: Math.max(Number(item.quantity) || 1, 1),
       unitType: item.unitType?.trim().toUpperCase() || "",
       purchasePrice: Number(item.purchasePrice),
       itemCode: item.itemCode?.trim().toUpperCase() || "",

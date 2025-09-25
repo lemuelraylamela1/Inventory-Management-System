@@ -264,7 +264,17 @@ export async function PUT(
         warehouse,
         amount,
         status: body.status?.trim().toLowerCase() || "draft",
-        remarks: body.remarks?.trim() || "", // ✅ Add this line
+        remarks: body.remarks?.trim() || "",
+        items: Array.isArray(body.items)
+          ? body.items.map((item: ReceiptItem) => ({
+              itemCode: item.itemCode?.trim().toUpperCase() || "",
+              itemName: item.itemName?.trim() || "",
+              quantity: Number(item.quantity),
+              unitType: item.unitType?.trim().toUpperCase() || "",
+              purchasePrice: Number(item.purchasePrice),
+              amount: Number(item.quantity) * Number(item.purchasePrice),
+            }))
+          : [],
       },
       { new: true }
     );
