@@ -67,7 +67,7 @@ import {
   DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Check } from "lucide-react";
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -2088,169 +2088,204 @@ export default function PurchaseOrder({ onSuccess }: Props) {
             </div>
           </div>
 
-          {formData.items?.map((item, index) => (
-            <div
-              key={index}
-              className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
-              {/* Item Code */}
-              <input
-                type="text"
-                value={item.itemCode || ""}
-                readOnly
-                className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-              />
+          {formData.items?.map((item, index) => {
+            const isZero = item.quantity === 0;
 
-              {/* Item Name */}
-              <Select
-                value={item.itemName}
-                onValueChange={(value) => {
-                  const normalized = value.toUpperCase().trim();
-                  const selected = items.find(
-                    (option) =>
-                      option.itemName?.toUpperCase().trim() === normalized
-                  );
-                  if (!selected) return;
+            return (
+              <div
+                key={index}
+                className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0 ${
+                  isZero ? "bg-green-50 text-green-700 animate-fade-in" : ""
+                }`}>
+                {/* Item Code */}
+                <input
+                  type="text"
+                  value={item.itemCode || ""}
+                  readOnly
+                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
+                    isZero ? "bg-green-50 text-green-700" : "bg-white"
+                  }`}
+                />
 
-                  setFormData((prev) => {
-                    const updatedItems = [...prev.items];
-                    updatedItems[index] = {
-                      ...updatedItems[index],
-                      itemName: normalized,
-                      itemCode: selected.itemCode || "",
-                      unitType: selected.unitType || "",
-                      purchasePrice: selected.purchasePrice || 0,
-                      quantity: updatedItems[index]?.quantity || 1,
-                    };
+                {/* Item Name */}
+                <Select
+                  value={item.itemName}
+                  onValueChange={(value) => {
+                    const normalized = value.toUpperCase().trim();
+                    const selected = items.find(
+                      (option) =>
+                        option.itemName?.toUpperCase().trim() === normalized
+                    );
+                    if (!selected) return;
 
-                    const { totalQuantity, total } =
-                      recalculateTotals(updatedItems);
+                    setFormData((prev) => {
+                      const updatedItems = [...prev.items];
+                      updatedItems[index] = {
+                        ...updatedItems[index],
+                        itemName: normalized,
+                        itemCode: selected.itemCode || "",
+                        unitType: selected.unitType || "",
+                        purchasePrice: selected.purchasePrice || 0,
+                        quantity: updatedItems[index]?.quantity || 1,
+                      };
 
-                    return {
-                      ...prev,
-                      items: updatedItems,
-                      totalQuantity,
-                      total,
-                    };
-                  });
-                }}>
-                <SelectTrigger
-                  id={`edit-item-name-${index}`}
-                  className="w-full px-2 py-1 border border-border border-l-0 border-t-0 uppercase focus:outline-none focus:ring-1 focus:ring-primary">
-                  {item.itemName || "Select Item"}
-                </SelectTrigger>
+                      const { totalQuantity, total } =
+                        recalculateTotals(updatedItems);
 
-                <SelectContent>
-                  {items.length > 0 ? (
-                    items.map((option) => {
-                      const label = option.itemName?.trim() || "Unnamed Item";
-                      return (
-                        <SelectItem
-                          key={option._id || label}
-                          value={label.toUpperCase()}>
-                          {label}
-                        </SelectItem>
-                      );
-                    })
-                  ) : (
-                    <SelectItem disabled value="no-items">
-                      No items available
-                    </SelectItem>
-                  )}
-                </SelectContent>
-              </Select>
+                      return {
+                        ...prev,
+                        items: updatedItems,
+                        totalQuantity,
+                        total,
+                      };
+                    });
+                  }}>
+                  <SelectTrigger
+                    id={`edit-item-name-${index}`}
+                    className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 uppercase focus:outline-none focus:ring-1 focus:ring-primary ${
+                      isZero
+                        ? "bg-green-50 text-green-700 cursor-not-allowed"
+                        : ""
+                    }`}
+                    disabled={isZero}>
+                    {item.itemName || "Select Item"}
+                  </SelectTrigger>
 
-              {/* Quantity */}
-              <input
-                type="number"
-                min={1}
-                value={item.quantity}
-                onChange={(e) => {
-                  const value = Number(e.target.value);
-                  setFormData((prev) => {
-                    const updatedItems = [...prev.items];
-                    updatedItems[index].quantity = value;
-
-                    const { totalQuantity, total } =
-                      recalculateTotals(updatedItems);
-
-                    return {
-                      ...prev,
-                      items: updatedItems,
-                      totalQuantity,
-                      total,
-                    };
-                  });
-                }}
-                className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
-              />
-
-              {/* Unit Type */}
-              <input
-                type="text"
-                value={item.unitType || ""}
-                readOnly
-                className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-              />
-
-              {/* Purchase Price */}
-              <input
-                type="text"
-                value={
-                  item.purchasePrice !== undefined
-                    ? item.purchasePrice.toLocaleString("en-PH", {
-                        style: "currency",
-                        currency: "PHP",
+                  <SelectContent>
+                    {items.length > 0 ? (
+                      items.map((option) => {
+                        const label = option.itemName?.trim() || "Unnamed Item";
+                        return (
+                          <SelectItem
+                            key={option._id || label}
+                            value={label.toUpperCase()}>
+                            {label}
+                          </SelectItem>
+                        );
                       })
-                    : ""
-                }
-                readOnly
-                className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-              />
+                    ) : (
+                      <SelectItem disabled value="no-items">
+                        No items available
+                      </SelectItem>
+                    )}
+                  </SelectContent>
+                </Select>
 
-              {/* Amount */}
-              <input
-                type="text"
-                value={
-                  item.purchasePrice && item.quantity
-                    ? (item.purchasePrice * item.quantity).toLocaleString(
-                        "en-PH",
-                        {
+                {/* Quantity */}
+                <input
+                  type="number"
+                  min={1}
+                  value={item.quantity}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setFormData((prev) => {
+                      const updatedItems = [...prev.items];
+                      updatedItems[index].quantity = value;
+
+                      const { totalQuantity, total } =
+                        recalculateTotals(updatedItems);
+
+                      return {
+                        ...prev,
+                        items: updatedItems,
+                        totalQuantity,
+                        total,
+                      };
+                    });
+                  }}
+                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 focus:outline-none focus:ring-1 focus:ring-primary ${
+                    isZero
+                      ? "bg-green-50 text-green-700 cursor-not-allowed"
+                      : "bg-white"
+                  }`}
+                  disabled={isZero}
+                />
+
+                {/* Unit Type */}
+                <input
+                  type="text"
+                  value={item.unitType || ""}
+                  readOnly
+                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
+                    isZero ? "bg-green-50 text-green-700" : "bg-white"
+                  }`}
+                />
+
+                {/* Purchase Price */}
+                <input
+                  type="text"
+                  value={
+                    item.purchasePrice !== undefined
+                      ? item.purchasePrice.toLocaleString("en-PH", {
                           style: "currency",
                           currency: "PHP",
-                        }
-                      )
-                    : ""
-                }
-                readOnly
-                className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-              />
+                        })
+                      : ""
+                  }
+                  readOnly
+                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
+                    isZero ? "bg-green-50 text-green-700" : "bg-white"
+                  }`}
+                />
 
-              {/* Trash Button */}
-              <Button
-                variant="destructive"
-                size="icon"
-                className="w-full h-full flex items-center justify-center border border-border border-l-0 border-t-0"
-                onClick={() => {
-                  setFormData((prev) => {
-                    const updatedItems = prev.items.filter(
-                      (_, i) => i !== index
-                    );
-                    const { totalQuantity, total } =
-                      recalculateTotals(updatedItems);
+                {/* Amount */}
+                <input
+                  type="text"
+                  value={
+                    item.purchasePrice && item.quantity
+                      ? (item.purchasePrice * item.quantity).toLocaleString(
+                          "en-PH",
+                          {
+                            style: "currency",
+                            currency: "PHP",
+                          }
+                        )
+                      : ""
+                  }
+                  readOnly
+                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
+                    isZero ? "bg-green-50 text-green-700" : "bg-white"
+                  }`}
+                />
 
-                    return {
-                      ...prev,
-                      items: updatedItems,
-                      totalQuantity,
-                      total,
-                    };
-                  });
-                }}
-                title="Remove item">
-                <Trash2 className="w-4 h-4" />
-              </Button>
-            </div>
-          ))}
+                {/* Action Button */}
+                <div className="w-full h-full flex items-center justify-center border border-border border-l-0 border-t-0">
+                  {isZero ? (
+                    <div className="flex items-center gap-1">
+                      <Check className="w-4 h-4 text-green-600 animate-bounce" />
+                      <span className="text-xs font-semibold text-green-700">
+                        Posted
+                      </span>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => {
+                        setFormData((prev) => {
+                          const updatedItems = prev.items.filter(
+                            (_, i) => i !== index
+                          );
+                          const { totalQuantity, total } =
+                            recalculateTotals(updatedItems);
+
+                          return {
+                            ...prev,
+                            items: updatedItems,
+                            totalQuantity,
+                            total,
+                          };
+                        });
+                      }}
+                      title="Remove item">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
           {/* Totals */}
           <div className="flex w-full justify-end mt-4 gap-6">
             {/* Total Quantity */}
@@ -2394,44 +2429,60 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                   </div>
                 </div>
 
-                {viewingPO.items?.map((item, index) => (
-                  <div
-                    key={index}
-                    className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 py-2 text-sm">
-                    <div className="text-center uppercase border-l border-border">
-                      {item.itemCode || "—"}
-                    </div>
+                {viewingPO.items?.map((item, index) => {
+                  const isZero = item.quantity === 0;
 
-                    <div className="text-center uppercase border-l border-border">
-                      {item.itemName || "—"}
-                    </div>
+                  return (
+                    <div
+                      key={index}
+                      className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 py-2 text-sm items-center transition-colors duration-150 border-b ${
+                        isZero
+                          ? "bg-green-50 text-green-700 animate-fade-in"
+                          : "hover:bg-muted/10"
+                      }`}>
+                      {/* Item Code */}
+                      <div className="text-center uppercase border border-border px-2 font-medium">
+                        {item.itemCode || "—"}
+                      </div>
 
-                    <div className="text-center uppercase border-l border-border">
-                      {item.unitType || "—"}
-                    </div>
+                      {/* Item Name */}
+                      <div className="text-center uppercase border border-border px-2 font-medium">
+                        {item.itemName || "—"}
+                      </div>
 
-                    <div className="text-center uppercase border-l border-border">
-                      {item.purchasePrice?.toLocaleString("en-PH", {
-                        style: "currency",
-                        currency: "PHP",
-                      }) || "—"}
-                    </div>
+                      {/* Unit Type */}
+                      <div className="text-center uppercase border border-border px-2 font-medium">
+                        {item.unitType || "—"}
+                      </div>
 
-                    <div className="text-center uppercase border-l border-border">
-                      {item.quantity ?? 0}
-                    </div>
+                      {/* Purchase Price */}
+                      <div className="text-center uppercase border border-border px-2 font-medium">
+                        {item.purchasePrice !== undefined
+                          ? item.purchasePrice.toLocaleString("en-PH", {
+                              style: "currency",
+                              currency: "PHP",
+                            })
+                          : "—"}
+                      </div>
 
-                    <div className="text-center uppercase border-l border-border">
-                      {(item.quantity * item.purchasePrice || 0).toLocaleString(
-                        "en-PH",
-                        {
+                      {/* Quantity */}
+                      <div className="text-center uppercase border border-border px-2 font-medium">
+                        {item.quantity ?? 0}
+                      </div>
+
+                      {/* Amount */}
+                      <div className="text-center uppercase border border-border px-2 font-medium">
+                        {(
+                          item.quantity * item.purchasePrice || 0
+                        ).toLocaleString("en-PH", {
                           style: "currency",
                           currency: "PHP",
-                        }
-                      )}
+                        })}
+                      </div>
                     </div>
-                  </div>
-                ))}
+                  );
+                })}
+
                 <div className="flex w-full justify-end mt-4 gap-6">
                   <div className="flex items-center gap-2 min-w-[180px]">
                     <span className="text-sm font-medium">Total Qty:</span>

@@ -67,7 +67,7 @@ import {
   DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 
-import { Plus, Search, Edit, Trash2, CheckCircle } from "lucide-react";
+import { Plus, Search, Edit, Trash2, CheckCircle, Check } from "lucide-react";
 import { Combobox } from "@headlessui/react";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -1380,7 +1380,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                     <div className="overflow-auto max-h-96">
                       {/* Header */}
                       <div className="grid w-full grid-cols-[40px_1fr_1fr_1fr_1fr_1fr_1fr] gap-4 border-b px-0 py-2 bg-primary text-primary-foreground sticky top-0 z-10">
-                        <div className="flex items-center justify-end  min-w-[40px]">
+                        <div className="flex items-center justify-end min-w-[40px]">
                           <input
                             type="checkbox"
                             checked={
@@ -1398,8 +1398,8 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                 return;
 
                               const allSelected = matchedPO.items.reduce(
-                                (acc, _, index) => {
-                                  acc[index] = checked;
+                                (acc, item, index) => {
+                                  if (item.quantity > 0) acc[index] = checked;
                                   return acc;
                                 },
                                 {} as Record<number, boolean>
@@ -1440,92 +1440,116 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                         if (!matchedPO || !Array.isArray(matchedPO.items))
                           return null;
 
-                        return matchedPO.items.map((item, index) => (
-                          <div
-                            key={index}
-                            className={` grid grid-cols-[40px_1fr_1fr_1fr_1fr_1fr_1fr] border-t border-border text-sm px-3 py-2 ${
-                              selectedItems[index]
-                                ? "bg-accent/10 border-accent"
-                                : "hover:bg-muted/10"
-                            }`}>
-                            <div className="flex items-center justify-center px-2 min-w-[40px]">
-                              <input
-                                type="checkbox"
-                                checked={selectedItems[index] || false}
-                                onChange={(e) => {
-                                  setSelectedItems((prev) => ({
-                                    ...prev,
-                                    [index]: e.target.checked,
-                                  }));
-                                }}
-                                className="form-checkbox h-4 w-4 text-primary focus:ring-2 focus:ring-primary/50 hover:scale-105 transition-transform"
-                              />
-                            </div>
+                        return matchedPO.items.map((item, index) => {
+                          const isZero = item.quantity === 0;
 
-                            <div className="flex items-center uppercase text-sm font-medium">
-                              {item.itemCode || "-"}
-                            </div>
+                          return (
+                            <div
+                              key={index}
+                              className={`grid grid-cols-[40px_1fr_1fr_1fr_1fr_1fr_1fr] border-t border-border text-sm px-3 py-2 items-center ${
+                                isZero
+                                  ? "bg-green-50 text-green-700 animate-fade-in"
+                                  : selectedItems[index]
+                                  ? "bg-accent/10 border-accent"
+                                  : "hover:bg-muted/10"
+                              }`}>
+                              {/* Checkbox or Posted Badge */}
+                              <div className="flex items-center justify-center px-2 min-w-[40px]">
+                                {isZero ? (
+                                  <div className="flex items-center gap-1 text-green-600">
+                                    <Check className="w-4 h-4 animate-bounce" />
+                                  </div>
+                                ) : (
+                                  <input
+                                    type="checkbox"
+                                    checked={selectedItems[index] || false}
+                                    onChange={(e) => {
+                                      setSelectedItems((prev) => ({
+                                        ...prev,
+                                        [index]: e.target.checked,
+                                      }));
+                                    }}
+                                    className="form-checkbox h-4 w-4 text-primary focus:ring-2 focus:ring-primary/50 hover:scale-105 transition-transform"
+                                  />
+                                )}
+                              </div>
 
-                            <div className="uppercase border-l border-border px-2 flex items-center  text-sm font-medium">
-                              {item.itemName || "-"}
-                            </div>
+                              {/* Item Code */}
+                              <div className="flex items-center uppercase text-sm font-medium">
+                                {item.itemCode || "-"}
+                              </div>
 
-                            <div className="uppercase border-l border-border px-2 flex items-center  text-sm font-medium">
-                              <input
-                                type="number"
-                                min={1} // ✅ Enforce minimum of 1
-                                max={item.quantity}
-                                value={editableItems[index] ?? item.quantity}
-                                onChange={(e) => {
-                                  const raw = Number(e.target.value);
-                                  const clamped = Math.max(
-                                    1,
-                                    Math.min(raw, item.quantity)
-                                  ); // ✅ Clamp between 1 and item.quantity
-                                  setEditableItems((prev) => ({
-                                    ...prev,
-                                    [index]: clamped,
-                                  }));
-                                }}
-                                className="w-full px-2 py-1 border border-border rounded-md bg-background text-right focus:outline-none focus:ring-2 focus:ring-primary"
-                                inputMode="numeric"
-                              />
-                            </div>
+                              {/* Item Name */}
+                              <div className="uppercase border-l border-border px-2 flex items-center text-sm font-medium">
+                                {item.itemName || "-"}
+                              </div>
 
-                            <div className="uppercase border-l border-border px-2 flex items-center  text-sm font-medium">
-                              {item.unitType || "-"}
-                            </div>
+                              {/* Quantity Input */}
+                              <div className="uppercase border-l border-border px-2 flex items-center text-sm font-medium">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={item.quantity}
+                                  value={editableItems[index] ?? item.quantity}
+                                  onChange={(e) => {
+                                    const raw = Number(e.target.value);
+                                    const clamped = Math.max(
+                                      1,
+                                      Math.min(raw, item.quantity)
+                                    );
+                                    setEditableItems((prev) => ({
+                                      ...prev,
+                                      [index]: clamped,
+                                    }));
+                                  }}
+                                  disabled={isZero}
+                                  className={`w-full px-2 py-1 border border-border rounded-md text-right focus:outline-none focus:ring-2 focus:ring-primary ${
+                                    isZero
+                                      ? "bg-green-50 text-green-700 cursor-not-allowed"
+                                      : "bg-background"
+                                  }`}
+                                  inputMode="numeric"
+                                />
+                              </div>
 
-                            <div className="uppercase border-l border-border px-2 flex items-center  text-sm font-medium">
-                              {item.purchasePrice !== undefined ? (
-                                item.purchasePrice.toLocaleString("en-PH", {
-                                  style: "currency",
-                                  currency: "PHP",
-                                })
-                              ) : (
-                                <span className="text-muted-foreground">
-                                  ₱0.00
-                                </span>
-                              )}
-                            </div>
+                              {/* Unit Type */}
+                              <div className="uppercase border-l border-border px-2 flex items-center text-sm font-medium">
+                                {item.unitType || "-"}
+                              </div>
 
-                            <div className="text-right border-l border-border px-2 text-sm font-medium">
-                              {item.purchasePrice && item.quantity ? (
-                                (
-                                  item.purchasePrice *
-                                  (editableItems[index] ?? item.quantity)
-                                ).toLocaleString("en-PH", {
-                                  style: "currency",
-                                  currency: "PHP",
-                                })
-                              ) : (
-                                <span className="text-muted-foreground">
-                                  ₱0.00
-                                </span>
-                              )}
+                              {/* Purchase Price */}
+                              <div className="uppercase border-l border-border px-2 flex items-center text-sm font-medium">
+                                {item.purchasePrice !== undefined ? (
+                                  item.purchasePrice.toLocaleString("en-PH", {
+                                    style: "currency",
+                                    currency: "PHP",
+                                  })
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    ₱0.00
+                                  </span>
+                                )}
+                              </div>
+
+                              {/* Amount */}
+                              <div className="text-right border-l border-border px-2 text-sm font-medium">
+                                {item.purchasePrice && item.quantity ? (
+                                  (
+                                    item.purchasePrice *
+                                    (editableItems[index] ?? item.quantity)
+                                  ).toLocaleString("en-PH", {
+                                    style: "currency",
+                                    currency: "PHP",
+                                  })
+                                ) : (
+                                  <span className="text-muted-foreground">
+                                    ₱0.00
+                                  </span>
+                                )}
+                              </div>
                             </div>
-                          </div>
-                        ));
+                          );
+                        });
                       })()}
                     </div>
                   </div>
