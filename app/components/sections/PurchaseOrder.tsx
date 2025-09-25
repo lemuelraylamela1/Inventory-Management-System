@@ -450,7 +450,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       warehouse: po.warehouse?.trim().toUpperCase() || "",
       items: po.items.map((item) => ({
         itemName: item.itemName?.trim().toUpperCase() || "",
-        quantity: Number(item.quantity) || 0,
+        quantity: Math.max(Number(item.quantity) || 0, 1), // Enforce min 1
         unitType: item.unitType?.trim().toUpperCase() || "",
         purchasePrice: Number(item.purchasePrice) || 0,
         itemCode: item.itemCode?.trim().toUpperCase() || "",
@@ -479,7 +479,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
     const normalizedItems = formData.items.map((item) => ({
       itemName: item.itemName.trim().toUpperCase(),
-      quantity: Number(item.quantity),
+      quantity: Math.max(Number(item.quantity) || 0, 1),
       unitType: item.unitType?.trim().toUpperCase() || "",
       purchasePrice: Number(item.purchasePrice),
       itemCode: item.itemCode?.trim().toUpperCase() || "",
@@ -489,26 +489,31 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       (sum, item) => sum + item.quantity,
       0
     );
-
     const totalAmount = normalizedItems.reduce(
       (sum, item) => sum + item.quantity * item.purchasePrice,
       0
     );
 
+    const rawStatus = formData.status?.trim().toUpperCase();
+    const status = allowedStatuses.includes(
+      rawStatus as PurchaseOrderType["status"]
+    )
+      ? rawStatus
+      : "PENDING";
+
     const payload = {
+      poNumber: formData.poNumber.trim().toUpperCase(),
       referenceNumber: formData.referenceNumber.trim().toUpperCase(),
       supplierName: formData.supplierName.trim().toUpperCase(),
       warehouse: formData.warehouse.trim().toUpperCase(),
       items: normalizedItems,
       total: totalAmount,
-      totalQuantity: totalQuantity,
-      balance: Number(formData.balance ?? totalAmount) || 0,
+      totalQuantity,
+      balance: isNaN(Number(formData.balance))
+        ? totalAmount
+        : Number(formData.balance),
       remarks: formData.remarks?.trim() || "",
-      status: allowedStatuses.includes(
-        formData.status?.trim() as PurchaseOrderType["status"]
-      )
-        ? (formData.status?.trim() as PurchaseOrderType["status"])
-        : "Pending",
+      status,
     };
 
     console.log("📦 Sending update payload:", payload);
@@ -516,42 +521,22 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     try {
       const res = await fetch(`/api/purchase-orders/${editingPO._id}`, {
         method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
       console.log("📡 Response status:", res.status);
-      const text = await res.text();
-      console.log("📨 Raw response body:", text);
-
-      if (!res.ok) {
-        console.error("❌ Update failed:", res.status, text);
-        alert(`Update failed: ${text}`);
-        return;
-      }
-
-      let updatedPO: PurchaseOrderType;
-      try {
-        updatedPO = JSON.parse(text);
-      } catch (parseErr) {
-        console.error("⚠️ Failed to parse JSON:", parseErr, text);
-        alert("Unexpected server response. Please try again.");
-        return;
-      }
-
+      const updatedPO: PurchaseOrderResponse = await res.json();
       console.log("✅ Parsed updated PO:", updatedPO);
 
+      if (!res.ok) {
+        console.error("❌ Update failed:", res.status, updatedPO);
+        alert(`Update failed: ${updatedPO}`);
+        return;
+      }
+
       setPurchaseOrders((prev) =>
-        prev.map((po) => ({
-          ...po,
-          total: po.items.reduce(
-            (sum, item) => sum + item.quantity * item.purchasePrice,
-            0
-          ),
-          totalQuantity: po.items.reduce((sum, item) => sum + item.quantity, 0),
-        }))
+        prev.map((po) => (po._id === updatedPO._id ? updatedPO : po))
       );
     } catch (err) {
       console.error("🔥 Network or unexpected error:", err);
@@ -559,7 +544,6 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       return;
     }
 
-    // Reset form and close dialog
     setEditingPO(null);
     setFormData({
       poNumber: "",
@@ -2435,43 +2419,54 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                   return (
                     <div
                       key={index}
-                      className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 py-2 text-sm items-center transition-colors duration-150 border-b ${
-                        isZero
-                          ? "bg-green-50 text-green-700 animate-fade-in"
-                          : "hover:bg-muted/10"
-                      }`}>
+                      className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] items-center text-sm py-2 px-1 rounded-md transition-all duration-150
+        ${
+          isZero
+            ? "bg-green-50 text-green-700 animate-fade-in"
+            : "even:bg-muted/5 hover:ring-1 hover:ring-muted"
+        }`}>
                       {/* Item Code */}
-                      <div className="text-center uppercase border border-border px-2 font-medium">
-                        {item.itemCode || "—"}
+                      <div className="text-center uppercase px-3 font-semibold">
+                        {item.itemCode || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </div>
 
                       {/* Item Name */}
-                      <div className="text-center uppercase border border-border px-2 font-medium">
-                        {item.itemName || "—"}
+                      <div className="text-center uppercase px-3 font-semibold">
+                        {item.itemName || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </div>
 
                       {/* Unit Type */}
-                      <div className="text-center uppercase border border-border px-2 font-medium">
-                        {item.unitType || "—"}
+                      <div className="text-center uppercase px-3 font-semibold">
+                        {item.unitType || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </div>
 
                       {/* Purchase Price */}
-                      <div className="text-center uppercase border border-border px-2 font-medium">
-                        {item.purchasePrice !== undefined
-                          ? item.purchasePrice.toLocaleString("en-PH", {
-                              style: "currency",
-                              currency: "PHP",
-                            })
-                          : "—"}
+                      <div className="text-center uppercase px-3 font-semibold">
+                        {item.purchasePrice !== undefined ? (
+                          item.purchasePrice.toLocaleString("en-PH", {
+                            style: "currency",
+                            currency: "PHP",
+                          })
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
                       </div>
 
                       {/* Quantity */}
-                      <div className="text-center uppercase border border-border px-2 font-medium">
-                        {item.quantity ?? 0}
+                      <div className="text-center uppercase px-3 font-semibold">
+                        {item.quantity ?? (
+                          <span className="text-muted-foreground">0</span>
+                        )}
                       </div>
 
                       {/* Amount */}
-                      <div className="text-center uppercase border border-border px-2 font-medium">
+                      <div className="text-center uppercase px-3 font-semibold">
                         {(
                           item.quantity * item.purchasePrice || 0
                         ).toLocaleString("en-PH", {
