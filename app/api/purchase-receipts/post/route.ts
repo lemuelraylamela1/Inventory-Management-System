@@ -2,14 +2,68 @@ import { NextResponse } from "next/server";
 import PurchaseOrder from "@/models/purchaseOrder";
 import PurchaseReceipt from "@/models/purchaseReceipt";
 import { ReceiptItem } from "@/app/components/sections/type";
+import { PurchaseOrderItem } from "@/app/components/sections/type";
 
-type POItem = {
-  itemCode: string;
-  itemName: string;
-  quantity: number;
-  unitType: string;
-  purchasePrice: number;
-};
+async function reconcilePOWithReceipt(
+  po: {
+    _id: string;
+    poNumber: string;
+    items: PurchaseOrderItem[];
+    balance?: number;
+    total?: number;
+  },
+  receiptItems: ReceiptItem[]
+) {
+  const originalBalance =
+    typeof po.balance === "number" ? po.balance : po.total ?? 0;
+  let totalDeducted = 0;
+
+  const updatedItems = po.items.map((poItem) => {
+    const matched = receiptItems.find(
+      (receiptItem) =>
+        receiptItem.itemCode?.trim().toUpperCase() ===
+        poItem.itemCode?.trim().toUpperCase()
+    );
+
+    if (matched) {
+      const remainingQuantity = Math.max(poItem.quantity - matched.quantity, 0);
+      const remainingAmount = remainingQuantity * poItem.purchasePrice;
+      totalDeducted += matched.amount;
+
+      return {
+        ...poItem,
+        quantity: remainingQuantity,
+        amount: remainingAmount,
+      };
+    }
+
+    return poItem;
+  });
+
+  const filteredItems = updatedItems.filter((item) => item.quantity > 0);
+  const newBalance = Math.max(originalBalance - totalDeducted, 0);
+  const newStatus = newBalance === 0 ? "COMPLETED" : "PARTIAL";
+
+  await PurchaseOrder.updateOne(
+    { _id: po._id },
+    {
+      $set: {
+        items: filteredItems,
+        balance: newBalance,
+        status: newStatus,
+        totalQuantity: filteredItems.reduce(
+          (sum, item) => sum + item.quantity,
+          0
+        ),
+        locked: newStatus === "COMPLETED",
+      },
+    }
+  );
+
+  console.log(
+    `📦 PO ${po.poNumber} updated — Status: ${newStatus}, Deducted: ${totalDeducted}, Remaining balance: ${newBalance}`
+  );
+}
 
 export async function POST(request: Request) {
   try {
@@ -28,7 +82,6 @@ export async function POST(request: Request) {
     }
 
     const receipt = await PurchaseReceipt.findOne({ prNumber });
-
     if (!receipt) {
       return NextResponse.json(
         { error: `Receipt ${prNumber} not found` },
@@ -49,65 +102,11 @@ export async function POST(request: Request) {
     const purchaseOrders = await PurchaseOrder.find({
       poNumber: { $in: poNumbers },
     });
-
     for (const po of purchaseOrders) {
-      const originalBalance =
-        typeof po.balance === "number" ? po.balance : po.total;
-      let totalDeducted = 0;
-
-      const updatedItems = po.items
-        .map((poItem: POItem) => {
-          const matched = receipt.items.find(
-            (receiptItem: ReceiptItem) =>
-              receiptItem.itemCode?.trim().toUpperCase() ===
-              poItem.itemCode?.trim().toUpperCase()
-          );
-
-          if (matched) {
-            const remainingQuantity = Math.max(
-              poItem.quantity - matched.quantity,
-              0
-            );
-            const remainingAmount = remainingQuantity * poItem.purchasePrice;
-            totalDeducted += matched.amount;
-
-            return {
-              ...poItem,
-              quantity: remainingQuantity,
-              amount: remainingAmount,
-            };
-          }
-
-          return poItem;
-        })
-        .filter((item: POItem) => item.quantity > 0); // Only remove fully fulfilled items
-
-      const newBalance = Math.max(originalBalance - totalDeducted, 0);
-      const newStatus = newBalance === 0 ? "COMPLETED" : "PARTIAL";
-
-      await PurchaseOrder.updateOne(
-        { _id: po._id },
-        {
-          $set: {
-            items: updatedItems,
-            balance: newBalance,
-            status: newStatus,
-            totalQuantity: updatedItems.reduce(
-              (sum: number, item: POItem) => sum + item.quantity,
-              0
-            ),
-            locked: newStatus === "COMPLETED",
-          },
-        }
-      );
-
-      console.log(
-        `📦 PO ${po.poNumber} updated — Status: ${newStatus}, Deducted: ${totalDeducted}, Remaining balance: ${newBalance}`
-      );
+      await reconcilePOWithReceipt(po, receipt.items ?? []);
     }
 
     console.log(`✅ Receipt ${prNumber} posted and linked POs updated.`);
-
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error("❌ Error posting receipt:", error);

@@ -98,6 +98,7 @@ export type PurchaseOrderItem = {
   unitType?: string;
   purchasePrice: number;
   itemCode?: string;
+  amount?: number;
 };
 
 export type PurchaseOrderType = {

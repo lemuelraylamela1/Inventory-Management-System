@@ -29,7 +29,7 @@ const ItemSchema = new mongoose.Schema(
       uppercase: true,
     },
   },
-  { _id: false }
+  { _id: true } // ✅ allow _id for proper mutation tracking
 );
 
 const PurchaseOrderSchema = new mongoose.Schema(
