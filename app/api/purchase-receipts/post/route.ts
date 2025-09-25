@@ -16,7 +16,7 @@ async function reconcilePOWithReceipt(
 ) {
   const originalBalance =
     typeof po.balance === "number" ? po.balance : po.total ?? 0;
-  let totalDeducted = 0;
+  const totalDeducted = 0;
 
   const updatedItems = po.items.map((poItem) => {
     const matched = receiptItems.find(
@@ -27,28 +27,29 @@ async function reconcilePOWithReceipt(
 
     if (matched) {
       const remainingQuantity = Math.max(poItem.quantity - matched.quantity, 0);
-      const remainingAmount = remainingQuantity * poItem.purchasePrice;
-      totalDeducted += matched.amount;
-
       return {
-        ...poItem,
+        itemCode: poItem.itemCode,
+        itemName: poItem.itemName,
         quantity: remainingQuantity,
-        amount: remainingAmount,
+        unitType: poItem.unitType,
+        purchasePrice: poItem.purchasePrice,
       };
     }
 
     return poItem;
   });
-
+  const sanitizedItems = updatedItems.map(({ amount, ...rest }) => rest);
   const filteredItems = updatedItems.filter((item) => item.quantity > 0);
   const newBalance = Math.max(originalBalance - totalDeducted, 0);
   const newStatus = newBalance === 0 ? "COMPLETED" : "PARTIAL";
+
+  console.log("🛠️ Writing updated items:", sanitizedItems);
 
   await PurchaseOrder.updateOne(
     { _id: po._id },
     {
       $set: {
-        items: filteredItems,
+        items: sanitizedItems,
         balance: newBalance,
         status: newStatus,
         totalQuantity: filteredItems.reduce(
