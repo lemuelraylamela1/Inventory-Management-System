@@ -446,103 +446,161 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
   const handleEdit = (receipt: PurchaseReceiptType) => {
     setEditingReceipt(receipt);
 
+    const normalizedPOs = Array.isArray(receipt.poNumber)
+      ? receipt.poNumber.map((po) => po.trim().toUpperCase())
+      : [];
+
+    const normalizedStatus: PurchaseReceiptType["status"] =
+      receipt.status === "RECEIVED" || receipt.status === "OPEN"
+        ? receipt.status
+        : "OPEN";
+
+    const normalizedItems = Array.isArray(receipt.items)
+      ? receipt.items.map((item) => {
+          const quantity = Math.max(Number(item.quantity) || 1, 1);
+          const purchasePrice = Number(item.purchasePrice) || 0;
+
+          return {
+            itemCode: item.itemCode?.trim().toUpperCase() || "",
+            itemName: item.itemName?.trim().toUpperCase() || "",
+            unitType: item.unitType?.trim().toUpperCase() || "",
+            quantity,
+            purchasePrice,
+            amount: quantity * purchasePrice,
+          };
+        })
+      : [];
+
     const normalizedFormData: Omit<
       PurchaseReceiptType,
       "_id" | "createdAt" | "updatedAt"
     > = {
-      prNumber: receipt.prNumber,
+      prNumber: receipt.prNumber?.trim().toUpperCase() || "",
       supplierInvoiceNum:
         receipt.supplierInvoiceNum?.trim().toUpperCase() || "",
-      poNumber: Array.isArray(receipt.poNumber)
-        ? receipt.poNumber.map((po) => po.trim().toUpperCase())
-        : [],
+      poNumber: normalizedPOs,
       supplierName: receipt.supplierName?.trim().toUpperCase() || "",
       warehouse: receipt.warehouse?.trim().toUpperCase() || "",
-      amount: receipt.amount || 0,
-      remarks: receipt.remarks?.trim() || "", // ✅ Include remarks
+      amount: Number(receipt.amount) || 0,
+      remarks: receipt.remarks?.trim() || "",
+      status: normalizedStatus,
+      items: normalizedItems,
     };
 
     setFormData(normalizedFormData);
+
+    // ✅ Initialize checkbox and quantity state
+    const initialSelectedItems: Record<number, boolean> = {};
+    const initialEditableItems: Record<number, number> = {};
+
+    normalizedItems.forEach((item, index) => {
+      if (item.quantity > 0) {
+        initialSelectedItems[index] = true;
+        initialEditableItems[index] = item.quantity;
+      }
+    });
+
+    setSelectedItems(initialSelectedItems);
+    setEditableItems(initialEditableItems);
+
     setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(true);
   };
 
-  // const handleUpdate = async () => {
-  //   if (!editingReceipt || !validateForm(true)) {
-  //     console.warn("Validation failed or editingReceipt is missing:", {
-  //       editingReceipt,
-  //     });
-  //     return;
-  //   }
+  const handleUpdate = async () => {
+    if (!editingReceipt || !validateForm()) {
+      console.warn("Validation failed or editingReceipt is missing:", {
+        editingReceipt,
+      });
+      return;
+    }
 
-  //   const payload = {
-  //     invoiceNumber: formData.invoiceNumber?.trim().toUpperCase() || "",
-  //     poNumber: Array.isArray(formData.poNumber)
-  //       ? formData.poNumber.map((po) => po.trim().toUpperCase())
-  //       : [],
-  //     receivedBy: formData.receivedBy?.trim() || "",
-  //     status: allowedStatuses.includes(
-  //       formData.status?.trim() as PurchaseReceiptType["status"]
-  //     )
-  //       ? (formData.status?.trim() as PurchaseReceiptType["status"])
-  //       : "draft",
-  //     remarks: formData.remarks?.trim() || "", // ✅ Include remarks
-  //   };
+    const normalizedItems = Array.isArray(formData.items)
+      ? formData.items.map((item) => {
+          const quantity = Math.max(Number(item.quantity) || 1, 1);
+          const purchasePrice = Number(item.purchasePrice) || 0;
 
-  //   console.log("📦 Sending update payload:", payload);
+          return {
+            itemCode: item.itemCode?.trim().toUpperCase() || "",
+            itemName: item.itemName?.trim().toUpperCase() || "",
+            unitType: item.unitType?.trim().toUpperCase() || "",
+            quantity,
+            purchasePrice,
+            amount: quantity * purchasePrice,
+          };
+        })
+      : [];
 
-  //   try {
-  //     const res = await fetch(`/api/purchase-receipts/${editingReceipt._id}`, {
-  //       method: "PUT",
-  //       headers: {
-  //         "Content-Type": "application/json",
-  //       },
-  //       body: JSON.stringify(payload),
-  //     });
+    const totalAmount = normalizedItems.reduce(
+      (sum, item) => sum + item.amount,
+      0
+    );
 
-  //     console.log("📡 Response status:", res.status);
-  //     const text = await res.text();
-  //     console.log("📨 Raw response body:", text);
+    const rawStatus = formData.status?.trim().toUpperCase();
+    const status: PurchaseReceiptType["status"] =
+      rawStatus === "RECEIVED" || rawStatus === "OPEN" ? rawStatus : "OPEN";
 
-  //     if (!res.ok) {
-  //       console.error("❌ Update failed:", res.status, text);
-  //       alert(`Update failed: ${text}`);
-  //       return;
-  //     }
+    const payload: Partial<PurchaseReceiptType> = {
+      prNumber: formData.prNumber?.trim().toUpperCase() || "",
+      supplierInvoiceNum:
+        formData.supplierInvoiceNum?.trim().toUpperCase() || "",
 
-  //     let updatedReceipt: PurchaseReceiptType;
-  //     try {
-  //       updatedReceipt = JSON.parse(text);
-  //     } catch (parseErr) {
-  //       console.error("⚠️ Failed to parse JSON:", parseErr, text);
-  //       alert("Unexpected server response. Please try again.");
-  //       return;
-  //     }
+      poNumber: Array.isArray(formData.poNumber)
+        ? formData.poNumber.map((po) => po.trim().toUpperCase())
+        : [],
+      status,
+      remarks: formData.remarks?.trim() || "",
+      items: normalizedItems,
+      amount: totalAmount,
+    };
 
-  //     console.log("✅ Parsed updated receipt:", updatedReceipt);
+    console.log("📦 Sending update payload:", payload);
 
-  //     setPurchaseReceipts((prev) =>
-  //       prev.map((r) => (r._id === updatedReceipt._id ? updatedReceipt : r))
-  //     );
-  //   } catch (err) {
-  //     console.error("🔥 Network or unexpected error:", err);
-  //     alert("Something went wrong while updating the purchase receipt.");
-  //     return;
-  //   }
+    try {
+      const res = await fetch(`/api/purchase-receipts/${editingReceipt._id}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-  //   // Reset form and close dialog
-  //   setEditingReceipt(null);
-  //   setFormData({
-  //     prNumber: "",
-  //     invoiceNumber: "",
-  //     poNumber: [],
-  //     receivedBy: "",
-  //     status: "draft",
-  //     remarks: "", // ✅ Reset remarks
-  //   });
-  //   setValidationErrors(defaultValidationErrors);
-  //   setIsEditDialogOpen(false);
-  // };
+      console.log("📡 Response status:", res.status);
+      const updatedReceipt: PurchaseReceiptType = await res.json();
+      console.log("✅ Parsed updated receipt:", updatedReceipt);
+
+      if (!res.ok) {
+        console.error("❌ Update failed:", res.status, updatedReceipt);
+        alert(`Update failed: ${updatedReceipt}`);
+        return;
+      }
+
+      setPurchaseReceipts((prev) =>
+        prev.map((r) =>
+          r._id === updatedReceipt._id
+            ? (updatedReceipt as Required<PurchaseReceiptType>)
+            : r
+        )
+      );
+    } catch (err) {
+      console.error("🔥 Network or unexpected error:", err);
+      alert("Something went wrong while updating the purchase receipt.");
+      return;
+    }
+
+    // Reset form and close dialog
+    setEditingReceipt(null);
+    setFormData({
+      prNumber: "",
+      supplierInvoiceNum: "",
+      poNumber: [],
+      status: "OPEN",
+      remarks: "",
+      items: [],
+      amount: 0,
+    });
+
+    setValidationErrors(defaultValidationErrors);
+    setIsEditDialogOpen(false);
+  };
 
   const handleDelete = async (receiptId: string) => {
     if (!receiptId || typeof receiptId !== "string") {
@@ -1822,7 +1880,13 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
 
                                 {/* ✅ POST Button */}
                                 <DropdownMenuItem
-                                  onClick={() => handlePostReceipt(receipt)}>
+                                  onClick={() => handlePostReceipt(receipt)}
+                                  disabled={receipt.status === "RECEIVED"}
+                                  className={
+                                    receipt.status === "RECEIVED"
+                                      ? "opacity-50 cursor-not-allowed"
+                                      : ""
+                                  }>
                                   <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
                                   Post Receipt
                                 </DropdownMenuItem>
@@ -1908,56 +1972,452 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
-            <DialogTitle>Edit Purchase Orders</DialogTitle>
+            <DialogTitle>Edit Purchase Receipts</DialogTitle>
           </DialogHeader>
 
-          {/* Form Fields */}
-          <Label htmlFor="edit-po-number">Linked PO Numbers</Label>
-          <Input
-            id="edit-po-number"
-            value={
-              Array.isArray(formData.poNumber)
-                ? formData.poNumber.join(", ")
-                : ""
-            }
-            readOnly
-            disabled
-            placeholder="Auto-generated"
-            className="text-sm uppercase bg-muted cursor-not-allowed"
-          />
+          <div className="space-y-4">
+            <div className="grid gap-6 py-6">
+              {/* PR Number & Receipt Date */}
+              <div className="flex flex-row flex-wrap gap-4">
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="create-pr-number">PR Number</Label>
+                  <Input
+                    id="create-pr-number"
+                    value="Auto-generated"
+                    readOnly
+                    disabled
+                    placeholder="Auto-generated"
+                    className="text-sm uppercase bg-muted/50 cursor-not-allowed rounded-md border px-3 py-2"
+                  />
+                </div>
+
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="receipt-date">Receipt Date</Label>
+                  <Input
+                    id="receipt-date"
+                    value={new Date().toLocaleDateString("en-PH", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                    readOnly
+                    disabled
+                    className="text-sm bg-muted/50 cursor-not-allowed rounded-md border px-3 py-2"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-row flex-wrap gap-4">
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <div className="flex flex-col flex-1 min-w-[200px]">
+                    <Label htmlFor="po-search">PO Number</Label>
+
+                    <div className="relative">
+                      <Input
+                        id="po-search"
+                        type="text"
+                        autoComplete="off"
+                        value={formData.poNumber[0] || ""}
+                        onClick={() => setShowSuggestions(true)}
+                        onBlur={() =>
+                          setTimeout(() => setShowSuggestions(false), 200)
+                        } // optional delay for click
+                        onChange={(e) => {
+                          const value = e.target.value.toUpperCase().trim();
+
+                          setFormData((prev) => ({
+                            ...prev,
+                            poNumber: value ? [value] : [],
+                          }));
+
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            poNumber: "",
+                          }));
+
+                          const matchedPO = purchaseOrders.find(
+                            (po) => po.poNumber.trim().toUpperCase() === value
+                          );
+
+                          if (matchedPO) {
+                            setFormData((prev) => ({
+                              ...prev,
+                              supplierName:
+                                matchedPO.supplierName?.trim().toUpperCase() ||
+                                "UNKNOWN",
+                              warehouse:
+                                matchedPO.warehouse?.trim().toUpperCase() ||
+                                "UNKNOWN",
+                              amount: matchedPO.total || 0,
+                            }));
+                          } else {
+                            setFormData((prev) => ({
+                              ...prev,
+                              supplierName: "",
+                              warehouse: "",
+                              amount: 0,
+                            }));
+                          }
+                        }}
+                        placeholder="Enter PO number"
+                      />
+
+                      {/* Magnifying Glass Icon */}
+                      <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                        <svg
+                          xmlns="http://www.w3.org/2000/svg"
+                          className="h-4 w-4 text-muted-foreground"
+                          fill="none"
+                          viewBox="0 0 24 24"
+                          stroke="currentColor"
+                          strokeWidth={2}>
+                          <path
+                            strokeLinecap="round"
+                            strokeLinejoin="round"
+                            d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                          />
+                        </svg>
+                      </div>
+
+                      {/* Live Suggestions */}
+                      {showSuggestions && (
+                        <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                          {(formData.poNumber[0]
+                            ? purchaseOrders.filter(
+                                (po) =>
+                                  po.status !== "COMPLETED" &&
+                                  po.poNumber
+                                    .toUpperCase()
+                                    .includes(
+                                      formData.poNumber[0].toUpperCase()
+                                    )
+                              )
+                            : purchaseOrders.filter(
+                                (po) => po.status !== "COMPLETED"
+                              )
+                          ).map((po) => {
+                            const normalized = po.poNumber.trim().toUpperCase();
+                            return (
+                              <li
+                                key={po._id || normalized}
+                                className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                onClick={() => {
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    poNumber: [normalized],
+                                    supplierName:
+                                      po.supplierName?.trim().toUpperCase() ||
+                                      "UNKNOWN",
+                                    warehouse:
+                                      po.warehouse?.trim().toUpperCase() ||
+                                      "UNKNOWN",
+                                    amount: po.total || 0,
+                                  }));
+                                  setShowSuggestions(false);
+                                }}>
+                                {po.poNumber}
+                              </li>
+                            );
+                          })}
+                          {(formData.poNumber[0]
+                            ? purchaseOrders.filter(
+                                (po) =>
+                                  po.status !== "COMPLETED" &&
+                                  po.poNumber
+                                    .toUpperCase()
+                                    .includes(
+                                      formData.poNumber[0].toUpperCase()
+                                    )
+                              ).length === 0
+                            : purchaseOrders.filter(
+                                (po) => po.status !== "COMPLETED"
+                              ).length === 0) && (
+                            <li className="px-3 py-2 text-muted-foreground">
+                              No matching PO found
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="create-supplier-invoice-num">
+                    Supplier Invoice Number
+                  </Label>
+                  <Input
+                    id="create-supplier-invoice-num"
+                    value={formData.supplierInvoiceNum}
+                    onChange={(e) => {
+                      const value = e.target.value.toUpperCase();
+                      setFormData((prev) => ({
+                        ...prev,
+                        supplierInvoiceNum: value,
+                      }));
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        supplierInvoiceNum: "",
+                      }));
+                    }}
+                    placeholder="e.g. INV-2025-001"
+                    className={`text-sm uppercase rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary transition ${
+                      validationErrors.supplierInvoiceNum
+                        ? "border-destructive ring-destructive/30"
+                        : "border-input"
+                    }`}
+                  />
+                  {validationErrors.supplierInvoiceNum && (
+                    <p className="text-sm text-destructive mt-1">
+                      {validationErrors.supplierInvoiceNum}
+                    </p>
+                  )}
+                </div>
+              </div>
+              <div className="flex flex-row flex-wrap gap-4">
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="supplier-display">Supplier</Label>
+                  <Input
+                    id="supplier-display"
+                    type="text"
+                    value={formData.supplierName || ""}
+                    readOnly
+                    className="text-sm uppercase w-full bg-muted cursor-not-allowed"
+                  />
+                </div>
+
+                {/* Warehouse Display */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="warehouse-display">Warehouse</Label>
+                  <Input
+                    id="warehouse-display"
+                    type="text"
+                    value={formData.warehouse || ""}
+                    readOnly
+                    className="text-sm uppercase w-full bg-muted cursor-not-allowed"
+                  />
+                </div>
+              </div>
+              <div className="flex flex-col flex-1 min-w-[200px]">
+                <Label htmlFor="create-remarks">Remarks</Label>
+                <Textarea
+                  id="create-remarks"
+                  value={formData.remarks}
+                  onChange={(e) => {
+                    const value = e.target.value.trim();
+                    setFormData((prev) => ({
+                      ...prev,
+                      remarks: value,
+                    }));
+                    setValidationErrors((prev) => ({
+                      ...prev,
+                      remarks: "",
+                    }));
+                  }}
+                  placeholder="add remarks"
+                  rows={3}
+                />
+              </div>
+            </div>
+          </div>
+
+          {formData.poNumber[0] && (
+            <div className="mt-4 border rounded-md overflow-hidden">
+              <div className="overflow-auto max-h-96">
+                {/* Header */}
+                <div className="grid w-full grid-cols-[40px_1fr_1fr_1fr_1fr_1fr_1fr] gap-4 border-b px-0 py-2 bg-primary text-primary-foreground sticky top-0 z-10">
+                  <div className="flex items-center justify-end min-w-[40px]">
+                    <input
+                      type="checkbox"
+                      checked={
+                        Object.keys(selectedItems).length > 0 &&
+                        Object.values(selectedItems).every(Boolean)
+                      }
+                      onChange={(e) => {
+                        const checked = e.target.checked;
+                        const matchedPO = purchaseOrders.find(
+                          (po) =>
+                            po.poNumber.trim().toUpperCase() ===
+                            formData.poNumber[0]
+                        );
+                        if (!matchedPO || !Array.isArray(matchedPO.items))
+                          return;
+
+                        const allSelected = matchedPO.items.reduce(
+                          (acc, item, index) => {
+                            if (item.quantity > 0) acc[index] = checked;
+                            return acc;
+                          },
+                          {} as Record<number, boolean>
+                        );
+
+                        setSelectedItems(allSelected);
+                      }}
+                      className="form-checkbox h-4 w-4 text-primary focus:ring-2 focus:ring-primary/50 hover:scale-105 transition-transform"
+                    />
+                  </div>
+                  {[
+                    "Item Code",
+                    "Item Name",
+                    "Qty",
+                    "UOM",
+                    "Purchase Price",
+                    "Amount",
+                  ].map((label) => (
+                    <div
+                      key={label}
+                      className="text-xs font-semibold uppercase text-left">
+                      {label}
+                    </div>
+                  ))}
+                </div>
+
+                {/* Rows */}
+                {(() => {
+                  const matchedPO = purchaseOrders.find(
+                    (po) =>
+                      po.poNumber.trim().toUpperCase() === formData.poNumber[0]
+                  );
+                  if (!matchedPO || !Array.isArray(matchedPO.items))
+                    return null;
+
+                  return matchedPO.items.map((item, index) => {
+                    const isZero = item.quantity === 0;
+                    const isSelected = selectedItems[index] || false;
+                    const editableQty = editableItems[index] ?? item.quantity;
+                    const clampedQty = Math.max(
+                      1,
+                      Math.min(editableQty, item.quantity)
+                    );
+                    const amount = item.purchasePrice * clampedQty;
+
+                    return (
+                      <div
+                        key={index}
+                        className={`grid grid-cols-[40px_1fr_1fr_1fr_1fr_1fr_1fr] border-t border-border text-sm px-3 py-2 items-center ${
+                          isZero
+                            ? "bg-green-50 text-green-700 animate-fade-in"
+                            : isSelected
+                            ? "bg-accent/10 border-accent"
+                            : "hover:bg-muted/10"
+                        }`}>
+                        {/* Checkbox or Posted Badge */}
+                        <div className="flex items-center justify-center px-2 min-w-[40px]">
+                          {isZero ? (
+                            <div className="flex items-center gap-1 text-green-600">
+                              <Check className="w-4 h-4 animate-bounce" />
+                            </div>
+                          ) : (
+                            <input
+                              type="checkbox"
+                              checked={isSelected}
+                              onChange={(e) => {
+                                setSelectedItems((prev) => ({
+                                  ...prev,
+                                  [index]: e.target.checked,
+                                }));
+                              }}
+                              className="form-checkbox h-4 w-4 text-primary focus:ring-2 focus:ring-primary/50 hover:scale-105 transition-transform"
+                            />
+                          )}
+                        </div>
+
+                        {/* Item Code */}
+                        <div className="flex items-center uppercase font-medium">
+                          {item.itemCode || "-"}
+                        </div>
+
+                        {/* Item Name */}
+                        <div className="border-l border-border px-2 flex items-center uppercase font-medium">
+                          {item.itemName || "-"}
+                        </div>
+
+                        {/* Quantity Input */}
+                        <div className="border-l border-border px-2 flex items-center">
+                          <input
+                            type="number"
+                            min={1}
+                            max={item.quantity}
+                            value={clampedQty}
+                            onChange={(e) => {
+                              const raw = Number(e.target.value);
+                              const newQty = Math.max(
+                                1,
+                                Math.min(raw, item.quantity)
+                              );
+                              setEditableItems((prev) => ({
+                                ...prev,
+                                [index]: newQty,
+                              }));
+                            }}
+                            disabled={isZero}
+                            className={`w-full px-2 py-1 border border-border rounded-md text-right focus:outline-none focus:ring-2 focus:ring-primary ${
+                              isZero
+                                ? "bg-green-50 text-green-700 cursor-not-allowed"
+                                : "bg-background"
+                            }`}
+                            inputMode="numeric"
+                          />
+                        </div>
+
+                        {/* Unit Type */}
+                        <div className="border-l border-border px-2 flex items-center uppercase font-medium">
+                          {item.unitType || "-"}
+                        </div>
+
+                        {/* Purchase Price */}
+                        <div className="border-l border-border px-2 flex items-center uppercase font-medium">
+                          {item.purchasePrice !== undefined ? (
+                            item.purchasePrice.toLocaleString("en-PH", {
+                              style: "currency",
+                              currency: "PHP",
+                            })
+                          ) : (
+                            <span className="text-muted-foreground">₱0.00</span>
+                          )}
+                        </div>
+
+                        {/* Amount */}
+                        <div className="text-right border-l border-border px-2 font-medium">
+                          {item.purchasePrice && item.quantity ? (
+                            amount.toLocaleString("en-PH", {
+                              style: "currency",
+                              currency: "PHP",
+                            })
+                          ) : (
+                            <span className="text-muted-foreground">₱0.00</span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
+          )}
 
           {/* Footer Actions */}
           <DialogFooter className="pt-4 border-t">
-            <div className="flex w-full justify-between items-center">
-              {/* Left: Add Item */}
-              {/* <Button onClick={handleAddItemEdit}>➕ Add Item</Button> */}
+            <div className="flex w-full justify-end items-center gap-2">
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  setEditingReceipt(null);
+                  resetForm();
+                }}>
+                Cancel
+              </Button>
 
-              {/* Right: Cancel & Update */}
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setIsEditDialogOpen(false);
-                    setEditingReceipt(null); // ✅ Renamed for clarity
-                    resetForm();
-                  }}>
-                  Cancel
-                </Button>
-
-                <div className="flex items-center gap-2">
-                  {/* Primary Update Button */}
-                  {/* <Button
-                    onClick={handleUpdate}
-                    disabled={
-                      !formData.items?.length ||
-                      formData.items.every((item) => !item.itemName?.trim())
-                    }
-                    className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                    aria-label="Update Receipt">
-                    ✏️ Update
-                  </Button> */}
-                </div>
-              </div>
+              <Button
+                onClick={handleUpdate}
+                disabled={
+                  !formData.items?.length ||
+                  formData.items.every((item) => !item.itemName?.trim())
+                }
+                className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                aria-label="Update Receipt">
+                ✏️ Update
+              </Button>
             </div>
           </DialogFooter>
         </DialogPanel>

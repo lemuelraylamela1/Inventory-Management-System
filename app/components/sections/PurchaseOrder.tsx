@@ -67,7 +67,7 @@ import {
   DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 
-import { Plus, Search, Edit, Trash2, Check } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Check, CheckCircle } from "lucide-react";
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -97,6 +97,9 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [paginatedPurchaseOrders, setPaginatedPurchaseOrders] = useState<
+    PurchaseOrderResponse[]
+  >([]);
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -234,11 +237,19 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
   const totalPages = Math.ceil(filteredPurchaseOrders.length / rowsPerPage);
 
-  const paginatedPurchaseOrders: PurchaseOrderResponse[] =
-    filteredPurchaseOrders.slice(
+  // const paginatedPurchaseOrders: PurchaseOrderResponse[] =
+  //   filteredPurchaseOrders.slice(
+  //     (currentPage - 1) * rowsPerPage,
+  //     currentPage * rowsPerPage
+  //   );
+
+  useEffect(() => {
+    const sliced = filteredPurchaseOrders.slice(
       (currentPage - 1) * rowsPerPage,
       currentPage * rowsPerPage
     );
+    setPaginatedPurchaseOrders(sliced);
+  }, [filteredPurchaseOrders, currentPage, rowsPerPage]);
 
   const clearFilters = () => {
     setSearchTerm("");
@@ -490,31 +501,38 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       return;
     }
 
-    const normalizedItems = formData.items.map((item) => ({
-      itemName: item.itemName.trim().toUpperCase(),
-      quantity: Math.max(Number(item.quantity) || 1, 1),
-      unitType: item.unitType?.trim().toUpperCase() || "",
-      purchasePrice: Number(item.purchasePrice),
-      itemCode: item.itemCode?.trim().toUpperCase() || "",
-    }));
+    // ✅ Normalize and filter selected items
+    const normalizedItems = Array.isArray(formData.items)
+      ? formData.items
+          .map((item, index) => ({ item, index }))
+          .filter(({ index }) => selectedIds[index])
+          .map(({ item }) => ({
+            itemCode: item.itemCode?.trim().toUpperCase() || "",
+            itemName: item.itemName?.trim().toUpperCase() || "",
+            unitType: item.unitType?.trim().toUpperCase() || "",
+            quantity: Math.max(Number(item.quantity) || 1, 1),
+            purchasePrice: Number(item.purchasePrice) || 0,
+          }))
+      : [];
 
     const totalQuantity = normalizedItems.reduce(
       (sum, item) => sum + item.quantity,
       0
     );
+
     const totalAmount = normalizedItems.reduce(
       (sum, item) => sum + item.quantity * item.purchasePrice,
       0
     );
 
     const rawStatus = formData.status?.trim().toUpperCase();
-    const status = allowedStatuses.includes(
+    const status: PurchaseOrderType["status"] = allowedStatuses.includes(
       rawStatus as PurchaseOrderType["status"]
     )
-      ? rawStatus
+      ? (rawStatus as PurchaseOrderType["status"])
       : "PENDING";
 
-    const payload = {
+    const payload: Partial<PurchaseOrderType> = {
       poNumber: formData.poNumber.trim().toUpperCase(),
       referenceNumber: formData.referenceNumber.trim().toUpperCase(),
       supplierName: formData.supplierName.trim().toUpperCase(),
@@ -557,6 +575,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       return;
     }
 
+    // ✅ Reset state
     setEditingPO(null);
     setFormData({
       poNumber: "",
@@ -570,6 +589,8 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       remarks: "",
       status: "PENDING",
     });
+    setSelectedIds([]);
+
     setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(false);
   };
@@ -894,30 +915,31 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     setIsCreateDialogOpen(true);
   };
 
-  // const enrichedPOs = purchaseOrders.map((po) => {
-  //   const enrichedItems = po.items.map((poItem) => {
-  //     const matchedItem = items.find(
-  //       (item) =>
-  //         item.itemName?.trim().toUpperCase() ===
-  //         poItem.itemName?.trim().toUpperCase()
-  //     );
+  const handleTagAsComplete = async (poId: string) => {
+    try {
+      const res = await fetch(`/api/purchase-orders/${poId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status: "COMPLETED" }),
+      });
 
-  //     return {
-  //       ...poItem,
-  //       itemCode: matchedItem?.itemCode || "",
-  //       unitType: matchedItem?.unitType || "",
-  //       purchasePrice: matchedItem?.purchasePrice || poItem.purchasePrice || 0,
-  //       amount:
-  //         (matchedItem?.purchasePrice ?? poItem.purchasePrice ?? 0) *
-  //         (poItem.quantity ?? 0),
-  //     };
-  //   });
+      if (!res.ok) throw new Error("Failed to update PO status");
 
-  //   return {
-  //     ...po,
-  //     items: enrichedItems,
-  //   };
-  // });
+      const updatedPO = await res.json();
+
+      // Update local state
+      setPaginatedPurchaseOrders((prev) =>
+        prev.map((po) =>
+          po._id === poId ? { ...po, status: updatedPO.status } : po
+        )
+      );
+
+      toast.success(`PO ${updatedPO.poNumber} marked as completed`);
+    } catch (error) {
+      console.error("❌ Error tagging PO as complete:", error);
+      toast.error("Could not tag PO as complete");
+    }
+  };
 
   const handleExportPDF = (
     items: ItemType[],
@@ -1798,6 +1820,13 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                                 }>
                                 <FileText className="w-4 h-4 mr-2 text-red-600" />
                                 Export as PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem
+                                onClick={() => handleTagAsComplete(po._id)}
+                                disabled={po.status === "COMPLETED"}
+                                className="text-green-600">
+                                <CheckCircle className="w-4 h-4 mr-2" />
+                                Tag as Completed
                               </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>

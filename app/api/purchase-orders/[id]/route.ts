@@ -55,14 +55,36 @@ function normalizeUpdateFields(fields: PurchaseOrderType) {
   };
 }
 
+export async function tagAsCompleted(poId: string) {
+  if (!mongoose.Types.ObjectId.isValid(poId)) {
+    return NextResponse.json(
+      { error: "Invalid purchase order ID" },
+      { status: 400 }
+    );
+  }
+
+  const updatedPO = await PurchaseOrder.findByIdAndUpdate(
+    poId,
+    { status: "COMPLETED" },
+    { new: true }
+  );
+
+  if (!updatedPO) {
+    return NextResponse.json(
+      { error: "Purchase order not found" },
+      { status: 404 }
+    );
+  }
+
+  return NextResponse.json(updatedPO, { status: 200 });
+}
+
 export async function PUT(
   request: NextRequest,
   { params }: { params: { id: string } }
 ) {
   try {
-    const body: PurchaseOrderType = await request.json();
     const id = params.id;
-
     if (!id || !mongoose.Types.ObjectId.isValid(id)) {
       return NextResponse.json(
         { error: "Invalid or missing purchase order ID" },
@@ -70,6 +92,52 @@ export async function PUT(
       );
     }
 
+    const body = await request.json();
+
+    // ✅ Explicitly handle "Tag as Completed"
+    const normalizedStatus = body.status?.trim().toUpperCase();
+    if (normalizedStatus === "COMPLETED") {
+      const completedPO = await PurchaseOrder.findByIdAndUpdate(
+        id,
+        { status: "COMPLETED" },
+        { new: true }
+      );
+
+      if (!completedPO) {
+        return NextResponse.json(
+          { error: "Purchase order not found" },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json(completedPO, { status: 200 });
+    }
+
+    // ✅ Handle other status-only updates
+    if (Object.keys(body).length === 1 && "status" in body) {
+      const validStatus = allowedStatuses.includes(
+        normalizedStatus as (typeof allowedStatuses)[number]
+      )
+        ? normalizedStatus
+        : "PENDING";
+
+      const updatedStatusOnly = await PurchaseOrder.findByIdAndUpdate(
+        id,
+        { status: validStatus },
+        { new: true }
+      );
+
+      if (!updatedStatusOnly) {
+        return NextResponse.json(
+          { error: "Purchase order not found" },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json(updatedStatusOnly, { status: 200 });
+    }
+
+    // 🧠 Otherwise, proceed with full update
     const updateFields = normalizeUpdateFields(body);
 
     const updatedPO = await PurchaseOrder.findByIdAndUpdate(id, updateFields, {
