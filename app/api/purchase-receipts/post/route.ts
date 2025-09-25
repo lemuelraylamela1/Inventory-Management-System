@@ -16,7 +16,7 @@ async function reconcilePOWithReceipt(
 ) {
   const originalBalance =
     typeof po.balance === "number" ? po.balance : po.total ?? 0;
-  const totalDeducted = 0;
+  let totalDeducted = 0;
 
   const updatedItems = po.items.map((poItem) => {
     const matched = receiptItems.find(
@@ -27,6 +27,8 @@ async function reconcilePOWithReceipt(
 
     if (matched) {
       const remainingQuantity = Math.max(poItem.quantity - matched.quantity, 0);
+      const deductedAmount = matched.quantity * poItem.purchasePrice;
+      totalDeducted += deductedAmount;
       return {
         itemCode: poItem.itemCode,
         itemName: poItem.itemName,
