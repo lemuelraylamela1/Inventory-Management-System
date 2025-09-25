@@ -19,8 +19,10 @@ export async function POST(request: Request) {
       );
     }
 
-    const allowedStatuses = ["OPEN", "APPROVED", "REJECTED", "CLOSED"];
-    const normalizedStatus = allowedStatuses.includes(status) ? status : "OPEN"; // default fallback
+    const allowedStatuses = ["RETURNED", "APPROVED", "REJECTED", "CLOSED"];
+    const normalizedStatus = allowedStatuses.includes(status)
+      ? status
+      : "RETURNED";
 
     const receipt = await PurchaseReceipt.findOne({ prNumber });
 
@@ -31,7 +33,7 @@ export async function POST(request: Request) {
       );
     }
 
-    let returnNumber = "PRTN0000000001"; // fallback
+    let returnNumber = "PRTN0000000001";
     try {
       returnNumber = await generateNextReturnNumber();
     } catch (err) {

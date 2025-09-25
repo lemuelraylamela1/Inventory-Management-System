@@ -111,6 +111,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
   const [purchaseReceipts, setPurchaseReceipts] = useState<
     PurchaseReceiptType[]
   >([]);
+  const [showSupplierSuggestions, setShowSupplierSuggestions] = useState(false);
   const [showPrSuggestions, setShowPrSuggestions] = useState(false);
   const [showReasonSuggestions, setShowReasonSuggestions] = useState(false);
   const reasonOptions = [
@@ -162,40 +163,6 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       })
       .catch((err) => console.error("Failed to fetch suppliers", err));
   }, []);
-
-  // useEffect(() => {
-  //   console.log("Fetching warehouses...");
-
-  //   fetch("/api/warehouses")
-  //     .then((res) => res.json())
-  //     .then((response) => {
-  //       console.log("Raw response:", response);
-
-  //       const data = Array.isArray(response?.warehouses)
-  //         ? response.warehouses
-  //         : [];
-  //       console.log("Parsed warehouses:", data);
-
-  //       setWarehouses(data);
-  //     })
-  //     .catch((err) => console.error("Failed to fetch warehouses", err));
-  // }, []);
-
-  // useEffect(() => {
-  //   console.log("Fetching items...");
-
-  //   fetch("/api/items")
-  //     .then((res) => res.json())
-  //     .then((response) => {
-  //       console.log("Raw response:", response);
-
-  //       const data = Array.isArray(response?.items) ? response.items : [];
-  //       console.log("Parsed items:", data);
-
-  //       setItems(data);
-  //     })
-  //     .catch((err) => console.error("Failed to fetch items", err));
-  // }, []);
 
   const router = useRouter();
 
@@ -388,7 +355,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       supplierName: formData.supplierName.trim().toUpperCase(),
       reason: formData.reason.trim(),
       notes: formData.notes?.trim() || "",
-      status: formData.status || "OPEN",
+      status: formData.status || "RETURNED",
       items: normalizedItems,
     };
 
@@ -441,12 +408,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
     status: "", // required for lifecycle
   };
 
-  const allowedStatuses: PurchaseReturnType["status"][] = [
-    "OPEN",
-    "APPROVED",
-    "REJECTED",
-    "CLOSED",
-  ];
+  const allowedStatuses: PurchaseReturnType["status"][] = ["RETURNED"];
 
   const handleEdit = (ret: PurchaseReturnType) => {
     setEditingReturn(ret);
@@ -464,7 +426,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
         ret.status?.trim() as PurchaseReturnType["status"]
       )
         ? (ret.status?.trim() as PurchaseReturnType["status"])
-        : "OPEN",
+        : "RETURNED",
       items: ret.items.map((item) => ({
         itemCode: item.itemCode?.trim().toUpperCase() || "",
         itemName: item.itemName?.trim().toUpperCase() || "",
@@ -508,7 +470,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
         ? (formData.status
             ?.trim()
             .toUpperCase() as PurchaseReturnType["status"])
-        : "OPEN",
+        : "RETURNED",
       items: normalizedItems,
     };
 
@@ -561,7 +523,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       supplierName: "",
       reason: "",
       notes: "",
-      status: "OPEN",
+      status: "RETURNED",
       items: [],
     });
     setValidationErrors(defaultValidationErrors);
@@ -618,7 +580,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       supplierName: "", // derived from receipt
       reason: "", // required for audit
       notes: "", // optional
-      status: "OPEN", // default lifecycle state
+      status: "RETURNED", // default lifecycle state
       items: [], // ReceiptItem[]
     });
 
@@ -879,14 +841,14 @@ export default function PurchaseReturn({ onSuccess }: Props) {
   //   return { totalQuantity, total: totalAmount };
   // };
 
-  // const handleSave = async () => {
-  //   if (!validateForm()) {
-  //     return;
-  //   }
+  const handleSave = async () => {
+    if (!validateForm()) {
+      return;
+    }
 
-  //   handleCreate();
-  //   setIsCreateDialogOpen(false);
-  // };
+    handleCreate();
+    setIsCreateDialogOpen(false);
+  };
 
   // const handleSaveAndCreate = () => {
   //   if (!validateForm()) {
@@ -1011,7 +973,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
             <div className="relative flex-1 max-w-sm">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
               <Input
-                placeholder="Search PO Number or Reference Number..."
+                placeholder="Search Return Number ..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
                 className="pl-10"
@@ -1076,30 +1038,163 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                           className="text-sm bg-muted cursor-not-allowed"
                         />
                       </div>
+                    </div>
+                    <div className="flex flex-row flex-wrap gap-4">
+                      {/* Supplier Name (read-only) */}
+                      <div className="flex flex-col flex-1 min-w-[200px]">
+                        <Label htmlFor="supplier-search">Supplier Name</Label>
 
-                      {/* PR Number */}
-                      <div className="flex flex-col flex-[2] min-w-[300px]">
+                        <div className="relative">
+                          <Input
+                            id="supplier-search"
+                            type="text"
+                            autoComplete="off"
+                            value={formData.supplierName || ""}
+                            onClick={() => setShowSupplierSuggestions(true)}
+                            onBlur={() =>
+                              setTimeout(
+                                () => setShowSupplierSuggestions(false),
+                                200
+                              )
+                            }
+                            onChange={(e) => {
+                              const value = e.target.value.toUpperCase().trim();
+
+                              setFormData((prev) => ({
+                                ...prev,
+                                supplierName: value,
+                                poNumber: [], // 🧼 Reset PO
+                                warehouse: "", // 🧼 Reset warehouse
+                                amount: 0, // 🧼 Reset amount
+                                remarks: "", // 🧼 Reset remarks
+                              }));
+
+                              setValidationErrors((prev) => ({
+                                ...prev,
+                                supplierName: "",
+                                poNumber: "",
+                              }));
+
+                              setShowSupplierSuggestions(false);
+                            }}
+                            placeholder="Search supplier name"
+                            className={`text-sm uppercase w-full bg-white px-3 py-2 border shadow-sm focus:outline-none focus:ring-2 focus:ring-primary transition ${
+                              validationErrors.supplierName
+                                ? "border-destructive"
+                                : "border-input"
+                            }`}
+                          />
+
+                          {/* Magnifying Glass Icon */}
+                          <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 text-muted-foreground"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                              />
+                            </svg>
+                          </div>
+
+                          {/* Scrollable Suggestions */}
+                          {showSupplierSuggestions && (
+                            <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                              {(formData.supplierName
+                                ? suppliers.filter((s) =>
+                                    s.supplierName
+                                      .toUpperCase()
+                                      .includes(
+                                        formData.supplierName.toUpperCase()
+                                      )
+                                  )
+                                : suppliers
+                              ).map((supplier) => {
+                                const normalized = supplier.supplierName
+                                  .trim()
+                                  .toUpperCase();
+                                return (
+                                  <li
+                                    key={supplier._id || normalized}
+                                    className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                    onClick={() => {
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        supplierName: normalized,
+                                        supplierId: supplier._id,
+                                        poNumber: [], // ✅ Reset PO
+                                        warehouse: "", // ✅ Reset warehouse
+                                        amount: 0, // ✅ Reset amount
+                                        remarks: "", // ✅ Reset remarks
+                                      }));
+
+                                      setValidationErrors((prev) => ({
+                                        ...prev,
+                                        supplierName: "",
+                                        poNumber: "",
+                                      }));
+
+                                      setShowSupplierSuggestions(false);
+                                    }}>
+                                    {normalized}
+                                  </li>
+                                );
+                              })}
+
+                              {suppliers.length === 0 && (
+                                <li className="px-3 py-2 text-muted-foreground">
+                                  No suppliers available
+                                </li>
+                              )}
+                            </ul>
+                          )}
+                        </div>
+
+                        {validationErrors.supplierName && (
+                          <p className="text-sm text-destructive mt-1">
+                            {validationErrors.supplierName}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* PR Number with live suggestions */}
+                      <div className="flex flex-col flex-[1] min-w-[200px]">
                         <Label htmlFor="create-pr-number">PR Number</Label>
-
                         <div className="relative">
                           <Input
                             id="create-pr-number"
                             type="text"
                             autoComplete="off"
                             value={formData.prNumber || ""}
-                            placeholder="e.g. PR-2025-001"
-                            className={`text-sm uppercase ${
+                            placeholder={
+                              formData.supplierName
+                                ? "Search PR for selected supplier"
+                                : "Select supplier first"
+                            }
+                            readOnly={!formData.supplierName} // ✅ Locked until supplier is chosen
+                            className={`text-sm uppercase border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary transition ${
                               validationErrors.prNumber
                                 ? "border-destructive"
+                                : "border-input"
+                            } ${
+                              !formData.supplierName
+                                ? "bg-muted cursor-not-allowed"
                                 : ""
                             }`}
-                            onClick={() => setShowPrSuggestions(true)}
+                            onClick={() => {
+                              if (formData.supplierName)
+                                setShowPrSuggestions(true);
+                            }}
                             onBlur={() =>
                               setTimeout(() => setShowPrSuggestions(false), 200)
                             }
                             onChange={(e) => {
                               const value = e.target.value.toUpperCase().trim();
-
                               setFormData((prev) => ({
                                 ...prev,
                                 prNumber: value,
@@ -1111,16 +1206,17 @@ export default function PurchaseReturn({ onSuccess }: Props) {
 
                               const matchedPR = purchaseReceipts.find(
                                 (pr) =>
-                                  pr.prNumber?.trim().toUpperCase() === value
+                                  pr.prNumber?.trim().toUpperCase() === value &&
+                                  pr.supplierName?.trim().toUpperCase() ===
+                                    formData.supplierName?.trim().toUpperCase()
                               );
 
                               if (matchedPR) {
                                 setFormData((prev) => ({
                                   ...prev,
-                                  supplierName:
-                                    matchedPR.supplierName
-                                      ?.trim()
-                                      .toUpperCase() || "UNKNOWN",
+                                  prNumber:
+                                    matchedPR.prNumber?.trim().toUpperCase() ||
+                                    "",
                                   warehouse:
                                     matchedPR.warehouse?.trim().toUpperCase() ||
                                     "UNKNOWN",
@@ -1130,7 +1226,6 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                               } else {
                                 setFormData((prev) => ({
                                   ...prev,
-                                  supplierName: "",
                                   warehouse: "",
                                   amount: 0,
                                   items: [],
@@ -1139,16 +1234,29 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                             }}
                           />
 
-                          {/* Live Suggestions Dropdown */}
-                          {showPrSuggestions && (
+                          {/* Live Suggestions */}
+                          {showPrSuggestions && formData.supplierName && (
                             <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
                               {(formData.prNumber
-                                ? purchaseReceipts.filter((pr) =>
-                                    pr.prNumber
-                                      ?.toUpperCase()
-                                      .includes(formData.prNumber.toUpperCase())
+                                ? purchaseReceipts.filter(
+                                    (pr) =>
+                                      pr.supplierName?.trim().toUpperCase() ===
+                                        formData.supplierName
+                                          ?.trim()
+                                          .toUpperCase() &&
+                                      pr.prNumber
+                                        ?.toUpperCase()
+                                        .includes(
+                                          formData.prNumber.toUpperCase()
+                                        )
                                   )
-                                : purchaseReceipts
+                                : purchaseReceipts.filter(
+                                    (pr) =>
+                                      pr.supplierName?.trim().toUpperCase() ===
+                                      formData.supplierName
+                                        ?.trim()
+                                        .toUpperCase()
+                                  )
                               ).map((pr) => {
                                 const normalized =
                                   pr.prNumber?.trim().toUpperCase() || "";
@@ -1160,10 +1268,6 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                                       setFormData((prev) => ({
                                         ...prev,
                                         prNumber: normalized,
-                                        supplierName:
-                                          pr.supplierName
-                                            ?.trim()
-                                            .toUpperCase() || "UNKNOWN",
                                         warehouse:
                                           pr.warehouse?.trim().toUpperCase() ||
                                           "UNKNOWN",
@@ -1172,19 +1276,26 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                                       }));
                                       setShowPrSuggestions(false);
                                     }}>
-                                    {pr.prNumber}
+                                    {normalized}
                                   </li>
                                 );
                               })}
 
-                              {/* Fallback if no match */}
-                              {(formData.prNumber
-                                ? purchaseReceipts.filter((pr) =>
-                                    pr.prNumber
-                                      ?.toUpperCase()
-                                      .includes(formData.prNumber.toUpperCase())
-                                  ).length === 0
-                                : purchaseReceipts.length === 0) && (
+                              {/* Fallback */}
+                              {purchaseReceipts.filter(
+                                (pr) =>
+                                  pr.supplierName?.trim().toUpperCase() ===
+                                    formData.supplierName
+                                      ?.trim()
+                                      .toUpperCase() &&
+                                  (formData.prNumber
+                                    ? pr.prNumber
+                                        ?.toUpperCase()
+                                        .includes(
+                                          formData.prNumber.toUpperCase()
+                                        )
+                                    : true)
+                              ).length === 0 && (
                                 <li className="px-3 py-2 text-muted-foreground">
                                   No matching PR found
                                 </li>
@@ -1194,147 +1305,119 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                         </div>
 
                         {validationErrors.prNumber && (
-                          <p className="text-sm text-destructive">
+                          <p className="text-sm text-destructive mt-1">
                             {validationErrors.prNumber}
                           </p>
                         )}
                       </div>
                     </div>
 
-                    <div className="flex flex-row flex-wrap gap-4">
-                      {/* Supplier Name */}
-                      {/* Supplier Name (Read-Only) */}
-                      <div className="flex flex-col flex-1 min-w-[200px]">
-                        <Label htmlFor="create-supplier-name">
-                          Supplier Name
-                        </Label>
+                    {/* Reason for Return */}
+                    <div className="flex flex-col flex-1 min-w-[200px]">
+                      <Label htmlFor="create-reason">Reason</Label>
+
+                      <div className="relative">
                         <Input
-                          id="create-supplier-name"
+                          id="create-reason"
                           type="text"
-                          value={formData.supplierName || ""}
-                          readOnly
-                          className={`text-sm uppercase bg-muted cursor-not-allowed ${
-                            validationErrors.supplierName
-                              ? "border-destructive"
-                              : ""
+                          autoComplete="off"
+                          value={formData.reason}
+                          placeholder="e.g. Damaged items, wrong delivery"
+                          className={`text-sm ${
+                            validationErrors.reason ? "border-destructive" : ""
                           }`}
-                        />
-                        {validationErrors.supplierName && (
-                          <p className="text-sm text-destructive">
-                            {validationErrors.supplierName}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Reason for Return */}
-                      <div className="flex flex-col flex-1 min-w-[200px]">
-                        <Label htmlFor="create-reason">Reason</Label>
-
-                        <div className="relative">
-                          <Input
-                            id="create-reason"
-                            type="text"
-                            autoComplete="off"
-                            value={formData.reason}
-                            placeholder="e.g. Damaged items, wrong delivery"
-                            className={`text-sm ${
-                              validationErrors.reason
-                                ? "border-destructive"
-                                : ""
-                            }`}
-                            onClick={() => setShowReasonSuggestions(true)}
-                            onBlur={() =>
-                              setTimeout(
-                                () => setShowReasonSuggestions(false),
-                                200
-                              )
-                            }
-                            onChange={(e) => {
-                              const value = e.target.value;
-                              setFormData((prev) => ({
-                                ...prev,
-                                reason: value,
-                              }));
-                              setValidationErrors((prev) => ({
-                                ...prev,
-                                reason: "",
-                              }));
-                            }}
-                          />
-
-                          {/* Scrollable Dropdown */}
-                          {showReasonSuggestions && (
-                            <div className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg text-sm">
-                              <ul className="max-h-48 overflow-y-auto">
-                                {reasonOptions
-                                  .filter((option) =>
-                                    option
-                                      .toLowerCase()
-                                      .includes(formData.reason.toLowerCase())
-                                  )
-                                  .map((option) => (
-                                    <li
-                                      key={option}
-                                      className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                                      onClick={() => {
-                                        setFormData((prev) => ({
-                                          ...prev,
-                                          reason: option,
-                                        }));
-                                        setShowReasonSuggestions(false);
-                                      }}>
-                                      {option}
-                                    </li>
-                                  ))}
-                                {reasonOptions.filter((option) =>
-                                  option
-                                    .toLowerCase()
-                                    .includes(formData.reason.toLowerCase())
-                                ).length === 0 && (
-                                  <li className="px-3 py-2 text-muted-foreground">
-                                    No matching reason found
-                                  </li>
-                                )}
-                              </ul>
-                            </div>
-                          )}
-                        </div>
-
-                        {validationErrors.reason && (
-                          <p className="text-sm text-destructive">
-                            {validationErrors.reason}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* Notes */}
-                      <div className="flex flex-col flex-[2] min-w-[300px]">
-                        <Label htmlFor="create-notes">Notes</Label>
-                        <Textarea
-                          id="create-notes"
-                          value={formData.notes}
+                          onClick={() => setShowReasonSuggestions(true)}
+                          onBlur={() =>
+                            setTimeout(
+                              () => setShowReasonSuggestions(false),
+                              200
+                            )
+                          }
                           onChange={(e) => {
                             const value = e.target.value;
                             setFormData((prev) => ({
                               ...prev,
-                              notes: value,
+                              reason: value,
                             }));
                             setValidationErrors((prev) => ({
                               ...prev,
-                              notes: "",
+                              reason: "",
                             }));
                           }}
-                          placeholder="Add any additional notes or comments here"
-                          className={`text-sm ${
-                            validationErrors.notes ? "border-destructive" : ""
-                          }`}
                         />
-                        {validationErrors.notes && (
-                          <p className="text-sm text-destructive">
-                            {validationErrors.notes}
-                          </p>
+
+                        {/* Scrollable Dropdown */}
+                        {showReasonSuggestions && (
+                          <div className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg text-sm">
+                            <ul className="max-h-48 overflow-y-auto">
+                              {reasonOptions
+                                .filter((option) =>
+                                  option
+                                    .toLowerCase()
+                                    .includes(formData.reason.toLowerCase())
+                                )
+                                .map((option) => (
+                                  <li
+                                    key={option}
+                                    className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                    onClick={() => {
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        reason: option,
+                                      }));
+                                      setShowReasonSuggestions(false);
+                                    }}>
+                                    {option}
+                                  </li>
+                                ))}
+                              {reasonOptions.filter((option) =>
+                                option
+                                  .toLowerCase()
+                                  .includes(formData.reason.toLowerCase())
+                              ).length === 0 && (
+                                <li className="px-3 py-2 text-muted-foreground">
+                                  No matching reason found
+                                </li>
+                              )}
+                            </ul>
+                          </div>
                         )}
                       </div>
+
+                      {validationErrors.reason && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.reason}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Notes */}
+                    <div className="flex flex-col flex-[2] min-w-[300px]">
+                      <Label htmlFor="create-notes">Notes</Label>
+                      <Textarea
+                        id="create-notes"
+                        value={formData.notes}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData((prev) => ({
+                            ...prev,
+                            notes: value,
+                          }));
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            notes: "",
+                          }));
+                        }}
+                        placeholder="Add any additional notes or comments here"
+                        className={`text-sm ${
+                          validationErrors.notes ? "border-destructive" : ""
+                        }`}
+                      />
+                      {validationErrors.notes && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.notes}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1361,162 +1444,81 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                   <div className="text-center"></div> {/* Trash icon column */}
                 </div>
 
-                {itemsData.map((item, index) => (
-                  <div
-                    key={index}
-                    className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
-                    {/* Item Code */}
-                    <input
-                      type="text"
-                      value={item.itemCode || ""}
-                      readOnly
-                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                    />
+                {formData.items?.length > 0 ? (
+                  formData.items.map((item, index) => (
+                    <div
+                      key={index}
+                      className="grid w-full grid-cols-[1.5fr_2fr_1fr_1fr_1fr_1fr] items-center border-t border-border text-sm m-0">
+                      {/* Item Code */}
+                      <input
+                        type="text"
+                        value={item.itemCode || ""}
+                        readOnly
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                      />
 
-                    {/* Item Name */}
-                    {/* <Select
-                      value={item.itemName}
-                      onValueChange={(value) => {
-                        const normalized = value.toUpperCase().trim();
-                        const selected = items.find(
-                          (option) =>
-                            option.itemName?.toUpperCase().trim() === normalized
-                        );
-                        if (!selected) return;
+                      {/* Item Name */}
+                      <input
+                        type="text"
+                        value={item.itemName || ""}
+                        readOnly
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white uppercase"
+                      />
 
-                        setItemsData((prev) => {
-                          const updated = [...prev];
-                          updated[index] = {
-                            ...updated[index],
-                            itemName: normalized,
-                            itemCode: selected.itemCode || "",
-                            unitType: selected.unitType || "",
-                            purchasePrice: selected.purchasePrice || 0,
-                          };
-                          return updated;
-                        });
+                      {/* Quantity */}
+                      <input
+                        type="number"
+                        value={item.quantity || 0}
+                        readOnly
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
+                      />
 
-                        setFormData((prev) => {
-                          const updatedItems = [...prev.items];
-                          updatedItems[index] = {
-                            ...updatedItems[index],
-                            itemName: normalized,
-                            itemCode: selected.itemCode || "",
-                            unitType: selected.unitType || "",
-                            purchasePrice: selected.purchasePrice || 0,
-                            quantity: updatedItems[index]?.quantity || 1,
-                          };
-                          return {
-                            ...prev,
-                            items: updatedItems,
-                          };
-                        });
-                      }}>
-                      <SelectTrigger
-                        id={`item-name-${index}`}
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 uppercase focus:outline-none focus:ring-1 focus:ring-primary">
-                        {item.itemName || "Select Item"}
-                      </SelectTrigger>
-                      <SelectContent>
-                        {items.length > 0 ? (
-                          items.map((option) => {
-                            const label =
-                              option.itemName?.trim() || "Unnamed Item";
-                            return (
-                              <SelectItem
-                                key={option._id || label}
-                                value={label.toUpperCase()}>
-                                {label}
-                              </SelectItem>
-                            );
-                          })
-                        ) : (
-                          <SelectItem disabled value="no-items">
-                            No items available
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select> */}
+                      {/* Unit Type */}
+                      <input
+                        type="text"
+                        value={item.unitType || ""}
+                        readOnly
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white uppercase"
+                      />
 
-                    {/* Return Quantity */}
-                    {/* <input
-                      type="number"
-                      min={1}
-                      value={item.quantity}
-                      onChange={(e) => {
-                        const value = Number(e.target.value);
-                        setItemsData((prev) => {
-                          const updated = [...prev];
-                          updated[index].quantity = value;
-                          return updated;
-                        });
-
-                        setFormData((prev) => {
-                          const updatedItems = [...prev.items];
-                          updatedItems[index] = {
-                            ...updatedItems[index],
-                            quantity: value,
-                          };
-                          return {
-                            ...prev,
-                            items: updatedItems,
-                          };
-                        });
-                      }}
-                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
-                    /> */}
-
-                    {/* Unit Type */}
-                    {/* <input
-                      type="text"
-                      value={item.unitType || ""}
-                      readOnly
-                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                    /> */}
-
-                    {/* Return Price */}
-                    <input
-                      type="text"
-                      value={
-                        item.purchasePrice !== undefined
-                          ? item.purchasePrice.toLocaleString("en-PH", {
-                              style: "currency",
-                              currency: "PHP",
-                            })
-                          : ""
-                      }
-                      readOnly
-                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                    />
-
-                    {/* Amount */}
-                    {/* <input
-                      type="text"
-                      value={
-                        item.purchasePrice && item.quantity
-                          ? (item.purchasePrice * item.quantity).toLocaleString(
-                              "en-PH",
-                              {
+                      {/* Purchase Price */}
+                      <input
+                        type="text"
+                        value={
+                          item.purchasePrice !== undefined
+                            ? item.purchasePrice.toLocaleString("en-PH", {
                                 style: "currency",
                                 currency: "PHP",
-                              }
-                            )
-                          : ""
-                      }
-                      readOnly
-                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                    /> */}
+                              })
+                            : ""
+                        }
+                        readOnly
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
+                      />
 
-                    {/* Trash Button */}
-                    {/* <Button
-                      variant="destructive"
-                      className="w-full h-[32px] px-1 text-xs border border-border bg-red-50 hover:bg-red-100 text-red-700 rounded transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus:ring-1 focus:ring-red-400 flex items-center justify-center"
-                      onClick={() => handleRemoveItem(index)}
-                      title="Remove item">
-                      <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
-                    </Button> */}
+                      {/* Amount */}
+                      <input
+                        type="text"
+                        value={
+                          item.purchasePrice && item.quantity
+                            ? (
+                                item.purchasePrice * item.quantity
+                              ).toLocaleString("en-PH", {
+                                style: "currency",
+                                currency: "PHP",
+                              })
+                            : ""
+                        }
+                        readOnly
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
+                      />
+                    </div>
+                  ))
+                ) : (
+                  <div className="text-sm text-muted-foreground py-2">
+                    No items linked to this PR.
                   </div>
-                ))}
+                )}
 
                 {/* Footer Actions */}
                 <DialogFooter className="pt-4 border-t">
@@ -1536,7 +1538,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                       {/* <Button onClick={handleCreate}>Create</Button> */}
                       <div className="flex items-center gap-2">
                         {/* Primary Save Button */}
-                        {/* <Button
+                        <Button
                           onClick={handleSave}
                           disabled={
                             !formData.items.length ||
@@ -1547,7 +1549,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                           className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                           aria-label="Save">
                           💾 Save
-                        </Button> */}
+                        </Button>
 
                         {/* Dropdown for More Actions */}
                         <DropdownMenu>
@@ -1654,10 +1656,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                     </SelectTrigger>
                     <SelectContent>
                       <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="open">Open</SelectItem>
                       <SelectItem value="returned">Returned</SelectItem>
-                      <SelectItem value="rejected">Rejected</SelectItem>
-                      <SelectItem value="closed">Closed</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1704,7 +1703,6 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                   <TableHead>Suuplier</TableHead>
                   <TableHead>Purchase Receipt No.</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-32">Actions</TableHead>
                 </TableRow>
               </TableHeader>
 
