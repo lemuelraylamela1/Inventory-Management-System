@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import PurchaseOrder from "@/models/purchaseOrder";
 import PurchaseReceipt, { ReceiptItem } from "@/models/purchaseReceipt";
-import { generateNextPRNumber } from "../../../libs/generateNextPRNumbers";
+import { generateNextPRNumber } from "@/libs/generateNextPRNumbers";
+import { generateSupplierInvoiceNum } from "@/libs/generateSupplierInvoiceNum";
 
 type POItem = {
   itemCode: string;
@@ -133,10 +134,6 @@ export async function POST(request: Request) {
           }
         );
 
-        console.log(
-          `📦 PO ${po.poNumber} updated — Status: ${newStatus}, Balance: ${newBalance}`
-        );
-
         updatedPOs.push({
           poNumber: po.poNumber,
           balance: newBalance,
@@ -150,16 +147,17 @@ export async function POST(request: Request) {
           status: po.status,
           totalQuantity: po.totalQuantity,
         });
-
-        console.log(
-          `⏸️ PO ${po.poNumber} left untouched — Receipt status: ${body.status}`
-        );
       }
     }
 
+    const poRemarks = purchaseOrders
+      .map((po) => po.remarks?.trim())
+      .filter(Boolean);
+    const combinedRemarks = poRemarks.join(" / ");
+
     const newReceipt = await PurchaseReceipt.create({
       prNumber: await generateNextPRNumber(),
-      supplierInvoiceNum: body.supplierInvoiceNum?.trim().toUpperCase(),
+      supplierInvoiceNum: await generateSupplierInvoiceNum(),
       poNumber: poNumbers,
       supplierName:
         purchaseOrders[0]?.supplierName?.trim().toUpperCase() || "UNKNOWN",
@@ -168,7 +166,7 @@ export async function POST(request: Request) {
       amount: totalAmount,
       quantity: totalQuantity,
       status: body.status || "OPEN",
-      remarks: body.remarks?.trim() || "",
+      remarks: body.remarks?.trim() || combinedRemarks || "",
       items: selectedItems,
     });
 
@@ -201,94 +199,94 @@ export async function GET() {
   }
 }
 
-export async function DELETE(
-  _: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const { id } = params;
-    const deleted = await PurchaseReceipt.findByIdAndDelete(id);
+// export async function DELETE(
+//   _: Request,
+//   { params }: { params: { id: string } }
+// ) {
+//   try {
+//     const { id } = params;
+//     const deleted = await PurchaseReceipt.findByIdAndDelete(id);
 
-    if (!deleted) {
-      return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
-    }
+//     if (!deleted) {
+//       return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
+//     }
 
-    return NextResponse.json(
-      { message: "Receipt deleted", id },
-      { status: 200 }
-    );
-  } catch (error: unknown) {
-    console.error("❌ Error deleting receipt:", error);
-    return NextResponse.json(
-      { error: "Failed to delete receipt" },
-      { status: 500 }
-    );
-  }
-}
+//     return NextResponse.json(
+//       { message: "Receipt deleted", id },
+//       { status: 200 }
+//     );
+//   } catch (error: unknown) {
+//     console.error("❌ Error deleting receipt:", error);
+//     return NextResponse.json(
+//       { error: "Failed to delete receipt" },
+//       { status: 500 }
+//     );
+//   }
+// }
 
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
-  try {
-    const body = await request.json();
-    const { id } = params;
+// export async function PUT(
+//   request: Request,
+//   { params }: { params: { id: string } }
+// ) {
+//   try {
+//     const body = await request.json();
+//     const { id } = params;
 
-    const poNumbers = Array.isArray(body.poNumber)
-      ? body.poNumber.map((po: string) => po.trim().toUpperCase())
-      : [];
+//     const poNumbers = Array.isArray(body.poNumber)
+//       ? body.poNumber.map((po: string) => po.trim().toUpperCase())
+//       : [];
 
-    const purchaseOrders = await PurchaseOrder.find({
-      poNumber: { $in: poNumbers },
-    });
+//     const purchaseOrders = await PurchaseOrder.find({
+//       poNumber: { $in: poNumbers },
+//     });
 
-    if (purchaseOrders.length === 0) {
-      return NextResponse.json(
-        { error: "No matching purchase orders found" },
-        { status: 404 }
-      );
-    }
+//     if (purchaseOrders.length === 0) {
+//       return NextResponse.json(
+//         { error: "No matching purchase orders found" },
+//         { status: 404 }
+//       );
+//     }
 
-    const supplierName =
-      purchaseOrders[0]?.supplierName?.trim().toUpperCase() || "UNKNOWN";
-    const warehouse =
-      purchaseOrders[0]?.warehouse?.trim().toUpperCase() || "UNKNOWN";
-    const amount = purchaseOrders.reduce((sum, po) => sum + (po.total || 0), 0);
+//     const supplierName =
+//       purchaseOrders[0]?.supplierName?.trim().toUpperCase() || "UNKNOWN";
+//     const warehouse =
+//       purchaseOrders[0]?.warehouse?.trim().toUpperCase() || "UNKNOWN";
+//     const amount = purchaseOrders.reduce((sum, po) => sum + (po.total || 0), 0);
 
-    const updated = await PurchaseReceipt.findByIdAndUpdate(
-      id,
-      {
-        supplierInvoiceNum: body.supplierInvoiceNum?.trim().toUpperCase(),
-        poNumber: poNumbers,
-        supplierName,
-        warehouse,
-        amount,
-        status: body.status?.trim().toLowerCase() || "draft",
-        remarks: body.remarks?.trim() || "",
-        items: Array.isArray(body.items)
-          ? body.items.map((item: ReceiptItem) => ({
-              itemCode: item.itemCode?.trim().toUpperCase() || "",
-              itemName: item.itemName?.trim() || "",
-              quantity: Number(item.quantity),
-              unitType: item.unitType?.trim().toUpperCase() || "",
-              purchasePrice: Number(item.purchasePrice),
-              amount: Number(item.quantity) * Number(item.purchasePrice),
-            }))
-          : [],
-      },
-      { new: true }
-    );
+//     const updated = await PurchaseReceipt.findByIdAndUpdate(
+//       id,
+//       {
+//         supplierInvoiceNum: body.supplierInvoiceNum?.trim().toUpperCase(),
+//         poNumber: poNumbers,
+//         supplierName,
+//         warehouse,
+//         amount,
+//         status: body.status?.trim().toLowerCase() || "draft",
+//         remarks: body.remarks?.trim() || "",
+//         items: Array.isArray(body.items)
+//           ? body.items.map((item: ReceiptItem) => ({
+//               itemCode: item.itemCode?.trim().toUpperCase() || "",
+//               itemName: item.itemName?.trim() || "",
+//               quantity: Number(item.quantity),
+//               unitType: item.unitType?.trim().toUpperCase() || "",
+//               purchasePrice: Number(item.purchasePrice),
+//               amount: Number(item.quantity) * Number(item.purchasePrice),
+//             }))
+//           : [],
+//       },
+//       { new: true }
+//     );
 
-    if (!updated) {
-      return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
-    }
+//     if (!updated) {
+//       return NextResponse.json({ error: "Receipt not found" }, { status: 404 });
+//     }
 
-    return NextResponse.json(updated, { status: 200 });
-  } catch (error: unknown) {
-    console.error("❌ Error updating receipt:", error);
-    return NextResponse.json(
-      { error: "Failed to update receipt" },
-      { status: 500 }
-    );
-  }
-}
+//     return NextResponse.json(updated, { status: 200 });
+//   } catch (error: unknown) {
+//     console.error("❌ Error updating receipt:", error);
+//     return NextResponse.json(
+//       { error: "Failed to update receipt" },
+//       { status: 500 }
+//     );
+//   }
+// }

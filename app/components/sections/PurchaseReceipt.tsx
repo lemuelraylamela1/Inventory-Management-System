@@ -127,6 +127,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrderType[]>([]);
   const [items, setItems] = useState<ItemType[]>([]);
   const [showSuggestions, setShowSuggestions] = useState(false);
+  const [showSupplierSuggestions, setShowSupplierSuggestions] = useState(false);
   const [editableItems, setEditableItems] = useState<Record<number, number>>(
     {}
   );
@@ -153,6 +154,22 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
     unitType?: string;
     purchasePrice: number;
   };
+
+  useEffect(() => {
+    console.log("Fetching suppliers...");
+
+    fetch("/api/suppliers")
+      .then((res) => res.json())
+      .then((response) => {
+        console.log("Raw response:", response);
+
+        const data = Array.isArray(response?.items) ? response.items : [];
+
+        console.log("Parsed suppliers:", data);
+        setSuppliers(data); // ✅ Should match SupplierType[]
+      })
+      .catch((err) => console.error("Failed to fetch suppliers", err));
+  }, []);
 
   useEffect(() => {
     console.log("Starting purchase order polling every 1 second...");
@@ -284,11 +301,6 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       supplierInvoiceNum: "",
     };
 
-    // Required: supplierInvoiceNum
-    if (!formData.supplierInvoiceNum?.trim()) {
-      errors.supplierInvoiceNum = "Supplier Invoice Number is required";
-    }
-
     // Required: at least one PO number
     const hasPOs =
       Array.isArray(formData.poNumber) && formData.poNumber.length > 0;
@@ -387,12 +399,9 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
     }
 
     const payload = {
-      supplierInvoiceNum:
-        formData.supplierInvoiceNum?.trim().toUpperCase() || "",
       poNumber: Array.isArray(formData.poNumber)
         ? formData.poNumber.map((po) => po.trim().toUpperCase())
         : [],
-      remarks: formData.remarks?.trim() || "",
       status: formData.status?.trim().toUpperCase() || "OPEN",
       items: selectedItemsPayload,
     };
@@ -1213,18 +1222,21 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                     <div className="flex flex-row flex-wrap gap-4">
                       <div className="flex flex-col flex-1 min-w-[200px]">
                         <div className="flex flex-col flex-1 min-w-[200px]">
-                          <Label htmlFor="po-search">PO Number</Label>
+                          <Label htmlFor="supplier-search">Supplier</Label>
 
                           <div className="relative">
                             <Input
-                              id="po-search"
+                              id="supplier-search"
                               type="text"
                               autoComplete="off"
-                              value={formData.poNumber[0] || ""}
-                              onClick={() => setShowSuggestions(true)}
+                              value={formData.supplierName || ""}
+                              onClick={() => setShowSupplierSuggestions(true)}
                               onBlur={() =>
-                                setTimeout(() => setShowSuggestions(false), 200)
-                              } // optional delay for click
+                                setTimeout(
+                                  () => setShowSupplierSuggestions(false),
+                                  200
+                                )
+                              }
                               onChange={(e) => {
                                 const value = e.target.value
                                   .toUpperCase()
@@ -1232,42 +1244,23 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
 
                                 setFormData((prev) => ({
                                   ...prev,
-                                  poNumber: value ? [value] : [],
+                                  supplierName: value,
+                                  poNumber: [], // 🧼 Reset PO
+                                  warehouse: "", // 🧼 Reset warehouse
+                                  amount: 0, // 🧼 Reset amount
+                                  remarks: "", // 🧼 Reset remarks
                                 }));
 
                                 setValidationErrors((prev) => ({
                                   ...prev,
+                                  supplierName: "",
                                   poNumber: "",
                                 }));
 
-                                const matchedPO = purchaseOrders.find(
-                                  (po) =>
-                                    po.poNumber.trim().toUpperCase() === value
-                                );
-
-                                if (matchedPO) {
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    supplierName:
-                                      matchedPO.supplierName
-                                        ?.trim()
-                                        .toUpperCase() || "UNKNOWN",
-                                    warehouse:
-                                      matchedPO.warehouse
-                                        ?.trim()
-                                        .toUpperCase() || "UNKNOWN",
-                                    amount: matchedPO.total || 0,
-                                  }));
-                                } else {
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    supplierName: "",
-                                    warehouse: "",
-                                    amount: 0,
-                                  }));
-                                }
+                                setShowSuggestions(false);
                               }}
-                              placeholder="Enter PO number"
+                              placeholder="Search supplier name"
+                              className="text-sm uppercase w-full bg-white px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
                             />
 
                             {/* Magnifying Glass Icon */}
@@ -1287,65 +1280,43 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                               </svg>
                             </div>
 
-                            {/* Live Suggestions */}
-                            {showSuggestions && (
+                            {/* Live Suggestions (always show all suppliers) */}
+                            {showSupplierSuggestions && (
                               <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
-                                {(formData.poNumber[0]
-                                  ? purchaseOrders.filter(
-                                      (po) =>
-                                        po.status !== "COMPLETED" &&
-                                        po.poNumber
-                                          .toUpperCase()
-                                          .includes(
-                                            formData.poNumber[0].toUpperCase()
-                                          )
-                                    )
-                                  : purchaseOrders.filter(
-                                      (po) => po.status !== "COMPLETED"
-                                    )
-                                ).map((po) => {
-                                  const normalized = po.poNumber
+                                {suppliers.map((supplier) => {
+                                  const normalized = supplier.supplierName
                                     .trim()
                                     .toUpperCase();
                                   return (
                                     <li
-                                      key={po._id || normalized}
+                                      key={supplier._id || normalized}
                                       className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
                                       onClick={() => {
                                         setFormData((prev) => ({
                                           ...prev,
-                                          poNumber: [normalized],
-                                          supplierName:
-                                            po.supplierName
-                                              ?.trim()
-                                              .toUpperCase() || "UNKNOWN",
-                                          warehouse:
-                                            po.warehouse
-                                              ?.trim()
-                                              .toUpperCase() || "UNKNOWN",
-                                          amount: po.total || 0,
+                                          supplierName: normalized,
+                                          supplierId: supplier._id,
+                                          poNumber: [], // ✅ Reset PO
+                                          warehouse: "", // ✅ Reset warehouse
+                                          amount: 0, // ✅ Reset amount
+                                          remarks: "", // ✅ Reset remarks
                                         }));
-                                        setShowSuggestions(false);
+
+                                        setValidationErrors((prev) => ({
+                                          ...prev,
+                                          supplierName: "",
+                                          poNumber: "",
+                                        }));
+
+                                        setShowSupplierSuggestions(false);
                                       }}>
-                                      {po.poNumber}
+                                      {normalized}
                                     </li>
                                   );
                                 })}
-                                {(formData.poNumber[0]
-                                  ? purchaseOrders.filter(
-                                      (po) =>
-                                        po.status !== "COMPLETED" &&
-                                        po.poNumber
-                                          .toUpperCase()
-                                          .includes(
-                                            formData.poNumber[0].toUpperCase()
-                                          )
-                                    ).length === 0
-                                  : purchaseOrders.filter(
-                                      (po) => po.status !== "COMPLETED"
-                                    ).length === 0) && (
+                                {suppliers.length === 0 && (
                                   <li className="px-3 py-2 text-muted-foreground">
-                                    No matching PO found
+                                    No suppliers available
                                   </li>
                                 )}
                               </ul>
@@ -1360,20 +1331,10 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                         </Label>
                         <Input
                           id="create-supplier-invoice-num"
-                          value={formData.supplierInvoiceNum}
-                          onChange={(e) => {
-                            const value = e.target.value.toUpperCase();
-                            setFormData((prev) => ({
-                              ...prev,
-                              supplierInvoiceNum: value,
-                            }));
-                            setValidationErrors((prev) => ({
-                              ...prev,
-                              supplierInvoiceNum: "",
-                            }));
-                          }}
-                          placeholder="e.g. INV-2025-001"
-                          className={`text-sm uppercase rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary transition ${
+                          value={formData.supplierInvoiceNum || ""}
+                          readOnly // ✅ Prevent manual editing
+                          placeholder="Auto-generated e.g. SI001"
+                          className={`text-sm uppercase rounded-md border px-3 py-2 shadow-sm bg-muted cursor-not-allowed focus:outline-none transition ${
                             validationErrors.supplierInvoiceNum
                               ? "border-destructive ring-destructive/30"
                               : "border-input"
@@ -1388,14 +1349,98 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                     </div>
                     <div className="flex flex-row flex-wrap gap-4">
                       <div className="flex flex-col flex-1 min-w-[200px]">
-                        <Label htmlFor="supplier-display">Supplier</Label>
-                        <Input
-                          id="supplier-display"
-                          type="text"
-                          value={formData.supplierName || ""}
-                          readOnly
-                          className="text-sm uppercase w-full bg-muted cursor-not-allowed"
-                        />
+                        <Label htmlFor="po-search">PO Number</Label>
+
+                        <div className="relative">
+                          <Input
+                            id="po-search"
+                            type="text"
+                            autoComplete="off"
+                            value={formData.poNumber[0] || ""}
+                            readOnly={!formData.supplierName} // 🔒 Disable until supplier is selected
+                            onClick={() => {
+                              if (formData.supplierName)
+                                setShowSuggestions(true);
+                            }}
+                            onBlur={() =>
+                              setTimeout(() => setShowSuggestions(false), 200)
+                            }
+                            placeholder={
+                              formData.supplierName
+                                ? "Select PO number"
+                                : "Select supplier first"
+                            }
+                            className={`text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
+                              !formData.supplierName
+                                ? "bg-muted cursor-not-allowed"
+                                : "bg-white"
+                            }`}
+                          />
+
+                          {/* Magnifying Glass Icon */}
+                          <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 text-muted-foreground"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                              />
+                            </svg>
+                          </div>
+
+                          {/* Live Suggestions */}
+                          {showSuggestions && formData.supplierName && (
+                            <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                              {purchaseOrders
+                                .filter(
+                                  (po) =>
+                                    po.status !== "COMPLETED" &&
+                                    po.supplierName?.trim().toUpperCase() ===
+                                      formData.supplierName?.toUpperCase()
+                                )
+                                .map((po) => {
+                                  const normalized = po.poNumber
+                                    .trim()
+                                    .toUpperCase();
+                                  return (
+                                    <li
+                                      key={po._id || normalized}
+                                      className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                      onClick={() => {
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          poNumber: [normalized],
+                                          warehouse:
+                                            po.warehouse
+                                              ?.trim()
+                                              .toUpperCase() || "UNKNOWN",
+                                          remarks: po.remarks || "",
+                                        }));
+                                        setShowSuggestions(false);
+                                      }}>
+                                      {normalized}
+                                    </li>
+                                  );
+                                })}
+                              {purchaseOrders.filter(
+                                (po) =>
+                                  po.status !== "COMPLETED" &&
+                                  po.supplierName?.trim().toUpperCase() ===
+                                    formData.supplierName?.toUpperCase()
+                              ).length === 0 && (
+                                <li className="px-3 py-2 text-muted-foreground">
+                                  No matching PO found
+                                </li>
+                              )}
+                            </ul>
+                          )}
+                        </div>
                       </div>
 
                       {/* Warehouse Display */}
@@ -1414,20 +1459,11 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                       <Label htmlFor="create-remarks">Remarks</Label>
                       <Textarea
                         id="create-remarks"
-                        value={formData.remarks}
-                        onChange={(e) => {
-                          const value = e.target.value.trim();
-                          setFormData((prev) => ({
-                            ...prev,
-                            remarks: value,
-                          }));
-                          setValidationErrors((prev) => ({
-                            ...prev,
-                            remarks: "",
-                          }));
-                        }}
-                        placeholder="add remarks"
+                        value={formData.remarks || ""}
+                        readOnly
+                        placeholder="Remarks from selected PO"
                         rows={3}
+                        className="text-sm uppercase w-full bg-muted cursor-not-allowed"
                       />
                     </div>
                   </div>

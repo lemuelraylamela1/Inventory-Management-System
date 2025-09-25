@@ -1,7 +1,8 @@
 import mongoose, { Schema, Document, model } from "mongoose";
 import PurchaseOrder from "./purchaseOrder";
+import { generateSupplierInvoiceNum } from "@/libs/generateSupplierInvoiceNum";
 
-export type ReceiptStatus = "draft" | "received" | "cancelled";
+export type ReceiptStatus = "RECEIVED" | "OPEN";
 
 export interface ReceiptItem {
   itemCode: string;
@@ -10,7 +11,7 @@ export interface ReceiptItem {
   unitType: string;
   purchasePrice: number;
   amount: number;
-  selected?: boolean; // ✅ Optional flag for frontend filtering
+  selected?: boolean;
 }
 
 export interface PurchaseReceiptType extends Document {
@@ -43,9 +44,9 @@ const PurchaseReceiptSchema = new Schema<PurchaseReceiptType>(
     },
     supplierInvoiceNum: {
       type: String,
-      required: true,
       trim: true,
       uppercase: true,
+      default: "", // ✅ Auto-generated if missing
     },
     poNumber: {
       type: [String],
@@ -96,10 +97,14 @@ const PurchaseReceiptSchema = new Schema<PurchaseReceiptType>(
   { timestamps: true }
 );
 
-// Pre-save hook to auto-generate prNumber and enrich fields
+// Pre-save hook to auto-generate prNumber and supplierInvoiceNum
 PurchaseReceiptSchema.pre("validate", async function (next) {
   if (!this.prNumber) {
     this.prNumber = await generateNextPRNumber();
+  }
+
+  if (!this.supplierInvoiceNum) {
+    this.supplierInvoiceNum = await generateSupplierInvoiceNum();
   }
 
   if (Array.isArray(this.poNumber) && this.poNumber.length > 0) {
@@ -112,7 +117,6 @@ PurchaseReceiptSchema.pre("validate", async function (next) {
         pos[0].supplierName?.trim().toUpperCase() || "UNKNOWN";
       this.warehouse = pos[0].warehouse?.trim().toUpperCase() || "UNKNOWN";
 
-      // ✅ Respect frontend-calculated amount if provided
       if (typeof this.amount !== "number" || isNaN(this.amount)) {
         this.amount = Array.isArray(this.items)
           ? this.items.reduce((sum, item) => sum + (item.amount || 0), 0)

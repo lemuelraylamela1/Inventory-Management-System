@@ -470,6 +470,13 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       0
     );
 
+    const normalizedStatus = po.status?.trim().toUpperCase();
+    const status: PurchaseOrderType["status"] = allowedStatuses.includes(
+      normalizedStatus as PurchaseOrderType["status"]
+    )
+      ? (normalizedStatus as PurchaseOrderType["status"])
+      : "PENDING";
+
     const normalizedFormData: Omit<
       PurchaseOrderType,
       "_id" | "createdAt" | "updatedAt"
@@ -481,16 +488,16 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       items: editableItems,
       total: totalAmount,
       totalQuantity,
-      balance: Number(po.balance ?? totalAmount),
+      balance:
+        typeof po.balance === "number" && !isNaN(po.balance)
+          ? po.balance
+          : totalAmount,
       remarks: po.remarks?.trim() || "",
-      status: allowedStatuses.includes(
-        po.status?.trim() as PurchaseOrderType["status"]
-      )
-        ? (po.status?.trim() as PurchaseOrderType["status"])
-        : "PENDING",
+      status,
     };
 
     setFormData(normalizedFormData);
+    setSelectedIds(Array(editableItems.length).fill(true)); // default to all selected
     setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(true);
   };
@@ -501,25 +508,26 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       return;
     }
 
-    // ✅ Normalize and filter selected items
-    const normalizedItems = Array.isArray(formData.items)
-      ? formData.items
-          .map((item, index) => ({ item, index }))
-          .filter(({ index }) => selectedIds[index])
-          .map(({ item }) => ({
-            itemCode: item.itemCode?.trim().toUpperCase() || "",
-            itemName: item.itemName?.trim().toUpperCase() || "",
-            unitType: item.unitType?.trim().toUpperCase() || "",
-            quantity: Math.max(Number(item.quantity) || 1, 1),
-            purchasePrice: Number(item.purchasePrice) || 0,
-          }))
-      : [];
+    const selectedIdsSafe =
+      selectedIds.length === formData.items.length
+        ? selectedIds
+        : formData.items.map(() => true);
+
+    const normalizedItems = formData.items
+      .map((item, index) => ({ item, index }))
+      .filter(({ index }) => selectedIdsSafe[index])
+      .map(({ item }) => ({
+        itemCode: item.itemCode?.trim().toUpperCase() || "",
+        itemName: item.itemName?.trim().toUpperCase() || "",
+        unitType: item.unitType?.trim().toUpperCase() || "",
+        quantity: Math.max(Number(item.quantity) || 1, 1),
+        purchasePrice: Number(item.purchasePrice) || 0,
+      }));
 
     const totalQuantity = normalizedItems.reduce(
       (sum, item) => sum + item.quantity,
       0
     );
-
     const totalAmount = normalizedItems.reduce(
       (sum, item) => sum + item.quantity * item.purchasePrice,
       0
@@ -540,9 +548,10 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       items: normalizedItems,
       total: totalAmount,
       totalQuantity,
-      balance: isNaN(Number(formData.balance))
-        ? totalAmount
-        : Number(formData.balance),
+      balance:
+        typeof formData.balance === "number" && !isNaN(formData.balance)
+          ? formData.balance
+          : totalAmount,
       remarks: formData.remarks?.trim() || "",
       status,
     };
@@ -556,18 +565,18 @@ export default function PurchaseOrder({ onSuccess }: Props) {
         body: JSON.stringify(payload),
       });
 
+      const result = await res.json();
       console.log("📡 Response status:", res.status);
-      const updatedPO: PurchaseOrderResponse = await res.json();
-      console.log("✅ Parsed updated PO:", updatedPO);
+      console.log("✅ Parsed updated PO:", result);
 
       if (!res.ok) {
-        console.error("❌ Update failed:", res.status, updatedPO);
-        alert(`Update failed: ${updatedPO}`);
+        console.error("❌ Update failed:", res.status, result);
+        alert(`Update failed: ${result?.error || "Unknown error"}`);
         return;
       }
 
       setPurchaseOrders((prev) =>
-        prev.map((po) => (po._id === updatedPO._id ? updatedPO : po))
+        prev.map((po) => (po._id === result._id ? result : po))
       );
     } catch (err) {
       console.error("🔥 Network or unexpected error:", err);
@@ -590,7 +599,6 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       status: "PENDING",
     });
     setSelectedIds([]);
-
     setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(false);
   };
