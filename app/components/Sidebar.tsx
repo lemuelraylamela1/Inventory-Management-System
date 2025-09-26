@@ -64,6 +64,8 @@ export function Sidebar({
   const mainMenuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
     { id: "sales", label: "Sales", icon: ShoppingCart },
+    // { id: "purchase", label: "Purchase", icon: Package },
+    // { id: "inventory", label: "Inventory", icon: Package2 },
     { id: "reports", label: "Reports", icon: BarChart3 },
     { id: "users", label: "User Management", icon: Users, adminOnly: true },
   ];
@@ -77,7 +79,7 @@ export function Sidebar({
     },
     {
       id: "inventory-adjustment",
-      label: "Inventory Adjustment",
+      label: "Purchase Adjustment",
       icon: FileEdit,
     },
   ];
