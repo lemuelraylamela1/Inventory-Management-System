@@ -24,6 +24,9 @@ import Production from "./components/sections/Production";
 import PurchaseOrder from "./components/sections/PurchaseOrder";
 import PurchaseReceipt from "./components/sections/PurchaseReceipt";
 import PurchaseReturn from "./components/sections/PurchaseReturn";
+import InventoryAdjustment from "./components/sections/InventoryAdjustment";
+import InventorySummary from "./components/sections/InventorySummary";
+import InventoryTracker from "./components/sections/InventoryTracker";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -82,6 +85,12 @@ export default function App() {
         return <Customer />;
       case "customer-type":
         return <CustomerType />;
+      case "inventory-adjustment":
+        return <InventoryAdjustment />;
+      case "inventory-summary":
+        return <InventorySummary />;
+      case "inventory-tracker":
+        return <InventoryTracker />;
       case "item-class":
         return <ItemClass />;
       case "item-master":
