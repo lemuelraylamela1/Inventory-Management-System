@@ -1,7 +1,6 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
-import { Select } from "../ui/select";
 import {
   Table,
   TableBody,
@@ -13,14 +12,82 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Search, Download, Package } from "lucide-react";
 
-import { InventoryType } from "./type";
+import { InventoryType, ItemType } from "./type";
 
 export default function InventorySummary() {
   const [inventoryItems, setInventoryItems] = useState<InventoryType[]>([]);
+  const [itemCatalog, setItemCatalog] = useState<ItemType[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
 
-  // Get unique warehouses for the filter
+  // ✅ Memoized category lookup map
+  const categoryMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    itemCatalog.forEach((item) => {
+      const key = item.itemName.trim().toUpperCase();
+      map[key] = item.category?.trim().toUpperCase() || "UNCATEGORIZED";
+    });
+    return map;
+  }, [itemCatalog]);
+
+  // ✅ Fetch item catalog
+  useEffect(() => {
+    const fetchItems = async () => {
+      try {
+        const res = await fetch("/api/items", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to fetch items");
+
+        const response = await res.json();
+        const data = Array.isArray(response)
+          ? response
+          : Array.isArray(response.items)
+          ? response.items
+          : [];
+
+        setItemCatalog(data);
+      } catch (err) {
+        console.error("Failed to fetch item catalog", err);
+        setItemCatalog([]);
+      }
+    };
+
+    fetchItems();
+  }, []);
+
+  // ✅ Fetch inventory and enrich with category
+  useEffect(() => {
+    const fetchInventory = async () => {
+      try {
+        const res = await fetch("/api/inventory", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to fetch inventory");
+
+        const response = await res.json();
+        const data = Array.isArray(response)
+          ? response.flatMap((record) =>
+              record.items.map((item: InventoryType) => {
+                const key = item.itemName.trim().toUpperCase();
+                return {
+                  ...item,
+                  warehouse: record.warehouse,
+                  category: categoryMap[key] ?? "UNCATEGORIZED",
+                };
+              })
+            )
+          : [];
+
+        setInventoryItems(data);
+      } catch (err) {
+        console.error("Failed to fetch inventory", err);
+        setInventoryItems([]);
+      }
+    };
+
+    fetchInventory();
+    const interval = setInterval(fetchInventory, 1000);
+    return () => clearInterval(interval);
+  }, [categoryMap]);
+
+  // ✅ Unique warehouses
   const warehouses = useMemo(() => {
     const uniqueWarehouses = Array.from(
       new Set(inventoryItems.map((item) => item.warehouse))
@@ -28,18 +95,16 @@ export default function InventorySummary() {
     return uniqueWarehouses.sort();
   }, [inventoryItems]);
 
-  // Filter and aggregate data
+  // ✅ Filtered data
   const filteredData = useMemo(() => {
     let filtered = inventoryItems;
 
-    // Filter by warehouse
     if (selectedWarehouse !== "all") {
       filtered = filtered.filter(
         (item) => item.warehouse === selectedWarehouse
       );
     }
 
-    // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(
         (item) =>
@@ -51,43 +116,7 @@ export default function InventorySummary() {
     return filtered;
   }, [inventoryItems, selectedWarehouse, searchTerm]);
 
-  useEffect(() => {
-    const fetchInventory = async () => {
-      try {
-        const res = await fetch("/api/inventory", {
-          cache: "no-store",
-        });
-
-        if (!res.ok) throw new Error("Failed to fetch inventory");
-
-        const response = await res.json();
-        console.log("Raw response:", response);
-
-        const data = Array.isArray(response)
-          ? response.flatMap((record) =>
-              record.items.map((item: InventoryType) => ({
-                ...item,
-                warehouse: record.warehouse,
-              }))
-            )
-          : [];
-
-        console.log("Parsed inventory items:", data);
-        setInventoryItems(data); // ✅ Should match InventoryItem[]
-      } catch (err) {
-        console.error("Failed to fetch inventory", err);
-        setInventoryItems([]);
-      }
-    };
-
-    fetchInventory(); // initial fetch
-
-    const interval = setInterval(fetchInventory, 1000); // 🔁 poll every 1s
-
-    return () => clearInterval(interval); // 🧹 cleanup on unmount
-  }, []);
-
-  // Calculate summary statistics
+  // ✅ Summary stats
   const summaryStats = useMemo(() => {
     const uniqueItems = new Set(filteredData.map((item) => item.itemName)).size;
     const totalQuantity = filteredData.reduce(
@@ -104,13 +133,18 @@ export default function InventorySummary() {
     };
   }, [filteredData]);
 
-  // Export to CSV
+  // ✅ Export CSV
   const handleExportCSV = () => {
-    const headers = ["Item Name", "Warehouse", "Quantity"];
+    const headers = ["Item Name", "Category", "Warehouse", "Quantity"];
     const csvContent = [
       headers.join(","),
       ...filteredData.map((item) =>
-        [`"${item.itemName}"`, `"${item.warehouse}"`, item.quantity].join(",")
+        [
+          `"${item.itemName}"`,
+          `"${item.category}"`,
+          `"${item.warehouse}"`,
+          item.quantity,
+        ].join(",")
       ),
     ].join("\n");
 
@@ -230,7 +264,7 @@ export default function InventorySummary() {
                 {filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={3}
+                      colSpan={4}
                       className="text-center text-muted-foreground">
                       No inventory data found
                     </TableCell>
