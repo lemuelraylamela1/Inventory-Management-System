@@ -79,7 +79,7 @@ export function Sidebar({
     },
     {
       id: "inventory-adjustment",
-      label: "Purchase Adjustment",
+      label: "Inventory Adjustment",
       icon: FileEdit,
     },
   ];

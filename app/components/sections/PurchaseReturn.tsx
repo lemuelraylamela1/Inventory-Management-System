@@ -101,7 +101,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-
+  const [items, setItems] = useState<ItemType[]>([]);
   const [editingReturn, setEditingReturn] = useState<PurchaseReturnType | null>(
     null
   );
@@ -162,6 +162,22 @@ export default function PurchaseReturn({ onSuccess }: Props) {
         setSuppliers(data); // ✅ Should match SupplierType[]
       })
       .catch((err) => console.error("Failed to fetch suppliers", err));
+  }, []);
+
+  useEffect(() => {
+    console.log("Fetching items...");
+
+    fetch("/api/items")
+      .then((res) => res.json())
+      .then((response) => {
+        console.log("Raw response:", response);
+
+        const data = Array.isArray(response?.items) ? response.items : [];
+        console.log("Parsed items:", data);
+
+        setItems(data);
+      })
+      .catch((err) => console.error("Failed to fetch items", err));
   }, []);
 
   const router = useRouter();
@@ -712,135 +728,6 @@ export default function PurchaseReturn({ onSuccess }: Props) {
     fetchReceipts();
   }, []);
 
-  // useEffect(() => {
-  //   if (poId) fetchSinglePO(poId);
-  // }, [poId]);
-
-  // const fetchSingleReturn = async (returnId: string) => {
-  //   try {
-  //     const res = await fetch(`/api/purchase-returns/${returnId}`, {
-  //       cache: "no-store",
-  //     });
-
-  //     if (!res.ok) throw new Error("Failed to fetch Purchase Return");
-
-  //     const data = await res.json();
-
-  //     const normalizedItems = (data.items || []).map(
-  //       (item: PurchaseReturnItem) => ({
-  //         itemCode: item.itemCode?.trim().toUpperCase() || "",
-  //         itemName: item.itemName?.trim().toUpperCase() || "",
-  //         unitType: item.unitType?.trim().toUpperCase() || "",
-  //         purchasePrice: Number(item.purchasePrice) || 0,
-  //         quantity: Number(item.quantity) || 0,
-  //         amount: Number(item.quantity) * Number(item.purchasePrice),
-  //       })
-  //     );
-
-  //     setItemsData(normalizedItems);
-  //     setFormData({ ...data, items: normalizedItems });
-  //   } catch (error) {
-  //     console.error("Error loading Purchase Return:", error);
-  //     setItemsData([]);
-  //     setFormData({} as PurchaseReturnType);
-  //   }
-  // };
-
-  //   const selectedItem = items.find(
-  //   (item) =>
-  //     item.itemName?.trim().toUpperCase() ===
-  //     formData.items[activeIndex]?.itemName?.trim().toUpperCase()
-  // );
-  // const handleAddItem = () => {
-  //   setItemsData((prev) => [
-  //     ...prev,
-  //     {
-  //       itemCode: "",
-  //       itemName: "",
-  //       description: "",
-  //       unitType: "",
-  //       purchasePrice: 0,
-  //       quantity: 1,
-  //     },
-  //   ]);
-  // };
-
-  // const handleRemoveAllItems = () => {
-  //   setItemsData([]);
-
-  //   setFormData((prev) => ({
-  //     ...prev,
-  //     items: [],
-  //     totalQuantity: 0,
-  //     total: 0,
-  //   }));
-  // };
-
-  // const handleAddItemEdit = () => {
-  //   const newItem: PurchaseOrderItem = {
-  //     itemCode: "",
-  //     itemName: "",
-  //     unitType: "",
-  //     purchasePrice: 0,
-  //     quantity: 1,
-  //   };
-
-  //   setFormData((prev) => {
-  //     const updatedItems = [...prev.items, newItem];
-
-  //     const totalQuantity = updatedItems.reduce(
-  //       (sum, item) => sum + (item.quantity || 0),
-  //       0
-  //     );
-
-  //     const total = updatedItems.reduce(
-  //       (sum, item) => sum + (item.quantity * item.purchasePrice || 0),
-  //       0
-  //     );
-
-  //     return {
-  //       ...prev,
-  //       items: updatedItems,
-  //       totalQuantity,
-  //       total,
-  //     };
-  //   });
-  // };
-
-  // const handleRemoveItem = (index: number) => {
-  //   const updatedItems = itemsData.filter((_, i) => i !== index);
-
-  //   const totalQuantity = updatedItems.reduce(
-  //     (sum, item) => sum + item.quantity,
-  //     0
-  //   );
-  //   const totalAmount = updatedItems.reduce(
-  //     (sum, item) => sum + item.quantity * item.purchasePrice,
-  //     0
-  //   );
-
-  //   setItemsData(updatedItems);
-  //   setFormData((prev) => ({
-  //     ...prev,
-  //     items: updatedItems,
-  //     totalQuantity,
-  //     total: totalAmount,
-  //   }));
-  // };
-
-  // const recalculateTotals = (items: PurchaseOrderItem[]) => {
-  //   const totalQuantity = items.reduce(
-  //     (sum, item) => sum + (item.quantity || 0),
-  //     0
-  //   );
-  //   const totalAmount = items.reduce(
-  //     (sum, item) => sum + (item.quantity * item.purchasePrice || 0),
-  //     0
-  //   );
-
-  //   return { totalQuantity, total: totalAmount };
-  // };
-
   const handleSave = async () => {
     if (!validateForm()) {
       return;
@@ -1042,7 +929,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                     <div className="flex flex-row flex-wrap gap-4">
                       {/* Supplier Name (read-only) */}
                       <div className="flex flex-col flex-1 min-w-[200px]">
-                        <Label htmlFor="supplier-search">Supplier Name</Label>
+                        <Label htmlFor="supplier-search">Supplier</Label>
 
                         <div className="relative">
                           <Input
@@ -1058,7 +945,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                               )
                             }
                             onChange={(e) => {
-                              const value = e.target.value.toUpperCase().trim();
+                              const value = e.target.value.toUpperCase();
 
                               setFormData((prev) => ({
                                 ...prev,
@@ -1075,13 +962,131 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                                 poNumber: "",
                               }));
 
-                              setShowSupplierSuggestions(false);
+                              setShowSupplierSuggestions(true); // ✅ Show suggestions while typing
                             }}
                             placeholder="Search supplier name"
-                            className={`text-sm uppercase w-full bg-white px-3 py-2 border shadow-sm focus:outline-none focus:ring-2 focus:ring-primary transition ${
-                              validationErrors.supplierName
-                                ? "border-destructive"
-                                : "border-input"
+                            className="text-sm uppercase w-full bg-white px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+
+                          {/* Magnifying Glass Icon */}
+                          <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 text-muted-foreground"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                              />
+                            </svg>
+                          </div>
+
+                          {/* Live Suggestions (filtered by input) */}
+                          {showSupplierSuggestions && (
+                            <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                              {suppliers
+                                .filter((supplier) =>
+                                  supplier.supplierName
+                                    .trim()
+                                    .toUpperCase()
+                                    .includes(
+                                      formData.supplierName?.toUpperCase() || ""
+                                    )
+                                )
+                                .map((supplier) => {
+                                  const normalized = supplier.supplierName
+                                    .trim()
+                                    .toUpperCase();
+                                  return (
+                                    <li
+                                      key={supplier._id || normalized}
+                                      className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                      onClick={() => {
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          supplierName: normalized,
+                                          supplierId: supplier._id,
+                                          poNumber: [], // ✅ Reset PO
+                                          warehouse: "", // ✅ Reset warehouse
+                                          amount: 0, // ✅ Reset amount
+                                          remarks: "", // ✅ Reset remarks
+                                        }));
+
+                                        setValidationErrors((prev) => ({
+                                          ...prev,
+                                          supplierName: "",
+                                          poNumber: "",
+                                        }));
+
+                                        setShowSupplierSuggestions(false);
+                                      }}>
+                                      {normalized}
+                                    </li>
+                                  );
+                                })}
+                              {suppliers.filter((supplier) =>
+                                supplier.supplierName
+                                  .trim()
+                                  .toUpperCase()
+                                  .includes(
+                                    formData.supplierName?.toUpperCase() || ""
+                                  )
+                              ).length === 0 && (
+                                <li className="px-3 py-2 text-muted-foreground">
+                                  No matching suppliers found
+                                </li>
+                              )}
+                            </ul>
+                          )}
+                        </div>
+                      </div>
+
+                      {/* PR Number with live suggestions */}
+                      <div className="flex flex-col flex-1 min-w-[200px]">
+                        <Label htmlFor="pr-search">PR Number</Label>
+
+                        <div className="relative">
+                          <Input
+                            id="pr-search"
+                            type="text"
+                            autoComplete="off"
+                            value={formData.prNumber || ""}
+                            readOnly={!formData.supplierName}
+                            onClick={() => {
+                              if (formData.supplierName)
+                                setShowPrSuggestions(true);
+                            }}
+                            onBlur={() =>
+                              setTimeout(() => setShowPrSuggestions(false), 200)
+                            }
+                            onChange={(e) => {
+                              const value = e.target.value.toUpperCase(); // ✅ no .trim()
+
+                              setFormData((prev) => ({
+                                ...prev,
+                                prNumber: value,
+                              }));
+
+                              setValidationErrors((prev) => ({
+                                ...prev,
+                                prNumber: "",
+                              }));
+
+                              setShowPrSuggestions(true); // ✅ show suggestions while typing
+                            }}
+                            placeholder={
+                              formData.supplierName
+                                ? "Search PR for selected supplier"
+                                : "Select supplier first"
+                            }
+                            className={`text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
+                              !formData.supplierName
+                                ? "bg-muted cursor-not-allowed"
+                                : "bg-white"
                             }`}
                           />
 
@@ -1102,213 +1107,77 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                             </svg>
                           </div>
 
-                          {/* Scrollable Suggestions */}
-                          {showSupplierSuggestions && (
-                            <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
-                              {(formData.supplierName
-                                ? suppliers.filter((s) =>
-                                    s.supplierName
-                                      .toUpperCase()
-                                      .includes(
-                                        formData.supplierName.toUpperCase()
-                                      )
-                                  )
-                                : suppliers
-                              ).map((supplier) => {
-                                const normalized = supplier.supplierName
-                                  .trim()
-                                  .toUpperCase();
-                                return (
-                                  <li
-                                    key={supplier._id || normalized}
-                                    className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                                    onClick={() => {
-                                      setFormData((prev) => ({
-                                        ...prev,
-                                        supplierName: normalized,
-                                        supplierId: supplier._id,
-                                        poNumber: [], // ✅ Reset PO
-                                        warehouse: "", // ✅ Reset warehouse
-                                        amount: 0, // ✅ Reset amount
-                                        remarks: "", // ✅ Reset remarks
-                                      }));
-
-                                      setValidationErrors((prev) => ({
-                                        ...prev,
-                                        supplierName: "",
-                                        poNumber: "",
-                                      }));
-
-                                      setShowSupplierSuggestions(false);
-                                    }}>
-                                    {normalized}
-                                  </li>
-                                );
-                              })}
-
-                              {suppliers.length === 0 && (
-                                <li className="px-3 py-2 text-muted-foreground">
-                                  No suppliers available
-                                </li>
-                              )}
-                            </ul>
-                          )}
-                        </div>
-
-                        {validationErrors.supplierName && (
-                          <p className="text-sm text-destructive mt-1">
-                            {validationErrors.supplierName}
-                          </p>
-                        )}
-                      </div>
-
-                      {/* PR Number with live suggestions */}
-                      <div className="flex flex-col flex-[1] min-w-[200px]">
-                        <Label htmlFor="create-pr-number">PR Number</Label>
-                        <div className="relative">
-                          <Input
-                            id="create-pr-number"
-                            type="text"
-                            autoComplete="off"
-                            value={formData.prNumber || ""}
-                            placeholder={
-                              formData.supplierName
-                                ? "Search PR for selected supplier"
-                                : "Select supplier first"
-                            }
-                            readOnly={!formData.supplierName} // ✅ Locked until supplier is chosen
-                            className={`text-sm uppercase border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary transition ${
-                              validationErrors.prNumber
-                                ? "border-destructive"
-                                : "border-input"
-                            } ${
-                              !formData.supplierName
-                                ? "bg-muted cursor-not-allowed"
-                                : ""
-                            }`}
-                            onClick={() => {
-                              if (formData.supplierName)
-                                setShowPrSuggestions(true);
-                            }}
-                            onBlur={() =>
-                              setTimeout(() => setShowPrSuggestions(false), 200)
-                            }
-                            onChange={(e) => {
-                              const value = e.target.value.toUpperCase().trim();
-                              setFormData((prev) => ({
-                                ...prev,
-                                prNumber: value,
-                              }));
-                              setValidationErrors((prev) => ({
-                                ...prev,
-                                prNumber: "",
-                              }));
-
-                              const matchedPR = purchaseReceipts.find(
-                                (pr) =>
-                                  pr.prNumber?.trim().toUpperCase() === value &&
-                                  pr.supplierName?.trim().toUpperCase() ===
-                                    formData.supplierName?.trim().toUpperCase()
-                              );
-
-                              if (matchedPR) {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  prNumber:
-                                    matchedPR.prNumber?.trim().toUpperCase() ||
-                                    "",
-                                  warehouse:
-                                    matchedPR.warehouse?.trim().toUpperCase() ||
-                                    "UNKNOWN",
-                                  amount: matchedPR.amount || 0,
-                                  items: matchedPR.items || [],
-                                }));
-                              } else {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  warehouse: "",
-                                  amount: 0,
-                                  items: [],
-                                }));
-                              }
-                            }}
-                          />
-
                           {/* Live Suggestions */}
                           {showPrSuggestions && formData.supplierName && (
                             <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
-                              {(formData.prNumber
-                                ? purchaseReceipts.filter(
-                                    (pr) =>
-                                      pr.supplierName?.trim().toUpperCase() ===
-                                        formData.supplierName
-                                          ?.trim()
-                                          .toUpperCase() &&
-                                      pr.prNumber
-                                        ?.toUpperCase()
-                                        .includes(
-                                          formData.prNumber.toUpperCase()
-                                        )
-                                  )
-                                : purchaseReceipts.filter(
-                                    (pr) =>
-                                      pr.supplierName?.trim().toUpperCase() ===
-                                      formData.supplierName
+                              {purchaseReceipts
+                                .filter((pr) => {
+                                  const supplierMatch =
+                                    pr.supplierName?.trim().toUpperCase() ===
+                                    formData.supplierName?.trim().toUpperCase();
+
+                                  const prMatch = formData.prNumber
+                                    ? pr.prNumber
                                         ?.trim()
                                         .toUpperCase()
-                                  )
-                              ).map((pr) => {
-                                const normalized =
-                                  pr.prNumber?.trim().toUpperCase() || "";
-                                return (
-                                  <li
-                                    key={pr._id || normalized}
-                                    className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                                    onClick={() => {
-                                      setFormData((prev) => ({
-                                        ...prev,
-                                        prNumber: normalized,
-                                        warehouse:
-                                          pr.warehouse?.trim().toUpperCase() ||
-                                          "UNKNOWN",
-                                        amount: pr.amount || 0,
-                                        items: pr.items || [],
-                                      }));
-                                      setShowPrSuggestions(false);
-                                    }}>
-                                    {normalized}
-                                  </li>
-                                );
-                              })}
-
-                              {/* Fallback */}
-                              {purchaseReceipts.filter(
-                                (pr) =>
-                                  pr.supplierName?.trim().toUpperCase() ===
-                                    formData.supplierName
-                                      ?.trim()
-                                      .toUpperCase() &&
-                                  (formData.prNumber
-                                    ? pr.prNumber
-                                        ?.toUpperCase()
                                         .includes(
-                                          formData.prNumber.toUpperCase()
+                                          formData.prNumber.trim().toUpperCase()
                                         )
-                                    : true)
-                              ).length === 0 && (
+                                    : true;
+
+                                  const isReceived = pr.status === "RECEIVED";
+
+                                  return supplierMatch && prMatch && isReceived;
+                                })
+                                .map((pr) => {
+                                  const normalized =
+                                    pr.prNumber?.trim().toUpperCase() || "";
+                                  return (
+                                    <li
+                                      key={pr._id || normalized}
+                                      className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                      onClick={() => {
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          prNumber: normalized,
+                                          warehouse:
+                                            pr.warehouse
+                                              ?.trim()
+                                              .toUpperCase() || "UNKNOWN",
+                                          amount: pr.amount || 0,
+                                          items: pr.items || [],
+                                        }));
+                                        setShowPrSuggestions(false);
+                                      }}>
+                                      {normalized}
+                                    </li>
+                                  );
+                                })}
+                              {purchaseReceipts.filter((pr) => {
+                                const supplierMatch =
+                                  pr.supplierName?.trim().toUpperCase() ===
+                                  formData.supplierName?.trim().toUpperCase();
+
+                                const prMatch = formData.prNumber
+                                  ? pr.prNumber
+                                      ?.trim()
+                                      .toUpperCase()
+                                      .includes(
+                                        formData.prNumber.trim().toUpperCase()
+                                      )
+                                  : true;
+
+                                const isReceived = pr.status === "RECEIVED";
+
+                                return supplierMatch && prMatch && isReceived;
+                              }).length === 0 && (
                                 <li className="px-3 py-2 text-muted-foreground">
-                                  No matching PR found
+                                  No matching RECEIVED PR found
                                 </li>
                               )}
                             </ul>
                           )}
                         </div>
-
-                        {validationErrors.prNumber && (
-                          <p className="text-sm text-destructive mt-1">
-                            {validationErrors.prNumber}
-                          </p>
-                        )}
                       </div>
                     </div>
 
@@ -1421,22 +1290,31 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                     </div>
                   </div>
                 </div>
-                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
+                <div className="grid w-full grid-cols-[1.5fr_2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
                   {/* Header Row */}
                   <div className="text-xs font-semibold uppercase text-center">
                     Item Code
                   </div>
                   <div className="text-xs font-semibold uppercase text-center">
-                    Item Name
+                    Description
                   </div>
                   <div className="text-xs font-semibold uppercase text-center">
-                    Return Qty
+                    Warehouse
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center">
+                    Unit Cost
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center">
+                    Receipt Qty
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center">
+                    Qty Left
+                  </div>
+                  <div className="text-xs font-semibold uppercase text-center">
+                    Qty
                   </div>
                   <div className="text-xs font-semibold uppercase text-center">
                     UOM
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Return Price
                   </div>
                   <div className="text-xs font-semibold uppercase text-center">
                     Amount
@@ -1448,13 +1326,13 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                   formData.items.map((item, index) => (
                     <div
                       key={index}
-                      className="grid w-full grid-cols-[1.5fr_2fr_1fr_1fr_1fr_1fr] items-center border-t border-border text-sm m-0">
+                      className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
                       {/* Item Code */}
                       <input
                         type="text"
                         value={item.itemCode || ""}
                         readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-center"
                       />
 
                       {/* Item Name */}
@@ -1462,7 +1340,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                         type="text"
                         value={item.itemName || ""}
                         readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white uppercase"
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white uppercase text-center"
                       />
 
                       {/* Quantity */}
@@ -1478,7 +1356,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                         type="text"
                         value={item.unitType || ""}
                         readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white uppercase"
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white uppercase text-center"
                       />
 
                       {/* Purchase Price */}
@@ -1512,6 +1390,11 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                         readOnly
                         className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
                       />
+
+                      {/* Trash Icon Placeholder */}
+                      <div className="flex justify-center items-center">
+                        {/* Optional: Add delete button here */}
+                      </div>
                     </div>
                   ))
                 ) : (
@@ -1522,7 +1405,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
 
                 {/* Footer Actions */}
                 <DialogFooter className="pt-4 border-t">
-                  <div className="flex w-full justify-between items-center">
+                  <div className="flex w-full justify-end items-center">
                     {/* Left: Add Item */}
 
                     {/* Right: Cancel & Create */}
@@ -1552,24 +1435,24 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                         </Button>
 
                         {/* Dropdown for More Actions */}
-                        <DropdownMenu>
+                        {/* <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               className="bg-muted text-foreground hover:bg-muted/80 px-3 py-2 rounded-md shadow-sm transition-colors duration-150"
                               aria-label="Open more save options">
                               ▾ More
                             </Button>
-                          </DropdownMenuTrigger>
+                          </DropdownMenuTrigger> */}
 
-                          <DropdownMenuContent
-                            align="end"
-                            sideOffset={8}
-                            className="w-[220px] rounded-md border border-border bg-white shadow-lg animate-in fade-in slide-in-from-top-2">
-                            <DropdownMenuLabel className="px-3 py-2 text-xs font-medium text-muted-foreground">
-                              Additional actions
-                            </DropdownMenuLabel>
+                        {/* <DropdownMenuContent
+                            // align="end"
+                            // sideOffset={8}
+                            // className="w-[220px] rounded-md border border-border bg-white shadow-lg animate-in fade-in slide-in-from-top-2">
+                            // <DropdownMenuLabel className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                            //   Additional actions
+                            // </DropdownMenuLabel>
 
-                            <DropdownMenuSeparator />
+                            // <DropdownMenuSeparator />
 
                             {/* <DropdownMenuItem
                               onClick={handleSaveAndCreate}
@@ -1583,13 +1466,13 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                               🆕 Save & New
                             </DropdownMenuItem> */}
 
-                            {/* <DropdownMenuItem
+                        {/* <DropdownMenuItem
                               onClick={handleSaveAndPreview}
                               className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">
                               👁️ Save & Preview
-                            </DropdownMenuItem> */}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                            </DropdownMenuItem> 
+                          </DropdownMenuContent> */}
+                        {/* </DropdownMenu> */}
                       </div>
                     </div>
                   </div>
@@ -1700,7 +1583,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                   </TableHead>
                   <TableHead>Creation Date</TableHead>
                   <TableHead>Purchase Return Number</TableHead>
-                  <TableHead>Suuplier</TableHead>
+                  <TableHead>Supplier</TableHead>
                   <TableHead>Purchase Receipt No.</TableHead>
                   <TableHead>Status</TableHead>
                 </TableRow>

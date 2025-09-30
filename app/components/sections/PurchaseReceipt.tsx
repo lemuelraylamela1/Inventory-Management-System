@@ -1221,69 +1221,75 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                     </div>
                     <div className="flex flex-row flex-wrap gap-4">
                       <div className="flex flex-col flex-1 min-w-[200px]">
-                        <div className="flex flex-col flex-1 min-w-[200px]">
-                          <Label htmlFor="supplier-search">Supplier</Label>
+                        <Label htmlFor="supplier-search">Supplier</Label>
 
-                          <div className="relative">
-                            <Input
-                              id="supplier-search"
-                              type="text"
-                              autoComplete="off"
-                              value={formData.supplierName || ""}
-                              onClick={() => setShowSupplierSuggestions(true)}
-                              onBlur={() =>
-                                setTimeout(
-                                  () => setShowSupplierSuggestions(false),
-                                  200
+                        <div className="relative">
+                          <Input
+                            id="supplier-search"
+                            type="text"
+                            autoComplete="off"
+                            value={formData.supplierName || ""}
+                            onClick={() => setShowSupplierSuggestions(true)}
+                            onBlur={() =>
+                              setTimeout(
+                                () => setShowSupplierSuggestions(false),
+                                200
+                              )
+                            }
+                            onChange={(e) => {
+                              const value = e.target.value.toUpperCase();
+
+                              setFormData((prev) => ({
+                                ...prev,
+                                supplierName: value,
+                                poNumber: [], // 🧼 Reset PO
+                                warehouse: "", // 🧼 Reset warehouse
+                                amount: 0, // 🧼 Reset amount
+                                remarks: "", // 🧼 Reset remarks
+                              }));
+
+                              setValidationErrors((prev) => ({
+                                ...prev,
+                                supplierName: "",
+                                poNumber: "",
+                              }));
+
+                              setShowSupplierSuggestions(true); // ✅ Show suggestions while typing
+                            }}
+                            placeholder="Search supplier name"
+                            className="text-sm uppercase w-full bg-white px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                          />
+
+                          {/* Magnifying Glass Icon */}
+                          <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 text-muted-foreground"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                              />
+                            </svg>
+                          </div>
+
+                          {/* Live Suggestions (filtered by input) */}
+                          {showSupplierSuggestions && (
+                            <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                              {suppliers
+                                .filter((supplier) =>
+                                  supplier.supplierName
+                                    .trim()
+                                    .toUpperCase()
+                                    .includes(
+                                      formData.supplierName?.toUpperCase() || ""
+                                    )
                                 )
-                              }
-                              onChange={(e) => {
-                                const value = e.target.value
-                                  .toUpperCase()
-                                  .trim();
-
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  supplierName: value,
-                                  poNumber: [], // 🧼 Reset PO
-                                  warehouse: "", // 🧼 Reset warehouse
-                                  amount: 0, // 🧼 Reset amount
-                                  remarks: "", // 🧼 Reset remarks
-                                }));
-
-                                setValidationErrors((prev) => ({
-                                  ...prev,
-                                  supplierName: "",
-                                  poNumber: "",
-                                }));
-
-                                setShowSuggestions(false);
-                              }}
-                              placeholder="Search supplier name"
-                              className="text-sm uppercase w-full bg-white px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
-                            />
-
-                            {/* Magnifying Glass Icon */}
-                            <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
-                              <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                className="h-4 w-4 text-muted-foreground"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                                strokeWidth={2}>
-                                <path
-                                  strokeLinecap="round"
-                                  strokeLinejoin="round"
-                                  d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
-                                />
-                              </svg>
-                            </div>
-
-                            {/* Live Suggestions (always show all suppliers) */}
-                            {showSupplierSuggestions && (
-                              <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
-                                {suppliers.map((supplier) => {
+                                .map((supplier) => {
                                   const normalized = supplier.supplierName
                                     .trim()
                                     .toUpperCase();
@@ -1314,14 +1320,20 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                     </li>
                                   );
                                 })}
-                                {suppliers.length === 0 && (
-                                  <li className="px-3 py-2 text-muted-foreground">
-                                    No suppliers available
-                                  </li>
-                                )}
-                              </ul>
-                            )}
-                          </div>
+                              {suppliers.filter((supplier) =>
+                                supplier.supplierName
+                                  .trim()
+                                  .toUpperCase()
+                                  .includes(
+                                    formData.supplierName?.toUpperCase() || ""
+                                  )
+                              ).length === 0 && (
+                                <li className="px-3 py-2 text-muted-foreground">
+                                  No matching suppliers found
+                                </li>
+                              )}
+                            </ul>
+                          )}
                         </div>
                       </div>
 
@@ -1357,7 +1369,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                             type="text"
                             autoComplete="off"
                             value={formData.poNumber[0] || ""}
-                            readOnly={!formData.supplierName} // 🔒 Disable until supplier is selected
+                            readOnly={!formData.supplierName}
                             onClick={() => {
                               if (formData.supplierName)
                                 setShowSuggestions(true);
@@ -1365,9 +1377,24 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                             onBlur={() =>
                               setTimeout(() => setShowSuggestions(false), 200)
                             }
+                            onChange={(e) => {
+                              const value = e.target.value.toUpperCase(); // ✅ no .trim() here
+
+                              setFormData((prev) => ({
+                                ...prev,
+                                poNumber: [value],
+                              }));
+
+                              setValidationErrors((prev) => ({
+                                ...prev,
+                                poNumber: "",
+                              }));
+
+                              setShowSuggestions(true); // ✅ show suggestions while typing
+                            }}
                             placeholder={
                               formData.supplierName
-                                ? "Select PO number"
+                                ? "Search PO number"
                                 : "Select supplier first"
                             }
                             className={`text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
@@ -1398,16 +1425,29 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                           {showSuggestions && formData.supplierName && (
                             <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
                               {purchaseOrders
-                                .filter(
-                                  (po) =>
-                                    po.status !== "COMPLETED" &&
+                                .filter((po) => {
+                                  const supplierMatch =
                                     po.supplierName?.trim().toUpperCase() ===
-                                      formData.supplierName?.toUpperCase()
-                                )
+                                    formData.supplierName?.trim().toUpperCase();
+
+                                  const poMatch = formData.poNumber[0]
+                                    ? po.poNumber
+                                        ?.trim()
+                                        .toUpperCase()
+                                        .includes(
+                                          formData.poNumber[0]
+                                            .trim()
+                                            .toUpperCase()
+                                        )
+                                    : true;
+
+                                  const isActive = po.status !== "COMPLETED";
+
+                                  return supplierMatch && poMatch && isActive;
+                                })
                                 .map((po) => {
-                                  const normalized = po.poNumber
-                                    .trim()
-                                    .toUpperCase();
+                                  const normalized =
+                                    po.poNumber?.trim().toUpperCase() || "";
                                   return (
                                     <li
                                       key={po._id || normalized}
@@ -1428,12 +1468,26 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                     </li>
                                   );
                                 })}
-                              {purchaseOrders.filter(
-                                (po) =>
-                                  po.status !== "COMPLETED" &&
+                              {purchaseOrders.filter((po) => {
+                                const supplierMatch =
                                   po.supplierName?.trim().toUpperCase() ===
-                                    formData.supplierName?.toUpperCase()
-                              ).length === 0 && (
+                                  formData.supplierName?.trim().toUpperCase();
+
+                                const poMatch = formData.poNumber[0]
+                                  ? po.poNumber
+                                      ?.trim()
+                                      .toUpperCase()
+                                      .includes(
+                                        formData.poNumber[0]
+                                          .trim()
+                                          .toUpperCase()
+                                      )
+                                  : true;
+
+                                const isActive = po.status !== "COMPLETED";
+
+                                return supplierMatch && poMatch && isActive;
+                              }).length === 0 && (
                                 <li className="px-3 py-2 text-muted-foreground">
                                   No matching PO found
                                 </li>

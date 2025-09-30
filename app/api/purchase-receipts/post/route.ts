@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
 import PurchaseOrder from "@/models/purchaseOrder";
 import PurchaseReceipt from "@/models/purchaseReceipt";
-import { ReceiptItem } from "@/app/components/sections/type";
+import Inventory, { InventoryItem } from "@/models/inventory";
+import { InventoryType, ReceiptItem } from "@/app/components/sections/type";
 import { PurchaseOrderItem } from "@/app/components/sections/type";
 
 async function reconcilePOWithReceipt(
@@ -40,12 +41,11 @@ async function reconcilePOWithReceipt(
 
     return poItem;
   });
+
   const sanitizedItems = updatedItems.map(({ amount, ...rest }) => rest);
   const filteredItems = updatedItems.filter((item) => item.quantity > 0);
   const newBalance = Math.max(originalBalance - totalDeducted, 0);
   const newStatus = newBalance === 0 ? "COMPLETED" : "PARTIAL";
-
-  console.log("🛠️ Writing updated items:", sanitizedItems);
 
   await PurchaseOrder.updateOne(
     { _id: po._id },
@@ -105,11 +105,75 @@ export async function POST(request: Request) {
     const purchaseOrders = await PurchaseOrder.find({
       poNumber: { $in: poNumbers },
     });
+
     for (const po of purchaseOrders) {
       await reconcilePOWithReceipt(po, receipt.items ?? []);
     }
 
-    console.log(`✅ Receipt ${prNumber} posted and linked POs updated.`);
+    // ✅ Inventory sync logic
+    for (const item of receipt.items ?? []) {
+      const inventoryDoc = await Inventory.findOne({
+        warehouse: receipt.warehouse,
+      });
+
+      if (!inventoryDoc) {
+        // 🆕 Create new inventory document for warehouse
+        await Inventory.create({
+          warehouse: receipt.warehouse,
+          items: [
+            {
+              itemCode: item.itemCode,
+              itemName: item.itemName,
+              category: item.category ?? "UNCATEGORIZED",
+              quantity: item.quantity,
+              unitType: item.unitType,
+              purchasePrice: item.purchasePrice,
+              source: receipt.prNumber,
+              receivedAt: new Date(),
+              createdAt: new Date(),
+              updatedAt: new Date(),
+            },
+          ],
+          remarks: `Auto-created from receipt ${receipt.prNumber}`,
+        });
+        console.log(`🆕 Created inventory document for ${receipt.warehouse}`);
+        continue;
+      }
+
+      const existingIndex = inventoryDoc.items.findIndex(
+        (invItem: InventoryItem) => invItem.itemCode === item.itemCode
+      );
+
+      if (existingIndex !== -1) {
+        // 🔄 Update existing item quantity
+        inventoryDoc.items[existingIndex].quantity += item.quantity;
+        inventoryDoc.items[existingIndex].updatedAt = new Date();
+        console.log(
+          `🔄 Updated quantity for ${item.itemCode} in ${receipt.warehouse}`
+        );
+      } else {
+        // ➕ Add new item to existing warehouse
+        inventoryDoc.items.push({
+          itemCode: item.itemCode,
+          itemName: item.itemName,
+          category: item.category ?? "UNCATEGORIZED",
+          quantity: item.quantity,
+          unitType: item.unitType,
+          purchasePrice: item.purchasePrice,
+          source: receipt.prNumber,
+          receivedAt: new Date(),
+          createdAt: new Date(),
+          updatedAt: new Date(),
+        });
+        console.log(
+          `➕ Added new item ${item.itemCode} to ${receipt.warehouse}`
+        );
+      }
+
+      await inventoryDoc.save();
+    }
+
+    console.log(`✅ Receipt ${prNumber} posted and inventory updated.`);
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error("❌ Error posting receipt:", error);
