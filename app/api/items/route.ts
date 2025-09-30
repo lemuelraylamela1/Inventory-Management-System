@@ -102,7 +102,7 @@ export async function POST(request: NextRequest) {
 export async function GET() {
   await connectMongoDB();
   const items = await Item.find();
-  return NextResponse.json({ items });
+  return NextResponse.json(items); // ✅ return array directly
 }
 
 type Params = {

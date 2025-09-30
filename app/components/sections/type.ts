@@ -187,18 +187,19 @@ export type PurchaseReturnResponse = {
   }[];
 };
 
-// export type InventoryItem = {
-//   itemCode: string;
-//   itemName: string;
-
-//   quantity: number;
-//   unitType: string;
-//   purchasePrice?: number;
-//   source?: string; // e.g. PR or PO reference
-//   receivedAt?: Date;
-//   updatedAt?: Date;
-//   createdAt?: Date;
-// };
+export type InventoryItem = {
+  itemCode: string;
+  itemName: string;
+  description: string;
+  category: string;
+  quantity: number;
+  unitType: string;
+  purchasePrice?: number;
+  source?: string; // e.g. PR or PO reference
+  receivedAt?: Date;
+  updatedAt?: Date;
+  createdAt?: Date;
+};
 
 export type InventoryType = {
   _id: string;

@@ -66,7 +66,7 @@ export async function POST(request: Request) {
               itemCode: item.itemCode?.trim().toUpperCase() || "",
               itemName: item.itemName?.trim() || "",
               quantity,
-              unitType: item.unitType?.trim().toUpperCase() || "",
+              unitType: item.unitType?.trim().toUpperCase() || "UNKNOWN",
               purchasePrice,
               amount: quantity * purchasePrice,
             };
