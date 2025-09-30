@@ -1,6 +1,7 @@
 import React, { useState, useMemo, useEffect } from "react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
+import { Select } from "../ui/select";
 import {
   Table,
   TableBody,
@@ -12,42 +13,14 @@ import {
 import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import { Search, Download, Package } from "lucide-react";
 
-import { InventoryType, ItemType } from "./type";
+import { InventoryType } from "./type";
 
 export default function InventorySummary() {
   const [inventoryItems, setInventoryItems] = useState<InventoryType[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
-  const [itemCatalog, setItemCatalog] = useState<ItemType[]>([]);
 
-  // ✅ Memoized category lookup map
-  const categoryMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    itemCatalog.forEach((item) => {
-      const key = item.itemName.trim().toUpperCase();
-      map[key] = item.category?.trim().toUpperCase() || "UNCATEGORIZED";
-    });
-    return map;
-  }, [itemCatalog]);
-
-  useEffect(() => {
-    const fetchItems = async () => {
-      try {
-        const res = await fetch("/api/items", { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to fetch items");
-        const data = await res.json();
-        if (!Array.isArray(data))
-          throw new Error("Items response is not an array");
-        setItemCatalog(data);
-      } catch (err) {
-        console.error("Failed to fetch item catalog", err);
-        setItemCatalog([]);
-      }
-    };
-
-    fetchItems();
-  }, []);
-
+  // Get unique warehouses for the filter
   const warehouses = useMemo(() => {
     const uniqueWarehouses = Array.from(
       new Set(inventoryItems.map((item) => item.warehouse))
@@ -55,15 +28,18 @@ export default function InventorySummary() {
     return uniqueWarehouses.sort();
   }, [inventoryItems]);
 
+  // Filter and aggregate data
   const filteredData = useMemo(() => {
     let filtered = inventoryItems;
 
+    // Filter by warehouse
     if (selectedWarehouse !== "all") {
       filtered = filtered.filter(
         (item) => item.warehouse === selectedWarehouse
       );
     }
 
+    // Filter by search term
     if (searchTerm) {
       filtered = filtered.filter(
         (item) =>
@@ -78,10 +54,15 @@ export default function InventorySummary() {
   useEffect(() => {
     const fetchInventory = async () => {
       try {
-        const res = await fetch("/api/inventory", { cache: "no-store" });
+        const res = await fetch("/api/inventory", {
+          cache: "no-store",
+        });
+
         if (!res.ok) throw new Error("Failed to fetch inventory");
 
         const response = await res.json();
+        console.log("Raw response:", response);
+
         const data = Array.isArray(response)
           ? response.flatMap((record) =>
               record.items.map((item: InventoryType) => ({
@@ -91,18 +72,22 @@ export default function InventorySummary() {
             )
           : [];
 
-        setInventoryItems(data);
+        console.log("Parsed inventory items:", data);
+        setInventoryItems(data); // ✅ Should match InventoryItem[]
       } catch (err) {
         console.error("Failed to fetch inventory", err);
         setInventoryItems([]);
       }
     };
 
-    fetchInventory();
-    const interval = setInterval(fetchInventory, 1000);
-    return () => clearInterval(interval);
+    fetchInventory(); // initial fetch
+
+    const interval = setInterval(fetchInventory, 1000); // 🔁 poll every 1s
+
+    return () => clearInterval(interval); // 🧹 cleanup on unmount
   }, []);
 
+  // Calculate summary statistics
   const summaryStats = useMemo(() => {
     const uniqueItems = new Set(filteredData.map((item) => item.itemName)).size;
     const totalQuantity = filteredData.reduce(
@@ -119,19 +104,13 @@ export default function InventorySummary() {
     };
   }, [filteredData]);
 
+  // Export to CSV
   const handleExportCSV = () => {
-    const headers = ["Item Name", "Category", "Warehouse", "Quantity"];
+    const headers = ["Item Name", "Warehouse", "Quantity"];
     const csvContent = [
       headers.join(","),
       ...filteredData.map((item) =>
-        [
-          `"${item.itemName}"`,
-          `"${
-            categoryMap[item.itemName.trim().toUpperCase()] ?? "UNCATEGORIZED"
-          }"`,
-          `"${item.warehouse}"`,
-          item.quantity,
-        ].join(",")
+        [`"${item.itemName}"`, `"${item.warehouse}"`, item.quantity].join(",")
       ),
     ].join("\n");
 
@@ -160,6 +139,7 @@ export default function InventorySummary() {
         </div>
       </div>
 
+      {/* Summary Cards */}
       <div className="grid gap-4 md:grid-cols-3">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -199,6 +179,7 @@ export default function InventorySummary() {
         </Card>
       </div>
 
+      {/* Filters */}
       <Card>
         <CardContent className="pt-6">
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -232,6 +213,7 @@ export default function InventorySummary() {
         </CardContent>
       </Card>
 
+      {/* Inventory Table */}
       <Card>
         <CardContent className="p-0">
           <div className="overflow-x-auto">
@@ -248,7 +230,7 @@ export default function InventorySummary() {
                 {filteredData.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={4}
+                      colSpan={3}
                       className="text-center text-muted-foreground">
                       No inventory data found
                     </TableCell>
@@ -258,10 +240,7 @@ export default function InventorySummary() {
                     <TableRow
                       key={`${item.itemCode}-${item.warehouse}-${index}`}>
                       <TableCell>{item.itemName}</TableCell>
-                      <TableCell>
-                        {categoryMap[item.itemName.trim().toUpperCase()] ??
-                          "UNCATEGORIZED"}
-                      </TableCell>
+                      <TableCell>{item.category}</TableCell>
                       <TableCell>{item.warehouse}</TableCell>
                       <TableCell className="text-right">
                         {item.quantity.toLocaleString()}
@@ -275,6 +254,7 @@ export default function InventorySummary() {
         </CardContent>
       </Card>
 
+      {/* Summary Footer */}
       {filteredData.length > 0 && (
         <Card>
           <CardContent className="pt-6">
