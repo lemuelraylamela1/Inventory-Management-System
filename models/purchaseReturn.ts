@@ -38,6 +38,16 @@ const PurchaseReturnSchema = new mongoose.Schema(
       uppercase: true,
       trim: true,
     },
+    receiptQty: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    qtyLeft: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
   },
   {
     timestamps: true, // adds createdAt and updatedAt

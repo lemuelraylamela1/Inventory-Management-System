@@ -145,8 +145,21 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       purchasePrice: 0,
       quantity: 1,
       amount: 0,
+      receiptQty: 0, // ✅ required by ReceiptItem
+      qtyLeft: 0, // ✅ required by ReceiptItem
     },
   ]);
+
+  const [itemCatalog, setItemCatalog] = useState<ItemType[]>([]);
+
+  const descriptionMap = useMemo(() => {
+    const map: Record<string, string> = {};
+    itemCatalog.forEach((item) => {
+      const key = item.itemName.trim().toUpperCase();
+      map[key] = item.description?.trim().toUpperCase() || "NO DESCRIPTION";
+    });
+    return map;
+  }, [itemCatalog]);
 
   useEffect(() => {
     console.log("Fetching suppliers...");
@@ -182,16 +195,35 @@ export default function PurchaseReturn({ onSuccess }: Props) {
 
   const router = useRouter();
 
+  // const enrichedItems: ReceiptItem[] = (receipt.items || []).map((item) => {
+  //   const normalizedQty = Number(item.quantity) || 0;
+  //   const normalizedPrice = Number(item.purchasePrice) || 0;
+
+  //   return {
+  //     itemCode: item.itemCode?.trim().toUpperCase() || "",
+  //     itemName: item.itemName?.trim().toUpperCase() || "",
+  //     unitType: item.unitType?.trim().toUpperCase() || "",
+  //     purchasePrice: normalizedPrice,
+  //     quantity: 0, // default return quantity
+  //     amount: 0, // will be computed on mutation
+  //     receiptQty: normalizedQty,
+  //     qtyLeft: normalizedQty, // initially same as receiptQty
+  //   };
+  // });
+
   const [formData, setFormData] = useState<
     Omit<PurchaseReturnType, "_id" | "createdAt" | "updatedAt">
   >({
     returnNumber: "", // backend-generated, but useful for preview
     prNumber: "", // links to original receipt
     supplierName: "", // derived from receipt
+    warehouse: "",
     reason: "", // required for audit
     notes: "", // optional
     items: [], // ReceiptItem[] — linked from PR
     status: "RETURNED", // default lifecycle state
+    receiptQty: 0, // total quantity received
+    qtyLeft: 0, // remaining quantity after return
   });
 
   const [validationErrors, setValidationErrors] = useState<
@@ -208,8 +240,12 @@ export default function PurchaseReturn({ onSuccess }: Props) {
     supplierName: "", // derived from receipt, but still validate
     reason: "", // required for audit
     notes: "", // optional
-    status: "RETURNED", // now included for lifecycle validation
+    status: "", // required lifecycle state
+    receiptQty: "", // must be ≥ 0
+    qtyLeft: "", // must be ≤ receiptQty
+    warehouse: "", // ✅ now included to match the expected type
   });
+
   // Filter and paginate data
   const filteredPurchaseReturns = useMemo(() => {
     const query = searchTerm.toLowerCase().trim();
@@ -272,6 +308,9 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       reason: "", // required
       notes: "", // optional
       status: "", // required lifecycle state
+      receiptQty: "", // must be ≥ 0
+      qtyLeft: "", // must be ≤ receiptQty
+      warehouse: "", // required for logistics traceability
     };
 
     // Required: prNumber
@@ -294,6 +333,23 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       errors.status = "Status is required";
     }
 
+    // Required: warehouse
+    if (!formData.warehouse?.trim()) {
+      errors.warehouse = "Warehouse is required";
+    }
+
+    // Validate: receiptQty
+    if (Number(formData.receiptQty) < 0) {
+      errors.receiptQty = "Receipt quantity must be zero or greater";
+    }
+
+    // Validate: qtyLeft
+    if (Number(formData.qtyLeft) < 0) {
+      errors.qtyLeft = "Remaining quantity must be zero or greater";
+    } else if (Number(formData.qtyLeft) > Number(formData.receiptQty)) {
+      errors.qtyLeft = "Remaining quantity cannot exceed receipt quantity";
+    }
+
     // Validate items[]
     const itemErrors = formData.items.map((item, index) => {
       const itemError: Record<string, string> = {};
@@ -302,9 +358,9 @@ export default function PurchaseReturn({ onSuccess }: Props) {
         itemError.itemName = "Item name is required";
       }
 
-      if (Number(item.quantity) <= 0) {
-        itemError.quantity = "Quantity must be greater than 0";
-      }
+      // if (Number(item.quantity) <= 0) {
+      //   itemError.quantity = "Quantity must be greater than 0";
+      // }
 
       if (Number(item.purchasePrice) < 0) {
         itemError.purchasePrice = "Price must be zero or greater";
@@ -357,25 +413,58 @@ export default function PurchaseReturn({ onSuccess }: Props) {
   const handleCreate = async () => {
     if (!validateForm()) return;
 
-    const normalizedItems = formData.items.map((item) => ({
-      itemCode: item.itemCode?.trim().toUpperCase() || "",
-      itemName: item.itemName?.trim().toUpperCase() || "UNNAMED",
-      unitType: item.unitType?.trim().toUpperCase() || "",
-      purchasePrice: Number(item.purchasePrice) || 0,
-      quantity: Number(item.quantity) || 0,
-      amount: Number(item.quantity) * Number(item.purchasePrice),
-    }));
+    const normalizedItems = formData.items
+      .map((item) => {
+        const quantity = Number(item.quantity) || 0;
+        const purchasePrice = Number(item.purchasePrice) || 0;
+        const receiptQty = Number(item.receiptQty) || 0;
+
+        return {
+          itemCode: (item.itemCode ?? "").trim().toUpperCase(),
+          itemName: (item.itemName ?? "").trim().toUpperCase() || "UNNAMED",
+          unitType: (item.unitType ?? "").trim().toUpperCase(),
+          purchasePrice,
+          quantity,
+          amount: quantity * purchasePrice,
+          receiptQty,
+          qtyLeft: Math.max(receiptQty - quantity, 0),
+          selected: !!item.selected, // ✅ explicitly include selection state
+        };
+      })
+      .filter(
+        (item) =>
+          item.selected === true &&
+          item.quantity >= 1 &&
+          item.quantity <= item.receiptQty
+      );
+
+    if (normalizedItems.length === 0) {
+      alert("Please select at least one item with a valid quantity.");
+      return;
+    }
+
+    const receiptQty = normalizedItems.reduce(
+      (sum, item) => sum + item.receiptQty,
+      0
+    );
+    const qtyLeft = normalizedItems.reduce(
+      (sum, item) => sum + item.qtyLeft,
+      0
+    );
 
     const payload = {
       prNumber: formData.prNumber.trim().toUpperCase(),
       supplierName: formData.supplierName.trim().toUpperCase(),
+      warehouse: formData.warehouse?.trim().toUpperCase() || "UNKNOWN",
       reason: formData.reason.trim(),
       notes: formData.notes?.trim() || "",
       status: formData.status || "RETURNED",
+      receiptQty,
+      qtyLeft,
       items: normalizedItems,
     };
 
-    console.log("Creating purchase return:", payload);
+    console.log("📦 Creating purchase return with payload:", payload);
 
     try {
       const res = await fetch("/api/purchase-returns", {
@@ -386,16 +475,24 @@ export default function PurchaseReturn({ onSuccess }: Props) {
         body: JSON.stringify(payload),
       });
 
-      const result = await res.json();
-      console.log("Server response:", result);
-
-      if (!res.ok) {
-        console.error("Create failed:", result.message || result);
-        alert("Failed to create purchase return. Please try again.");
+      let result;
+      try {
+        result = await res.json();
+      } catch (err) {
+        console.error("❌ Failed to parse server response:", err);
+        alert("Server returned an invalid response. Please try again.");
         return;
       }
 
-      toast.success("Purchase return created successfully!");
+      if (!res.ok) {
+        console.error("🚫 Create failed:", result?.error || result);
+        alert(
+          result?.error || "Failed to create purchase return. Please try again."
+        );
+        return;
+      }
+
+      toast.success("✅ Purchase return created successfully!");
 
       if (typeof onSuccess === "function") {
         onSuccess();
@@ -405,10 +502,11 @@ export default function PurchaseReturn({ onSuccess }: Props) {
         router.push("/");
       }, 300);
     } catch (error) {
-      console.error("Network or unexpected error:", error);
+      console.error("🌐 Network or unexpected error:", error);
       alert("Something went wrong. Please check your connection or try again.");
     }
 
+    // Optionally close dialog here
     // setIsCreateDialogOpen(false);
   };
 
@@ -421,7 +519,10 @@ export default function PurchaseReturn({ onSuccess }: Props) {
     supplierName: "", // derived from receipt, but still validate
     reason: "", // required for audit
     notes: "", // optional
-    status: "", // required for lifecycle
+    status: "", // required lifecycle state
+    receiptQty: "", // must be ≥ 0
+    qtyLeft: "", // must be ≤ receiptQty
+    warehouse: "", // required for logistics traceability
   };
 
   const allowedStatuses: PurchaseReturnType["status"][] = ["RETURNED"];
@@ -443,6 +544,9 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       )
         ? (ret.status?.trim() as PurchaseReturnType["status"])
         : "RETURNED",
+      receiptQty: Number(ret.receiptQty) || 0,
+      qtyLeft: Number(ret.qtyLeft) || 0,
+      warehouse: ret.warehouse?.trim().toUpperCase() || "", // ✅ added for completeness
       items: ret.items.map((item) => ({
         itemCode: item.itemCode?.trim().toUpperCase() || "",
         itemName: item.itemName?.trim().toUpperCase() || "",
@@ -450,6 +554,8 @@ export default function PurchaseReturn({ onSuccess }: Props) {
         purchasePrice: Number(item.purchasePrice) || 0,
         quantity: Number(item.quantity) || 0,
         amount: Number(item.quantity) * Number(item.purchasePrice),
+        receiptQty: Number(item.receiptQty) || 0,
+        qtyLeft: Number(item.qtyLeft) || 0,
       })),
     };
 
@@ -541,7 +647,10 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       notes: "",
       status: "RETURNED",
       items: [],
+      receiptQty: 0,
+      qtyLeft: 0,
     });
+
     setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(false);
   };
@@ -598,6 +707,8 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       notes: "", // optional
       status: "RETURNED", // default lifecycle state
       items: [], // ReceiptItem[]
+      receiptQty: 0, // total quantity received
+      qtyLeft: 0, // remaining quantity after return
     });
 
     setValidationErrors({
@@ -607,6 +718,9 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       reason: "",
       notes: "",
       status: "",
+      receiptQty: "",
+      qtyLeft: "",
+      warehouse: "", // ✅ required to satisfy the type
     });
   };
 
@@ -1144,9 +1258,46 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                                             pr.warehouse
                                               ?.trim()
                                               .toUpperCase() || "UNKNOWN",
-                                          amount: pr.amount || 0,
-                                          items: pr.items || [],
+                                          receiptQty:
+                                            pr.items?.reduce(
+                                              (sum, item) =>
+                                                sum +
+                                                Number(item.quantity || 0),
+                                              0
+                                            ) || 0,
+                                          qtyLeft:
+                                            pr.items?.reduce(
+                                              (sum, item) =>
+                                                sum +
+                                                Number(item.quantity || 0),
+                                              0
+                                            ) || 0,
+                                          items: (pr.items || []).map(
+                                            (item) => ({
+                                              itemCode:
+                                                item.itemCode
+                                                  ?.trim()
+                                                  .toUpperCase() || "",
+                                              itemName:
+                                                item.itemName
+                                                  ?.trim()
+                                                  .toUpperCase() || "",
+                                              unitType:
+                                                item.unitType
+                                                  ?.trim()
+                                                  .toUpperCase() || "",
+                                              purchasePrice:
+                                                Number(item.purchasePrice) || 0,
+                                              quantity: 0, // default return quantity
+                                              amount: 0,
+                                              receiptQty:
+                                                Number(item.quantity) || 0,
+                                              qtyLeft:
+                                                Number(item.quantity) || 0,
+                                            })
+                                          ),
                                         }));
+
                                         setShowPrSuggestions(false);
                                       }}>
                                       {normalized}
@@ -1290,8 +1441,24 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                     </div>
                   </div>
                 </div>
-                <div className="grid w-full grid-cols-[1.5fr_2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
-                  {/* Header Row */}
+                {/* Header Row */}
+                <div className="grid w-full grid-cols-[40px_1.5fr_2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
+                  {/* Select All Checkbox */}
+                  <div className="flex justify-center items-center">
+                    <input
+                      type="checkbox"
+                      checked={formData.items.every((item) => item.selected)}
+                      onChange={(e) => {
+                        const updatedItems = formData.items.map((item) => ({
+                          ...item,
+                          selected: e.target.checked,
+                        }));
+                        setFormData({ ...formData, items: updatedItems });
+                      }}
+                      className="w-4 h-4"
+                    />
+                  </div>
+
                   <div className="text-xs font-semibold uppercase text-center">
                     Item Code
                   </div>
@@ -1319,14 +1486,28 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                   <div className="text-xs font-semibold uppercase text-center">
                     Amount
                   </div>
-                  <div className="text-center"></div> {/* Trash icon column */}
                 </div>
 
+                {/* Item Rows */}
                 {formData.items?.length > 0 ? (
                   formData.items.map((item, index) => (
                     <div
                       key={index}
-                      className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
+                      className="grid w-full grid-cols-[40px_1.5fr_2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center border-t border-border text-sm m-0">
+                      {/* Checkbox */}
+                      <div className="flex justify-center items-center">
+                        <input
+                          type="checkbox"
+                          checked={item.selected || false}
+                          onChange={(e) => {
+                            const updatedItems = [...formData.items];
+                            updatedItems[index].selected = e.target.checked;
+                            setFormData({ ...formData, items: updatedItems });
+                          }}
+                          className="w-4 h-4"
+                        />
+                      </div>
+
                       {/* Item Code */}
                       <input
                         type="text"
@@ -1335,31 +1516,26 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                         className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-center"
                       />
 
-                      {/* Item Name */}
+                      {/* Description */}
                       <input
                         type="text"
-                        value={item.itemName || ""}
+                        value={
+                          descriptionMap[item.itemName.trim().toUpperCase()] ??
+                          "No description"
+                        }
                         readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white uppercase text-center"
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-left"
                       />
 
-                      {/* Quantity */}
-                      <input
-                        type="number"
-                        value={item.quantity || 0}
-                        readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
-                      />
-
-                      {/* Unit Type */}
+                      {/* Warehouse */}
                       <input
                         type="text"
-                        value={item.unitType || ""}
+                        value={formData.warehouse || ""}
                         readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white uppercase text-center"
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-center"
                       />
 
-                      {/* Purchase Price */}
+                      {/* Unit Cost */}
                       <input
                         type="text"
                         value={
@@ -1372,6 +1548,59 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                         }
                         readOnly
                         className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
+                      />
+
+                      {/* Receipt Quantity */}
+                      <input
+                        type="number"
+                        value={item.receiptQty || 0}
+                        readOnly
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
+                      />
+
+                      {/* Qty Left */}
+                      <input
+                        type="number"
+                        value={item.qtyLeft || 0}
+                        readOnly
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
+                      />
+
+                      {/* Qty (editable if selected) */}
+                      <input
+                        type="number"
+                        value={item.selected ? item.quantity || 0 : ""}
+                        min={item.selected ? 1 : undefined}
+                        max={
+                          item.selected ? item.qtyLeft || undefined : undefined
+                        }
+                        onChange={(e) => {
+                          if (!item.selected) return;
+
+                          const inputValue = Number(e.target.value);
+                          const clampedValue = Math.min(
+                            Math.max(inputValue, 1),
+                            item.qtyLeft || 0
+                          );
+
+                          const updatedItems = [...formData.items];
+                          updatedItems[index].quantity = clampedValue;
+                          setFormData({ ...formData, items: updatedItems });
+                        }}
+                        disabled={!item.selected}
+                        className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right ${
+                          !item.selected
+                            ? "bg-muted text-muted-foreground cursor-not-allowed"
+                            : ""
+                        }`}
+                      />
+
+                      {/* UOM */}
+                      <input
+                        type="text"
+                        value={item.unitType || ""}
+                        readOnly
+                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white uppercase text-center"
                       />
 
                       {/* Amount */}
@@ -1390,11 +1619,6 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                         readOnly
                         className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
                       />
-
-                      {/* Trash Icon Placeholder */}
-                      <div className="flex justify-center items-center">
-                        {/* Optional: Add delete button here */}
-                      </div>
                     </div>
                   ))
                 ) : (
@@ -1426,7 +1650,8 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                           disabled={
                             !formData.items.length ||
                             formData.items.every(
-                              (item) => !item.itemName?.trim()
+                              (item) =>
+                                !item.selected || Number(item.quantity) < 1
                             )
                           }
                           className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"

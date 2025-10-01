@@ -150,7 +150,10 @@ export type ReceiptItem = {
   quantity: number;
   unitType: string;
   purchasePrice: number;
+  receiptQty: number;
+  qtyLeft: number;
   amount: number;
+  selected?: boolean;
 };
 
 export type PurchaseReceiptResponse = Required<PurchaseReceiptType>;
@@ -163,6 +166,9 @@ export type PurchaseReturnType = {
   reason: string;
   status: string;
   notes?: string;
+  receiptQty: number;
+  qtyLeft: number;
+  warehouse?: string; // ✅ Add this if it's part of the return context
   items: ReceiptItem[];
   createdAt: string;
   updatedAt?: string;
@@ -175,7 +181,9 @@ export type PurchaseReturnResponse = {
   supplierName: string;
   status: string;
   notes?: string;
-  reason: string; // ✅ Add this
+  reason: string;
+  receiptQty: number;
+  qtyLeft: number;
   createdAt?: string;
   items: {
     itemCode: string;

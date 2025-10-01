@@ -3,6 +3,16 @@ import PurchaseReceipt from "@/models/purchaseReceipt";
 import PurchaseReturn from "@/models/purchaseReturn";
 import { generateNextReturnNumber } from "@/libs/generateNextReturnNumber";
 
+type ReturnItem = {
+  selected?: boolean;
+  quantity?: number;
+  receiptQty?: number;
+  purchasePrice?: number;
+  itemCode?: string;
+  itemName?: string;
+  unitType?: string;
+};
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -11,6 +21,7 @@ export async function POST(request: Request) {
     const reason = body.reason?.trim();
     const notes = body.notes?.trim();
     const status = body.status?.trim().toUpperCase();
+    const items: ReturnItem[] = Array.isArray(body.items) ? body.items : [];
 
     if (!prNumber || !reason) {
       return NextResponse.json(
@@ -33,6 +44,50 @@ export async function POST(request: Request) {
       );
     }
 
+    // ✅ Only validate selected items
+    const validItems = items
+      .filter(
+        (item) =>
+          item.selected === true &&
+          Number(item.quantity) >= 1 &&
+          Number(item.quantity) <= Number(item.receiptQty)
+      )
+      .map((item) => {
+        const quantity = Number(item.quantity) || 0;
+        const purchasePrice = Number(item.purchasePrice) || 0;
+        const receiptQty = Number(item.receiptQty) || 0;
+
+        return {
+          itemCode: item.itemCode?.trim().toUpperCase() || "",
+          itemName: item.itemName?.trim().toUpperCase() || "UNNAMED",
+          unitType: item.unitType?.trim().toUpperCase() || "",
+          purchasePrice,
+          quantity,
+          amount: quantity * purchasePrice,
+          receiptQty,
+          qtyLeft: Math.max(receiptQty - quantity, 0),
+        };
+      });
+
+    if (validItems.length === 0) {
+      return NextResponse.json(
+        { error: "No valid items selected for return." },
+        { status: 400 }
+      );
+    }
+
+    const receiptQty = validItems.reduce(
+      (sum, item) => sum + item.receiptQty,
+      0
+    );
+
+    const returnedQty = validItems.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+
+    const qtyLeft = Math.max(receiptQty - returnedQty, 0);
+
     let returnNumber = "PRTN0000000001";
     try {
       returnNumber = await generateNextReturnNumber();
@@ -44,9 +99,13 @@ export async function POST(request: Request) {
       returnNumber,
       prNumber,
       supplierName: receipt.supplierName?.trim().toUpperCase() || "UNKNOWN",
+      warehouse: receipt.warehouse?.trim().toUpperCase() || "UNKNOWN",
       reason,
       notes,
       status: normalizedStatus,
+      receiptQty,
+      qtyLeft,
+      items: validItems,
       createdAt: new Date().toISOString(),
     });
 
