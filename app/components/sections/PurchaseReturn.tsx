@@ -414,10 +414,11 @@ export default function PurchaseReturn({ onSuccess }: Props) {
     if (!validateForm()) return;
 
     const normalizedItems = formData.items
+      .filter((item) => !!item.selected)
       .map((item) => {
         const quantity = Number(item.quantity) || 0;
-        const purchasePrice = Number(item.purchasePrice) || 0;
         const receiptQty = Number(item.receiptQty) || 0;
+        const purchasePrice = Number(item.purchasePrice) || 0;
 
         return {
           itemCode: (item.itemCode ?? "").trim().toUpperCase(),
@@ -428,18 +429,18 @@ export default function PurchaseReturn({ onSuccess }: Props) {
           amount: quantity * purchasePrice,
           receiptQty,
           qtyLeft: Math.max(receiptQty - quantity, 0),
-          selected: !!item.selected, // ✅ explicitly include selection state
+          selected: true,
         };
       })
       .filter(
         (item) =>
-          item.selected === true &&
           item.quantity >= 1 &&
-          item.quantity <= item.receiptQty
+          item.quantity <= item.receiptQty &&
+          item.itemCode !== ""
       );
 
     if (normalizedItems.length === 0) {
-      alert("Please select at least one item with a valid quantity.");
+      alert("Please select at least one valid item with quantity ≥ 1.");
       return;
     }
 
@@ -447,20 +448,17 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       (sum, item) => sum + item.receiptQty,
       0
     );
-    const qtyLeft = normalizedItems.reduce(
-      (sum, item) => sum + item.qtyLeft,
+    const returnedQty = normalizedItems.reduce(
+      (sum, item) => sum + item.quantity,
       0
     );
+    const qtyLeft = Math.max(receiptQty - returnedQty, 0);
 
     const payload = {
       prNumber: formData.prNumber.trim().toUpperCase(),
-      supplierName: formData.supplierName.trim().toUpperCase(),
-      warehouse: formData.warehouse?.trim().toUpperCase() || "UNKNOWN",
       reason: formData.reason.trim(),
       notes: formData.notes?.trim() || "",
-      status: formData.status || "RETURNED",
-      receiptQty,
-      qtyLeft,
+      status: formData.status?.trim().toUpperCase() || "RETURNED",
       items: normalizedItems,
     };
 
@@ -469,34 +467,21 @@ export default function PurchaseReturn({ onSuccess }: Props) {
     try {
       const res = await fetch("/api/purchase-returns", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      let result;
-      try {
-        result = await res.json();
-      } catch (err) {
-        console.error("❌ Failed to parse server response:", err);
-        alert("Server returned an invalid response. Please try again.");
-        return;
-      }
+      const result = await res.json();
 
       if (!res.ok) {
         console.error("🚫 Create failed:", result?.error || result);
-        alert(
-          result?.error || "Failed to create purchase return. Please try again."
-        );
+        alert(result?.error || "Failed to create purchase return.");
         return;
       }
 
       toast.success("✅ Purchase return created successfully!");
 
-      if (typeof onSuccess === "function") {
-        onSuccess();
-      }
+      if (typeof onSuccess === "function") onSuccess();
 
       setTimeout(() => {
         router.push("/");
@@ -506,7 +491,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       alert("Something went wrong. Please check your connection or try again.");
     }
 
-    // Optionally close dialog here
+    // Optionally close dialog
     // setIsCreateDialogOpen(false);
   };
 

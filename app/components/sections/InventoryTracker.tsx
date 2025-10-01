@@ -21,6 +21,7 @@ import { Search, Download, Package } from "lucide-react";
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
 
 import { InventoryType, ItemType, PurchaseReceiptType } from "./type";
+import { Item } from "@radix-ui/react-select";
 
 export default function InventoryTracker() {
   const [inventoryItems, setInventoryItems] = useState<InventoryType[]>([]);
@@ -282,18 +283,25 @@ export default function InventoryTracker() {
                     {item.outQty > 0 ? item.outQty : "-"}
                   </TableCell>
                   <TableCell>{item.quantity ?? "—"}</TableCell>
-                  <TableCell
-                    style={{
-                      color:
-                        item.activity === "PURCHASE"
-                          ? "green"
-                          : item.activity === "SOLD"
-                          ? "red"
-                          : "inherit",
-                      fontWeight: item.activity ? "bold" : "normal",
-                    }}>
-                    {item.activity ?? "—"}
+                  <TableCell>
+                    {item.activity ? (
+                      <span
+                        className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
+                          item.activity === "PURCHASE"
+                            ? "bg-green-100 text-green-700"
+                            : item.activity === "SOLD"
+                            ? "bg-red-100 text-red-700"
+                            : item.activity === "RETURNED"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-gray-100 text-gray-700"
+                        }`}>
+                        {item.activity}
+                      </span>
+                    ) : (
+                      "—"
+                    )}
                   </TableCell>
+
                   <TableCell>{item.user ?? "—"}</TableCell>
                 </TableRow>
               ))

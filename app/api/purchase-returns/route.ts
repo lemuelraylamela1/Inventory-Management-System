@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import PurchaseReceipt from "@/models/purchaseReceipt";
 import PurchaseReturn from "@/models/purchaseReturn";
 import { generateNextReturnNumber } from "@/libs/generateNextReturnNumber";
-import Inventory from "@/models/inventory"; // ✅ Ensure this import exists
+import Inventory, { InventoryItem } from "@/models/inventory";
 
 type ReturnItem = {
   selected?: boolean;
@@ -111,23 +111,47 @@ export async function POST(request: Request) {
 
     // ✅ Deduct returned quantities from inventory
     for (const item of validItems) {
-      const result = await Inventory.updateOne(
-        {
-          warehouse: receipt.warehouse?.trim().toUpperCase(),
-          "items.itemCode": item.itemCode,
-          "items.quantity": { $gte: item.quantity }, // prevent negative stock
-        },
-        {
-          $inc: { "items.$.quantity": -item.quantity },
-          $set: { updatedAt: new Date() },
-        }
+      const now = new Date();
+      const inventoryDoc = await Inventory.findOne({
+        warehouse: receipt.warehouse?.trim().toUpperCase(),
+      });
+
+      if (!inventoryDoc) {
+        console.warn(`⚠️ No inventory document found for ${receipt.warehouse}`);
+        continue;
+      }
+
+      const index = inventoryDoc.items.findIndex(
+        (invItem: InventoryItem) => invItem.itemCode === item.itemCode
       );
 
-      if (result.modifiedCount === 0) {
-        console.warn(
-          `⚠️ Inventory deduction failed for ${item.itemCode} — insufficient stock or item not found.`
-        );
+      if (index === -1) {
+        console.warn(`⚠️ Item ${item.itemCode} not found in inventory`);
+        continue;
       }
+
+      const invItem = inventoryDoc.items[index];
+
+      if (invItem.quantity < item.quantity) {
+        console.warn(
+          `⚠️ Insufficient stock for ${item.itemCode} — available: ${invItem.quantity}, requested: ${item.quantity}`
+        );
+        continue;
+      }
+
+      invItem.quantity -= item.quantity;
+      invItem.updatedAt = now;
+
+      // ✅ Log return activity
+      invItem.activity = "RETURNED";
+      invItem.user = body.user?.trim() || "SYSTEM";
+      invItem.outQty = item.quantity;
+      invItem.inQty = 0;
+      invItem.currentOnhand = invItem.quantity;
+      invItem.particulars = `Returned via ${returnNumber}`;
+      invItem.date = now.toISOString();
+
+      await inventoryDoc.save();
     }
 
     return NextResponse.json(
