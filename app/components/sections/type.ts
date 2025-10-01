@@ -150,8 +150,8 @@ export type ReceiptItem = {
   quantity: number;
   unitType: string;
   purchasePrice: number;
-  receiptQty: number;
-  qtyLeft: number;
+  receiptQty?: number;
+  qtyLeft?: number;
   amount: number;
   selected?: boolean;
 };
@@ -217,6 +217,14 @@ export type InventoryType = {
   category: string;
   quantity: number;
   remarks?: string;
+  referenceNo: string;
+  particulars: string;
+  user: string;
+  activity: string;
+  date: string;
+  inQty: number;
+  outQty: number;
+  currentOnhand: number;
   createdAt?: Date;
   updatedAt?: Date;
 };
