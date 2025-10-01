@@ -129,6 +129,7 @@ export async function POST(request: Request) {
               unitType: item.unitType,
               purchasePrice: item.purchasePrice,
               source: receipt.prNumber,
+              referenceNumber: receipt.referenceNumber,
               receivedAt: new Date(),
               createdAt: new Date(),
               updatedAt: new Date(),
@@ -161,10 +162,12 @@ export async function POST(request: Request) {
           unitType: item.unitType,
           purchasePrice: item.purchasePrice,
           source: receipt.prNumber,
+          referenceNumber: receipt.referenceNumber, // ✅ this was missing
           receivedAt: new Date(),
           createdAt: new Date(),
           updatedAt: new Date(),
         });
+
         console.log(
           `➕ Added new item ${item.itemCode} to ${receipt.warehouse}`
         );

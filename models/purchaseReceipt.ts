@@ -16,6 +16,7 @@ export interface ReceiptItem {
 
 export interface PurchaseReceiptType extends Document {
   prNumber: string;
+  referenceNumber?: string;
   supplierInvoiceNum: string;
   poNumber: string[];
   amount: number;
@@ -42,6 +43,13 @@ const PurchaseReceiptSchema = new Schema<PurchaseReceiptType>(
       type: String,
       unique: true,
     },
+    referenceNumber: {
+      type: String,
+      trim: true,
+      uppercase: true,
+      default: "",
+    },
+
     supplierInvoiceNum: {
       type: String,
       trim: true,
@@ -116,6 +124,11 @@ PurchaseReceiptSchema.pre("validate", async function (next) {
       this.supplierName =
         pos[0].supplierName?.trim().toUpperCase() || "UNKNOWN";
       this.warehouse = pos[0].warehouse?.trim().toUpperCase() || "UNKNOWN";
+
+      // ✅ Inject referenceNumber from PO
+      if (!this.referenceNumber && pos[0].referenceNumber) {
+        this.referenceNumber = pos[0].referenceNumber?.trim().toUpperCase();
+      }
 
       if (typeof this.amount !== "number" || isNaN(this.amount)) {
         this.amount = Array.isArray(this.items)

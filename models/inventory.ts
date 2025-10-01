@@ -8,6 +8,7 @@ export interface InventoryItem {
   unitType: string;
   purchasePrice?: number;
   source?: string;
+  referenceNumber?: string;
   receivedAt?: Date;
   updatedAt?: Date;
   createdAt?: Date;
@@ -30,6 +31,7 @@ const InventoryItemSchema = new Schema<InventoryItem>(
     unitType: { type: String, required: true, trim: true, uppercase: true },
     purchasePrice: { type: Number, min: 0 },
     source: { type: String, trim: true, uppercase: true },
+    referenceNumber: { type: String, trim: true, uppercase: true },
     receivedAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
     createdAt: { type: Date, default: Date.now },

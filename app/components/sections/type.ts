@@ -204,6 +204,7 @@ export type InventoryItem = {
   unitType: string;
   purchasePrice?: number;
   source?: string; // e.g. PR or PO reference
+  referenceNumber: string;
   receivedAt?: Date;
   updatedAt?: Date;
   createdAt?: Date;
@@ -217,7 +218,7 @@ export type InventoryType = {
   category: string;
   quantity: number;
   remarks?: string;
-  referenceNo: string;
+  referenceNumber: string;
   particulars: string;
   user: string;
   activity: string;

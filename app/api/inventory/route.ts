@@ -68,11 +68,12 @@ export async function POST(request: Request) {
       (item: Partial<InventoryItem>) => ({
         itemCode: item.itemCode?.trim().toUpperCase() || "",
         itemName: item.itemName?.trim() || "",
-        category: item.category?.trim().toUpperCase() || "UNCATEGORIZED", // ✅ added
+        category: item.category?.trim().toUpperCase() || "UNCATEGORIZED",
         quantity: Number(item.quantity),
         unitType: item.unitType?.trim().toUpperCase() || "",
         purchasePrice: Number(item.purchasePrice) || 0,
         source: item.source?.trim().toUpperCase() || "",
+        referenceNumber: item.referenceNumber?.trim().toUpperCase() || "", // ✅ added
         updatedAt: now,
         receivedAt: item.receivedAt ? new Date(item.receivedAt) : now,
         createdAt: item.createdAt ? new Date(item.createdAt) : now,

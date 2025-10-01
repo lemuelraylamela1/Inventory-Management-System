@@ -157,6 +157,7 @@ export async function POST(request: Request) {
 
     const newReceipt = await PurchaseReceipt.create({
       prNumber: await generateNextPRNumber(),
+      referenceNumber: body.referenceNumber?.trim().toUpperCase() || "",
       supplierInvoiceNum: await generateSupplierInvoiceNum(),
       poNumber: poNumbers,
       supplierName:
@@ -188,7 +189,24 @@ export async function POST(request: Request) {
 
 export async function GET() {
   try {
-    const receipts = await PurchaseReceipt.find().sort({ createdAt: -1 });
+    const receipts = await PurchaseReceipt.find(
+      {},
+      {
+        referenceNumber: 1,
+        prNumber: 1,
+        supplierInvoiceNum: 1,
+        poNumber: 1,
+        amount: 1,
+        supplierName: 1,
+        warehouse: 1,
+        status: 1,
+        remarks: 1,
+        items: 1,
+        createdAt: 1,
+        updatedAt: 1,
+      }
+    ).sort({ createdAt: -1 });
+
     return NextResponse.json(receipts, { status: 200 });
   } catch (error: unknown) {
     console.error("❌ Error fetching receipts:", error);

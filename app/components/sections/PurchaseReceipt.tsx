@@ -338,6 +338,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
   type ReceiptSummary = {
     prNumber: string;
     poNumber: string[]; // or string if it's a single PO
+    referenceNumber?: string;
     status: string;
     locked?: boolean;
   };
@@ -355,6 +356,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
         body: JSON.stringify({
           prNumber: receipt.prNumber,
           poNumber: receipt.poNumber,
+          referenceNumber: receipt.referenceNumber,
         }),
       });
 

@@ -53,19 +53,6 @@ export default function InventoryTracker() {
     fetchReceipts();
   }, []);
 
-  const flattenedItems = useMemo(() => {
-    return receipts.flatMap((receipt) =>
-      receipt.items.map((item) => ({
-        ...item,
-        warehouse: receipt.warehouse,
-        createdAt: receipt.createdAt,
-        // user: receipt.user,
-        activity: "RECEIPT",
-        referenceNo: receipt.referenceNumbers?.join(", ") ?? "—",
-      }))
-    );
-  }, [receipts]);
-
   // ✅ Fetch item catalog
   useEffect(() => {
     const fetchItems = async () => {
@@ -151,23 +138,6 @@ export default function InventoryTracker() {
     const start = (currentPage - 1) * rowsPerPage;
     return filteredData.slice(start, start + rowsPerPage);
   }, [filteredData, currentPage, rowsPerPage]);
-
-  // ✅ Summary stats
-  const summaryStats = useMemo(() => {
-    const uniqueItems = new Set(filteredData.map((item) => item.itemName)).size;
-    const totalQuantity = filteredData.reduce(
-      (sum, item) => sum + item.quantity,
-      0
-    );
-    const warehouseCount = new Set(filteredData.map((item) => item.warehouse))
-      .size;
-
-    return {
-      uniqueItems,
-      totalQuantity,
-      warehouseCount,
-    };
-  }, [filteredData]);
 
   // ✅ Export CSV
   const handleExportCSV = () => {
@@ -282,8 +252,10 @@ export default function InventoryTracker() {
                   <TableCell>{item.itemName}</TableCell>
                   <TableCell>{item.warehouse}</TableCell>
                   <TableCell>
-                    <div className="max-w-xs truncate" title={item.referenceNo}>
-                      {item.referenceNo ?? "—"}
+                    <div
+                      className="max-w-xs truncate"
+                      title={item.referenceNumber}>
+                      {item.referenceNumber?.trim() || "—"}
                     </div>
                   </TableCell>
 
