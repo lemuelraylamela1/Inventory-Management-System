@@ -3,12 +3,19 @@ import mongoose, { Schema, Document, model } from "mongoose";
 export interface InventoryItem {
   itemCode: string;
   itemName: string;
-  category: string; // ✅ new field
+  category: string;
   quantity: number;
   unitType: string;
   purchasePrice?: number;
   source?: string;
   referenceNumber?: string;
+  activity?: string;
+  user?: string;
+  inQty?: number;
+  outQty?: number;
+  currentOnhand?: number;
+  particulars?: string;
+  date?: string;
   receivedAt?: Date;
   updatedAt?: Date;
   createdAt?: Date;
@@ -26,12 +33,22 @@ const InventoryItemSchema = new Schema<InventoryItem>(
   {
     itemCode: { type: String, required: true, trim: true, uppercase: true },
     itemName: { type: String, required: true, trim: true },
-    category: { type: String, required: true, trim: true, uppercase: true }, // ✅ added
+    category: { type: String, required: true, trim: true, uppercase: true },
     quantity: { type: Number, required: true, min: 0 },
     unitType: { type: String, required: true, trim: true, uppercase: true },
     purchasePrice: { type: Number, min: 0 },
     source: { type: String, trim: true, uppercase: true },
     referenceNumber: { type: String, trim: true, uppercase: true },
+
+    // ✅ Activity tracking fields
+    activity: { type: String, trim: true, uppercase: true },
+    user: { type: String, trim: true },
+    inQty: { type: Number, min: 0 },
+    outQty: { type: Number, min: 0 },
+    currentOnhand: { type: Number, min: 0 },
+    particulars: { type: String, trim: true },
+    date: { type: String, trim: true },
+
     receivedAt: { type: Date, default: Date.now },
     updatedAt: { type: Date, default: Date.now },
     createdAt: { type: Date, default: Date.now },

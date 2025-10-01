@@ -135,9 +135,21 @@ export default function InventoryTracker() {
   }, [inventoryItems, selectedWarehouse, searchTerm]);
 
   const paginatedData = useMemo(() => {
-    const start = (currentPage - 1) * rowsPerPage;
-    return filteredData.slice(start, start + rowsPerPage);
+    const sorted = [...filteredData].sort((a, b) => {
+      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return bTime - aTime; // latest first
+    });
+
+    const start = Math.max((currentPage - 1) * rowsPerPage, 0);
+    return sorted.slice(start, start + rowsPerPage);
   }, [filteredData, currentPage, rowsPerPage]);
+
+  const sortedPaginatedData = paginatedData.filter(Boolean).sort((a, b) => {
+    const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+    const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+    return bTime - aTime;
+  });
 
   // ✅ Export CSV
   const handleExportCSV = () => {
@@ -229,7 +241,7 @@ export default function InventoryTracker() {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {paginatedData.length === 0 ? (
+            {sortedPaginatedData.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={10}
@@ -238,7 +250,7 @@ export default function InventoryTracker() {
                 </TableCell>
               </TableRow>
             ) : (
-              paginatedData.map((item, index) => (
+              sortedPaginatedData.map((item, index) => (
                 <TableRow key={`${item.itemCode}-${item.warehouse}-${index}`}>
                   <TableCell>
                     {item.createdAt
@@ -249,8 +261,8 @@ export default function InventoryTracker() {
                         })
                       : "—"}
                   </TableCell>
-                  <TableCell>{item.itemName}</TableCell>
-                  <TableCell>{item.warehouse}</TableCell>
+                  <TableCell>{item.itemName ?? "—"}</TableCell>
+                  <TableCell>{item.warehouse ?? "—"}</TableCell>
                   <TableCell>
                     <div
                       className="max-w-xs truncate"
@@ -258,7 +270,6 @@ export default function InventoryTracker() {
                       {item.referenceNumber?.trim() || "—"}
                     </div>
                   </TableCell>
-
                   <TableCell>
                     <div className="max-w-xs truncate" title={item.particulars}>
                       {item.particulars ?? "—"}
@@ -270,9 +281,20 @@ export default function InventoryTracker() {
                   <TableCell className="text-red-600">
                     {item.outQty > 0 ? item.outQty : "-"}
                   </TableCell>
-                  <TableCell>{item.quantity}</TableCell>
-                  <TableCell>{item.activity ?? "—"}</TableCell>
-                  <TableCell>{item.user}</TableCell>
+                  <TableCell>{item.quantity ?? "—"}</TableCell>
+                  <TableCell
+                    style={{
+                      color:
+                        item.activity === "PURCHASE"
+                          ? "green"
+                          : item.activity === "SOLD"
+                          ? "red"
+                          : "inherit",
+                      fontWeight: item.activity ? "bold" : "normal",
+                    }}>
+                    {item.activity ?? "—"}
+                  </TableCell>
+                  <TableCell>{item.user ?? "—"}</TableCell>
                 </TableRow>
               ))
             )}

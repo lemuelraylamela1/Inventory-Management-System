@@ -337,10 +337,13 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
 
   type ReceiptSummary = {
     prNumber: string;
-    poNumber: string[]; // or string if it's a single PO
+    poNumber: string[];
     referenceNumber?: string;
     status: string;
     locked?: boolean;
+    user?: string;
+    activity?: string;
+    inQty?: number;
   };
 
   const handlePostReceipt = async (receipt: ReceiptSummary) => {
@@ -357,6 +360,9 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
           prNumber: receipt.prNumber,
           poNumber: receipt.poNumber,
           referenceNumber: receipt.referenceNumber,
+          activity: "PURCHASE", // ✅ added
+          user: receipt.user ?? "SYSTEM", // ✅ added
+          inQty: receipt.inQty ?? 0, // ✅ optional, can be computed in backend
         }),
       });
 

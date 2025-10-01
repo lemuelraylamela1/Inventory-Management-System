@@ -76,6 +76,7 @@ export async function POST(request: Request) {
     const poNumbers = Array.isArray(body.poNumber)
       ? body.poNumber.map((po: string) => po.trim().toUpperCase())
       : [];
+    const username = body.user?.trim() || "SYSTEM";
 
     if (!prNumber || poNumbers.length === 0) {
       return NextResponse.json(
@@ -110,14 +111,13 @@ export async function POST(request: Request) {
       await reconcilePOWithReceipt(po, receipt.items ?? []);
     }
 
-    // ✅ Inventory sync logic
     for (const item of receipt.items ?? []) {
+      const now = new Date();
       const inventoryDoc = await Inventory.findOne({
         warehouse: receipt.warehouse,
       });
 
       if (!inventoryDoc) {
-        // 🆕 Create new inventory document for warehouse
         await Inventory.create({
           warehouse: receipt.warehouse,
           items: [
@@ -130,13 +130,21 @@ export async function POST(request: Request) {
               purchasePrice: item.purchasePrice,
               source: receipt.prNumber,
               referenceNumber: receipt.referenceNumber,
-              receivedAt: new Date(),
-              createdAt: new Date(),
-              updatedAt: new Date(),
+              receivedAt: now,
+              createdAt: now,
+              updatedAt: now,
+              activity: "PURCHASE",
+              user: username,
+              inQty: item.quantity,
+              outQty: 0,
+              currentOnhand: item.quantity,
+              particulars: `Received via ${receipt.referenceNumber}`,
+              date: now.toISOString(),
             },
           ],
           remarks: `Auto-created from receipt ${receipt.prNumber}`,
         });
+
         console.log(`🆕 Created inventory document for ${receipt.warehouse}`);
         continue;
       }
@@ -146,14 +154,21 @@ export async function POST(request: Request) {
       );
 
       if (existingIndex !== -1) {
-        // 🔄 Update existing item quantity
-        inventoryDoc.items[existingIndex].quantity += item.quantity;
-        inventoryDoc.items[existingIndex].updatedAt = new Date();
+        const existingItem = inventoryDoc.items[existingIndex];
+        existingItem.quantity += item.quantity;
+        existingItem.updatedAt = now;
+        existingItem.activity = "PURCHASE";
+        existingItem.user = username;
+        existingItem.inQty = item.quantity;
+        existingItem.outQty = 0;
+        existingItem.currentOnhand = existingItem.quantity;
+        existingItem.particulars = `Received via ${receipt.referenceNumber}`;
+        existingItem.date = now.toISOString();
+
         console.log(
           `🔄 Updated quantity for ${item.itemCode} in ${receipt.warehouse}`
         );
       } else {
-        // ➕ Add new item to existing warehouse
         inventoryDoc.items.push({
           itemCode: item.itemCode,
           itemName: item.itemName,
@@ -162,10 +177,17 @@ export async function POST(request: Request) {
           unitType: item.unitType,
           purchasePrice: item.purchasePrice,
           source: receipt.prNumber,
-          referenceNumber: receipt.referenceNumber, // ✅ this was missing
-          receivedAt: new Date(),
-          createdAt: new Date(),
-          updatedAt: new Date(),
+          referenceNumber: receipt.referenceNumber,
+          receivedAt: now,
+          createdAt: now,
+          updatedAt: now,
+          activity: "PURCHASE",
+          user: username,
+          inQty: item.quantity,
+          outQty: 0,
+          currentOnhand: item.quantity,
+          particulars: `Received via ${receipt.referenceNumber}`,
+          date: now.toISOString(),
         });
 
         console.log(
