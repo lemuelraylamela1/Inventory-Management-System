@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import PurchaseReceipt from "@/models/purchaseReceipt";
 import PurchaseReturn from "@/models/purchaseReturn";
 import { generateNextReturnNumber } from "@/libs/generateNextReturnNumber";
+import Inventory from "@/models/inventory"; // ✅ Ensure this import exists
 
 type ReturnItem = {
   selected?: boolean;
@@ -44,7 +45,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // ✅ Only validate selected items
     const validItems = items
       .filter(
         (item) =>
@@ -108,6 +108,27 @@ export async function POST(request: Request) {
       items: validItems,
       createdAt: new Date().toISOString(),
     });
+
+    // ✅ Deduct returned quantities from inventory
+    for (const item of validItems) {
+      const result = await Inventory.updateOne(
+        {
+          warehouse: receipt.warehouse?.trim().toUpperCase(),
+          "items.itemCode": item.itemCode,
+          "items.quantity": { $gte: item.quantity }, // prevent negative stock
+        },
+        {
+          $inc: { "items.$.quantity": -item.quantity },
+          $set: { updatedAt: new Date() },
+        }
+      );
+
+      if (result.modifiedCount === 0) {
+        console.warn(
+          `⚠️ Inventory deduction failed for ${item.itemCode} — insufficient stock or item not found.`
+        );
+      }
+    }
 
     return NextResponse.json(
       {

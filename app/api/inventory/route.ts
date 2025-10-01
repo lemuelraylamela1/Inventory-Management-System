@@ -3,9 +3,39 @@ import connectMongoDB from "../../../libs/mongodb";
 import Inventory, { InventoryItem } from "@/models/inventory";
 
 // GET: Fetch all inventory records
-export async function GET() {
+export async function GET(request: Request) {
   try {
-    await connectMongoDB(); // ✅ Ensure DB connection
+    await connectMongoDB();
+
+    const { searchParams } = new URL(request.url);
+    const itemCode = searchParams.get("itemCode")?.trim().toUpperCase();
+    const warehouse = searchParams.get("warehouse")?.trim().toUpperCase();
+
+    if (itemCode && warehouse) {
+      const record = await Inventory.findOne({ warehouse });
+
+      if (!record) {
+        return NextResponse.json(
+          { error: `No inventory found for warehouse ${warehouse}` },
+          { status: 404 }
+        );
+      }
+
+      const matched = record.items.find(
+        (item: InventoryItem) => item.itemCode === itemCode
+      );
+
+      if (!matched) {
+        return NextResponse.json(
+          { error: `Item ${itemCode} not found in ${warehouse}` },
+          { status: 404 }
+        );
+      }
+
+      return NextResponse.json({ qtyLeft: matched.quantity }, { status: 200 });
+    }
+
+    // Default: return all records
     const records = await Inventory.find().sort({ updatedAt: -1 });
     return NextResponse.json(records, { status: 200 });
   } catch (error) {

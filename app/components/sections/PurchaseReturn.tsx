@@ -956,6 +956,35 @@ export default function PurchaseReturn({ onSuccess }: Props) {
   //   toast.success("PDF exported successfully");
   // };
 
+  useEffect(() => {
+    const syncQtyLeft = async () => {
+      const updatedItems = await Promise.all(
+        formData.items.map(async (item) => {
+          if (!item.itemCode || !formData.warehouse) return item;
+
+          try {
+            const res = await fetch(
+              `/api/inventory?itemCode=${item.itemCode}&warehouse=${formData.warehouse}`
+            );
+            const data = await res.json();
+
+            return {
+              ...item,
+              qtyLeft: res.ok ? data.qtyLeft : item.qtyLeft || 0,
+            };
+          } catch (err) {
+            console.warn(`❌ Failed to sync qtyLeft for ${item.itemCode}`, err);
+            return item;
+          }
+        })
+      );
+
+      setFormData((prev) => ({ ...prev, items: updatedItems }));
+    };
+
+    syncQtyLeft();
+  }, [formData.warehouse]);
+
   return (
     <div className="space-y-6">
       <Card>
