@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogPanel,
 } from "../ui/dialog";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
@@ -762,183 +763,195 @@ export default function ItemMaster({ onSuccess }: Props) {
                 </Button>
               </DialogTrigger>
 
-              <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+              <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto">
                 <DialogHeader>
                   <DialogTitle>Add New Item</DialogTitle>
                 </DialogHeader>
-                <AddItemImageUploader
-                  onUploadComplete={handleImageUploadComplete}
-                />
+
                 <Card className="p-4">
-                  <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
+                  <h4 className="text-m font-bold text-muted-foreground mt-1 text-start">
                     General Info
                   </h4>
                   <div className="grid gap-4 py-4">
-                    <div className="grid grid-cols-2 gap-4">
-                      <div className="grid gap-2">
-                        <Label htmlFor="create-code">Item Code</Label>
-                        <Input
-                          id="create-code"
-                          value={formData.itemCode}
-                          onChange={(e) => {
-                            const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
-                            setFormData((prev) => ({
-                              ...prev,
-                              itemCode: value,
-                            }));
-                            setValidationErrors((prev) => ({
-                              ...prev,
-                              itemCode: "",
-                            }));
-                          }}
-                          placeholder="ITM001"
-                          className={
-                            validationErrors.itemCode
-                              ? "border-destructive text-sm"
-                              : "text-sm"
-                          }
-                        />
-                        {validationErrors.itemCode && (
-                          <p className="text-sm text-destructive">
-                            {validationErrors.itemCode}
-                          </p>
-                        )}
-                      </div>
-                      <div className="grid gap-2">
-                        <Label htmlFor="create-name">Item Name</Label>
-                        <Input
-                          id="create-name"
-                          value={formData.itemName}
-                          onChange={(e) => {
-                            const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
-                            setFormData({
-                              ...formData,
-                              itemName: value,
-                            });
-                          }}
-                          placeholder="Wireless Headphones"
-                          className={
-                            validationErrors.itemName
-                              ? "border-destructive"
-                              : ""
-                          }
-                          aria-invalid={!!validationErrors.itemName}
-                          aria-describedby="itemName-error"
-                        />
-                        {validationErrors.itemName && (
-                          <p
-                            id="itemName-error"
-                            className="text-sm text-destructive">
-                            {validationErrors.itemName}
-                          </p>
-                        )}
-                        {validationErrors.itemName && (
-                          <p className="text-sm text-destructive">
-                            {validationErrors.itemName}
-                          </p>
-                        )}
-                      </div>
-                    </div>
-                    <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-                      <div className="flex-1 grid gap-2">
-                        <Label htmlFor="create-purchase">Purchase Price</Label>
-                        <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
-                          <span className="text-muted-foreground">₱</span>
-                          <Input
-                            id="create-purchase"
-                            type="number"
-                            step="0.01"
-                            min="0"
-                            value={formData.purchasePrice}
-                            onChange={(e) =>
+                    <div className="grid grid-cols-2 gap-6">
+                      {/* First Column */}
+                      <div className="grid gap-6">
+                        {/* Item Code & Item Name */}
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="grid gap-2">
+                            <Label htmlFor="create-code">Item Code</Label>
+                            <Input
+                              id="create-code"
+                              value={formData.itemCode}
+                              onChange={(e) => {
+                                const value = e.target.value.toUpperCase();
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  itemCode: value,
+                                }));
+                                setValidationErrors((prev) => ({
+                                  ...prev,
+                                  itemCode: "",
+                                }));
+                              }}
+                              placeholder="ITM001"
+                              className={
+                                validationErrors.itemCode
+                                  ? "border-destructive text-sm"
+                                  : "text-sm"
+                              }
+                            />
+                            {validationErrors.itemCode && (
+                              <p className="text-sm text-destructive">
+                                {validationErrors.itemCode}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="grid gap-2">
+                            <Label htmlFor="create-name">Item Name</Label>
+                            <Input
+                              id="create-name"
+                              value={formData.itemName}
+                              onChange={(e) => {
+                                const value = e.target.value.toUpperCase();
+                                setFormData({
+                                  ...formData,
+                                  itemName: value,
+                                });
+                              }}
+                              placeholder="Wireless Headphones"
+                              className={
+                                validationErrors.itemName
+                                  ? "border-destructive"
+                                  : ""
+                              }
+                              aria-invalid={!!validationErrors.itemName}
+                              aria-describedby="itemName-error"
+                            />
+                            {validationErrors.itemName && (
+                              <p
+                                id="itemName-error"
+                                className="text-sm text-destructive">
+                                {validationErrors.itemName}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Purchase & Sales Price */}
+                        <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
+                          <div className="flex-1 grid gap-2">
+                            <Label htmlFor="create-purchase">
+                              Purchase Price
+                            </Label>
+                            <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
+                              <span className="text-muted-foreground">₱</span>
+                              <Input
+                                id="create-purchase"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={formData.purchasePrice}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    purchasePrice: e.target.value,
+                                  })
+                                }
+                                placeholder="0.00"
+                                className={`flex-1 border-none focus-visible:ring-0 focus-visible:outline-none ${
+                                  validationErrors.purchasePrice
+                                    ? "border-destructive"
+                                    : ""
+                                }`}
+                                aria-invalid={!!validationErrors.purchasePrice}
+                                aria-describedby="purchase-error"
+                              />
+                            </div>
+                            {validationErrors.purchasePrice && (
+                              <p
+                                id="purchase-error"
+                                className="text-destructive text-sm mt-1">
+                                {validationErrors.purchasePrice}
+                              </p>
+                            )}
+                          </div>
+
+                          <div className="flex-1 grid gap-2">
+                            <Label htmlFor="create-sales">Sales Price</Label>
+                            <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
+                              <span className="text-muted-foreground">₱</span>
+                              <Input
+                                id="create-sales"
+                                type="number"
+                                step="0.01"
+                                min="0"
+                                value={formData.salesPrice}
+                                onChange={(e) =>
+                                  setFormData({
+                                    ...formData,
+                                    salesPrice: e.target.value,
+                                  })
+                                }
+                                placeholder="0.00"
+                                className={`border-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
+                                  validationErrors.salesPrice
+                                    ? "text-destructive"
+                                    : ""
+                                }`}
+                              />
+                            </div>
+                            {validationErrors.salesPrice && (
+                              <p className="text-sm text-destructive">
+                                {validationErrors.salesPrice}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                        <div className="grid gap-2">
+                          <Label htmlFor="create-description">
+                            Description
+                          </Label>
+                          <Textarea
+                            id="create-description"
+                            value={formData.description}
+                            onChange={(e) => {
+                              const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
                               setFormData({
                                 ...formData,
-                                purchasePrice: e.target.value,
-                              })
-                            }
-                            placeholder="0.00"
-                            className={`flex-1 border-none focus-visible:ring-0 focus-visible:outline-none ${
-                              validationErrors.purchasePrice
+                                description: value,
+                              });
+                            }}
+                            placeholder="Enter item description..."
+                            className={`text-sm ${
+                              validationErrors.description
                                 ? "border-destructive"
                                 : ""
                             }`}
-                            aria-invalid={!!validationErrors.purchasePrice}
-                            aria-describedby="purchase-error"
+                            rows={3}
                           />
-                        </div>
-                        {validationErrors.purchasePrice && (
-                          <p
-                            id="purchase-error"
-                            className="text-destructive text-sm mt-1">
-                            {validationErrors.purchasePrice}
-                          </p>
-                        )}
-                      </div>
-
-                      <div className="flex-1 grid gap-2">
-                        <div className="grid gap-2">
-                          <Label htmlFor="create-sales">Sales Price</Label>
-                          <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
-                            <span className="text-muted-foreground">₱</span>
-                            <Input
-                              id="create-sales"
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={formData.salesPrice}
-                              onChange={(e) =>
-                                setFormData({
-                                  ...formData,
-                                  salesPrice: e.target.value,
-                                })
-                              }
-                              placeholder="0.00"
-                              className={`border-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
-                                validationErrors.salesPrice
-                                  ? "text-destructive"
-                                  : ""
-                              }`}
-                            />
-                          </div>
-                          {validationErrors.salesPrice && (
+                          {validationErrors.description && (
                             <p className="text-sm text-destructive">
-                              {validationErrors.salesPrice}
+                              {validationErrors.description}
+                            </p>
+                          )}
+                          {validationErrors.description && (
+                            <p className="text-sm text-destructive">
+                              {validationErrors.description}
                             </p>
                           )}
                         </div>
                       </div>
+
+                      {/* Second Column */}
+                      <div className="grid gap-6">
+                        <AddItemImageUploader
+                          onUploadComplete={handleImageUploadComplete}
+                        />
+                      </div>
                     </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="create-description">Description</Label>
-                      <Textarea
-                        id="create-description"
-                        value={formData.description}
-                        onChange={(e) => {
-                          const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
-                          setFormData({
-                            ...formData,
-                            description: value,
-                          });
-                        }}
-                        placeholder="Enter item description..."
-                        className={`text-sm ${
-                          validationErrors.description
-                            ? "border-destructive"
-                            : ""
-                        }`}
-                        rows={3}
-                      />
-                      {validationErrors.description && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.description}
-                        </p>
-                      )}
-                      {validationErrors.description && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.description}
-                        </p>
-                      )}
-                    </div>
+
                     <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
                       <div className="flex-1 grid gap-2">
                         <Label htmlFor="create-category">Category</Label>
@@ -1106,126 +1119,159 @@ export default function ItemMaster({ onSuccess }: Props) {
                     </div>
                   </div>
                 </Card>
-                <Card className="p-4">
-                  <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
+                <Card className="p-6 rounded-xl shadow-sm border">
+                  <h4 className="text-lg font-semibold text-muted-foreground text-center mb-4">
                     Unit of Measure
                   </h4>
-                  <div className="grid gap-4 py-4">
-                    <div className="grid gap-2">
-                      <Label htmlFor="create-code">Unit Code</Label>
-                      <Input
-                        id="create-code"
-                        value={formData.unitCode}
-                        onChange={(e) => {
-                          const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
-                          setFormData((prev) => ({
-                            ...prev,
-                            unitCode: value,
-                          }));
-                          setValidationErrors((prev) => ({
-                            ...prev,
-                            unitCode: "",
-                          }));
-                        }}
-                        placeholder="ITM001"
-                        className={`text-sm ${
-                          validationErrors.unitCode ? "border-destructive" : ""
-                        }`}
-                      />
-                      {validationErrors.unitCode && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.unitCode}
-                        </p>
-                      )}
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="create-description">
-                        Unit Description
-                      </Label>
-                      <Textarea
-                        id="create-name"
-                        value={formData.unitDescription}
-                        onChange={(e) => {
-                          const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
-                          setFormData({
-                            ...formData,
-                            unitDescription: value,
-                          });
-                        }}
-                        placeholder="Wireless Headphones"
-                        className={`text-sm ${
-                          validationErrors.unitDescription
-                            ? "border-destructive"
-                            : ""
-                        }`}
-                      />
-                      {validationErrors.unitDescription && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.unitDescription}
-                        </p>
-                      )}
-                      {validationErrors.unitDescription && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.unitDescription}
-                        </p>
-                      )}
-                    </div>
-                    <div className="grid gap-2">
-                      <Label htmlFor="create-unit-type">Unit Type</Label>
-                      <Input
-                        id="create-unit-type"
-                        value={formData.unitType}
-                        onChange={(e) => {
-                          const value = e.target.value.toUpperCase(); // 👈 transform to uppercase
-                          setFormData({
-                            ...formData,
-                            unitType: value,
-                          });
-                        }}
-                        placeholder="Enter unit type"
-                        className={`text-sm ${
-                          validationErrors.unitType ? "border-destructive" : ""
-                        }`}
-                      />
-                      {validationErrors.unitType && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.unitType}
-                        </p>
-                      )}
-                      {validationErrors.unitType && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.unitType}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex-1 grid gap-2">
-                      <Label htmlFor="create-status">Unit Status</Label>
-                      <Select
-                        value={formData.unitStatus}
-                        onValueChange={(value: "ACTIVE" | "INACTIVE") =>
-                          setFormData({ ...formData, unitStatus: value })
-                        }>
-                        <SelectTrigger
-                          className={
-                            validationErrors.unitStatus
+
+                  <div className="grid grid-cols-2 gap-6">
+                    {/* Left Column */}
+                    <div className="grid gap-6">
+                      {/* Unit Code */}
+                      <div className="grid gap-2">
+                        <Label
+                          htmlFor="create-code"
+                          className="text-sm font-medium">
+                          Unit Code
+                        </Label>
+                        <Input
+                          id="create-code"
+                          value={formData.unitCode}
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase();
+                            setFormData((prev) => ({
+                              ...prev,
+                              unitCode: value,
+                            }));
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              unitCode: "",
+                            }));
+                          }}
+                          placeholder="ITM001"
+                          className={`text-sm ${
+                            validationErrors.unitCode
                               ? "border-destructive"
                               : ""
+                          }`}
+                        />
+                        {validationErrors.unitCode && (
+                          <p className="text-sm text-destructive">
+                            {validationErrors.unitCode}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Unit Type */}
+                      <div className="grid gap-2">
+                        <Label
+                          htmlFor="create-unit-type"
+                          className="text-sm font-medium">
+                          Unit Type
+                        </Label>
+                        <Input
+                          id="create-unit-type"
+                          value={formData.unitType}
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase();
+                            setFormData({ ...formData, unitType: value });
+                          }}
+                          placeholder="Enter unit type"
+                          className={`text-sm ${
+                            validationErrors.unitType
+                              ? "border-destructive"
+                              : ""
+                          }`}
+                          aria-invalid={!!validationErrors.unitType}
+                          aria-describedby="unitType-error"
+                        />
+                        {validationErrors.unitType && (
+                          <p
+                            id="unitType-error"
+                            className="text-sm text-destructive">
+                            {validationErrors.unitType}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Right Column */}
+                    <div className="grid gap-6">
+                      {/* Unit Description */}
+                      <div className="grid gap-2">
+                        <Label
+                          htmlFor="create-description"
+                          className="text-sm font-medium">
+                          Unit Description
+                        </Label>
+                        <Textarea
+                          id="create-description"
+                          value={formData.unitDescription}
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase();
+                            setFormData({
+                              ...formData,
+                              unitDescription: value,
+                            });
+                          }}
+                          placeholder="Wireless Headphones"
+                          className={`text-sm ${
+                            validationErrors.unitDescription
+                              ? "border-destructive"
+                              : ""
+                          }`}
+                          aria-invalid={!!validationErrors.unitDescription}
+                          aria-describedby="unitDescription-error"
+                        />
+                        {validationErrors.unitDescription && (
+                          <p
+                            id="unitDescription-error"
+                            className="text-sm text-destructive">
+                            {validationErrors.unitDescription}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Unit Status */}
+                      <div className="grid gap-2">
+                        <Label
+                          htmlFor="create-status"
+                          className="text-sm font-medium">
+                          Status
+                        </Label>
+                        <Select
+                          value={formData.unitStatus}
+                          onValueChange={(value: "ACTIVE" | "INACTIVE") =>
+                            setFormData({ ...formData, unitStatus: value })
                           }>
-                          <SelectValue placeholder="Select status" />
-                        </SelectTrigger>
-                        <SelectContent>
-                          <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-                          <SelectItem value="INACTIVE">INACTIVE</SelectItem>
-                        </SelectContent>
-                      </Select>
-                      {validationErrors.unitStatus && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.unitStatus}
-                        </p>
-                      )}
+                          <SelectTrigger
+                            id="create-status"
+                            className={`text-sm ${
+                              validationErrors.unitStatus
+                                ? "border-destructive"
+                                : ""
+                            }`}
+                            aria-invalid={!!validationErrors.unitStatus}
+                            aria-describedby="unitStatus-error">
+                            <SelectValue placeholder="Select status" />
+                          </SelectTrigger>
+                          <SelectContent>
+                            <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                            <SelectItem value="INACTIVE">INACTIVE</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        {validationErrors.unitStatus && (
+                          <p
+                            id="unitStatus-error"
+                            className="text-sm text-destructive">
+                            {validationErrors.unitStatus}
+                          </p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </Card>
+
                 <div className="flex justify-end gap-2">
                   <Button
                     variant="ghost"
@@ -1260,7 +1306,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                     Create
                   </Button>
                 </div>
-              </DialogContent>
+              </DialogPanel>
             </Dialog>
           </div>
 
@@ -1444,156 +1490,172 @@ export default function ItemMaster({ onSuccess }: Props) {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Item</DialogTitle>
           </DialogHeader>
 
           <div className="grid gap-4 py-4">
-            <EditItemImageUploader
-              initialImageUrl={formData.imageUrl ?? ""}
-              onUpdate={handleImageUpdate}
-            />
             <Card className="p-4">
-              <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
+              <h4 className="text-m font-bold text-muted-foreground mt-1 text-start">
                 General Info
               </h4>
-              <div className="grid grid-cols-2 gap-4">
-                <div className="grid gap-2">
-                  <Label htmlFor="create-code">Item Code</Label>
-                  <Input
-                    id="edit-code"
-                    value={formData.itemCode}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFormData((prev) => ({ ...prev, itemCode: value }));
-                      setValidationErrors((prev) => ({
-                        ...prev,
-                        itemCode: "",
-                      }));
-                    }}
-                    placeholder="ITM001"
-                    className={cn(
-                      "text-sm",
-                      validationErrors.itemCode && "border-destructive"
-                    )}
-                  />
-                  {validationErrors.itemCode && (
-                    <p className="text-sm text-destructive">
-                      {validationErrors.itemCode}
-                    </p>
-                  )}
-                </div>
-                <div className="grid gap-2">
-                  <Label htmlFor="create-name">Item Name</Label>
-                  <Input
-                    id="create-name"
-                    value={formData.itemName}
-                    onChange={(e) =>
-                      setFormData({ ...formData, itemName: e.target.value })
-                    }
-                    placeholder="Wireless Headphones"
-                    className={
-                      validationErrors.itemName ? "border-destructive" : ""
-                    }
-                  />
-                  {validationErrors.itemName && (
-                    <p className="text-sm text-destructive">
-                      {validationErrors.itemName}
-                    </p>
-                  )}
-                </div>
-              </div>
-              <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
-                <div className="flex-1 grid gap-2">
-                  <Label htmlFor="create-purchase">Purchase Price</Label>
-                  <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
-                    <span className="text-muted-foreground">₱</span>
-                    <Input
-                      id="create-purchase"
-                      type="number"
-                      step="0.01"
-                      min="0"
-                      value={formData.purchasePrice}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                {/* Left Column: Form Fields */}
+                <div className="grid gap-6">
+                  {/* Item Code & Name */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="edit-code">Item Code</Label>
+                      <Input
+                        id="edit-code"
+                        value={formData.itemCode}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData((prev) => ({ ...prev, itemCode: value }));
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            itemCode: "",
+                          }));
+                        }}
+                        placeholder="ITM001"
+                        className={cn(
+                          "text-sm",
+                          validationErrors.itemCode && "border-destructive"
+                        )}
+                      />
+                      {validationErrors.itemCode && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.itemCode}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-name">Item Name</Label>
+                      <Input
+                        id="create-name"
+                        value={formData.itemName}
+                        onChange={(e) =>
+                          setFormData({ ...formData, itemName: e.target.value })
+                        }
+                        placeholder="Wireless Headphones"
+                        className={
+                          validationErrors.itemName ? "border-destructive" : ""
+                        }
+                      />
+                      {validationErrors.itemName && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.itemName}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Pricing */}
+                  <div className="grid grid-cols-2 gap-4">
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-purchase">Purchase Price</Label>
+                      <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
+                        <span className="text-muted-foreground">₱</span>
+                        <Input
+                          id="create-purchase"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.purchasePrice}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              purchasePrice: e.target.value,
+                            })
+                          }
+                          placeholder="0.00"
+                          className={`flex-1 border-none focus-visible:ring-0 focus-visible:outline-none ${
+                            validationErrors.purchasePrice
+                              ? "border-destructive"
+                              : ""
+                          }`}
+                          aria-invalid={!!validationErrors.purchasePrice}
+                          aria-describedby="purchase-error"
+                        />
+                      </div>
+                      {validationErrors.purchasePrice && (
+                        <p
+                          id="purchase-error"
+                          className="text-destructive text-sm mt-1">
+                          {validationErrors.purchasePrice}
+                        </p>
+                      )}
+                    </div>
+
+                    <div className="grid gap-2">
+                      <Label htmlFor="create-sales">Sales Price</Label>
+                      <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
+                        <span className="text-muted-foreground">₱</span>
+                        <Input
+                          id="create-sales"
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          value={formData.salesPrice}
+                          onChange={(e) =>
+                            setFormData({
+                              ...formData,
+                              salesPrice: e.target.value,
+                            })
+                          }
+                          placeholder="0.00"
+                          className={`border-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
+                            validationErrors.salesPrice
+                              ? "text-destructive"
+                              : ""
+                          }`}
+                        />
+                      </div>
+                      {validationErrors.salesPrice && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.salesPrice}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Description */}
+                  <div className="grid gap-2">
+                    <Label htmlFor="create-description">Description</Label>
+                    <Textarea
+                      id="create-description"
+                      value={formData.description}
                       onChange={(e) =>
                         setFormData({
                           ...formData,
-                          purchasePrice: e.target.value,
+                          description: e.target.value,
                         })
                       }
-                      placeholder="0.00"
-                      className={`flex-1 border-none focus-visible:ring-0 focus-visible:outline-none ${
-                        validationErrors.purchasePrice
-                          ? "border-destructive"
-                          : ""
-                      }`}
-                      aria-invalid={!!validationErrors.purchasePrice}
-                      aria-describedby="purchase-error"
+                      placeholder="Enter item description..."
+                      className={
+                        validationErrors.description ? "border-destructive" : ""
+                      }
+                      rows={3}
                     />
-                  </div>
-                  {validationErrors.purchasePrice && (
-                    <p
-                      id="purchase-error"
-                      className="text-destructive text-sm mt-1">
-                      {validationErrors.purchasePrice}
-                    </p>
-                  )}
-                </div>
-
-                <div className="flex-1 grid gap-2">
-                  <div className="grid gap-2">
-                    <Label htmlFor="create-sales">Sales Price</Label>
-                    <div className="flex items-center border rounded-md px-3 py-2 focus-within:ring-2 focus-within:ring-ring">
-                      <span className="text-muted-foreground">₱</span>
-                      <Input
-                        id="create-sales"
-                        type="number"
-                        step="0.01"
-                        min="0"
-                        value={formData.salesPrice}
-                        onChange={(e) =>
-                          setFormData({
-                            ...formData,
-                            salesPrice: e.target.value,
-                          })
-                        }
-                        placeholder="0.00"
-                        className={`border-none focus-visible:ring-0 focus-visible:ring-offset-0 ${
-                          validationErrors.salesPrice ? "text-destructive" : ""
-                        }`}
-                      />
-                    </div>
-                    {validationErrors.salesPrice && (
+                    {validationErrors.description && (
                       <p className="text-sm text-destructive">
-                        {validationErrors.salesPrice}
+                        {validationErrors.description}
                       </p>
                     )}
                   </div>
                 </div>
+
+                {/* Right Column: Image Upload */}
+                <div>
+                  <EditItemImageUploader
+                    initialImageUrl={formData.imageUrl ?? ""}
+                    onUpdate={handleImageUpdate}
+                  />
+                </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="create-description">Description</Label>
-                <Textarea
-                  id="create-description"
-                  value={formData.description}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      description: e.target.value,
-                    })
-                  }
-                  placeholder="Enter item description..."
-                  className={
-                    validationErrors.description ? "border-destructive" : ""
-                  }
-                  rows={3}
-                />
-                {validationErrors.description && (
-                  <p className="text-sm text-destructive">
-                    {validationErrors.description}
-                  </p>
-                )}
-              </div>
+
               <div className="flex flex-col gap-4 sm:flex-row sm:gap-6">
                 <div className="flex-1 grid gap-2">
                   <Label htmlFor="create-category">Category</Label>
@@ -1805,52 +1867,56 @@ export default function ItemMaster({ onSuccess }: Props) {
                   )}
                 </div>
               </div>
-              <div className="grid gap-2">
-                <Label htmlFor="create-description">Unit Description</Label>
-                <Textarea
-                  id="create-description"
-                  value={formData.unitDescription}
-                  onChange={(e) =>
-                    setFormData({
-                      ...formData,
-                      unitDescription: e.target.value,
-                    })
-                  }
-                  placeholder="Enter unit description..."
-                  className={
-                    validationErrors.unitDescription ? "border-destructive" : ""
-                  }
-                  rows={3}
-                />
-                {validationErrors.unitDescription && (
-                  <p className="text-sm text-destructive">
-                    {validationErrors.unitDescription}
-                  </p>
-                )}
-              </div>
-              <div className="flex-1 grid gap-2">
-                <Label htmlFor="create-status">Unit Status</Label>
-                <Select
-                  value={formData.unitStatus}
-                  onValueChange={(value: "ACTIVE" | "INACTIVE") =>
-                    setFormData({ ...formData, status: value })
-                  }>
-                  <SelectTrigger
+              <div className="grid grid-cols-2 gap-4">
+                <div className="grid gap-2">
+                  <Label htmlFor="create-description">Unit Description</Label>
+                  <Textarea
+                    id="create-description"
+                    value={formData.unitDescription}
+                    onChange={(e) =>
+                      setFormData({
+                        ...formData,
+                        unitDescription: e.target.value,
+                      })
+                    }
+                    placeholder="Enter unit description..."
                     className={
-                      validationErrors.unitStatus ? "border-destructive" : ""
+                      validationErrors.unitDescription
+                        ? "border-destructive"
+                        : ""
+                    }
+                    rows={3}
+                  />
+                  {validationErrors.unitDescription && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.unitDescription}
+                    </p>
+                  )}
+                </div>
+                <div className="flex-1 grid gap-2">
+                  <Label htmlFor="create-status">Unit Status</Label>
+                  <Select
+                    value={formData.unitStatus}
+                    onValueChange={(value: "ACTIVE" | "INACTIVE") =>
+                      setFormData({ ...formData, status: value })
                     }>
-                    <SelectValue placeholder="Select unit status" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="ACTIVE">ACTIVE</SelectItem>
-                    <SelectItem value="INACTIVE">INACTIVE</SelectItem>
-                  </SelectContent>
-                </Select>
-                {validationErrors.unitStatus && (
-                  <p className="text-sm text-destructive">
-                    {validationErrors.unitStatus}
-                  </p>
-                )}
+                    <SelectTrigger
+                      className={
+                        validationErrors.unitStatus ? "border-destructive" : ""
+                      }>
+                      <SelectValue placeholder="Select unit status" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="ACTIVE">ACTIVE</SelectItem>
+                      <SelectItem value="INACTIVE">INACTIVE</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {validationErrors.unitStatus && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.unitStatus}
+                    </p>
+                  )}
+                </div>
               </div>
             </Card>
           </div>
@@ -1886,110 +1952,120 @@ export default function ItemMaster({ onSuccess }: Props) {
               Update
             </Button>
           </div>
-        </DialogContent>
+        </DialogPanel>
       </Dialog>
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl h-[90vh] overflow-y-auto rounded-xl p-6">
+        <DialogPanel className="max-w-2xl h-[90vh] overflow-y-auto rounded-xl p-6">
           <DialogHeader>
             <DialogTitle>Item Details</DialogTitle>
           </DialogHeader>
           {viewingItem && (
             <div className="grid gap-6 py-4">
-              {/* Image Preview */}
-              <div className="flex flex-col items-center gap-2">
-                {viewingItem.imageUrl?.trim() ? (
-                  <div className="relative w-full h-96 rounded-lg overflow-hidden border shadow-sm group">
-                    <Image
-                      src={viewingItem.imageUrl.trim()}
-                      alt={viewingItem.itemName || "Item image"}
-                      fill
-                      className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      sizes="100vw"
-                      priority
-                    />
-                  </div>
-                ) : (
-                  <div className="relative w-full h-96 rounded-lg overflow-hidden border shadow-sm flex items-center justify-center bg-muted text-muted-foreground text-sm">
-                    No image available
-                  </div>
-                )}
-              </div>
               <Card className="p-4">
-                <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
+                <h4 className="text-m font-bold text-muted-foreground mt-1 text-start">
                   General Info
                 </h4>
                 {/* Item Information */}
 
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Item Code
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {viewingItem.itemCode}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-2">
+                  {/* Left Column: Item Info */}
+                  <div className="grid gap-4">
+                    {/* Item Code & Name */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-xs text-muted-foreground">
+                          Item Code
+                        </Label>
+                        <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                          {viewingItem.itemCode}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-xs text-muted-foreground">
+                          Item Name
+                        </Label>
+                        <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                          {viewingItem.itemName}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Item Name
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {viewingItem.itemName}
-                    </div>
-                  </div>
-                </div>
 
-                <div className="grid gap-4 mt-2">
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Description
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {viewingItem.description}
+                    {/* Description */}
+                    <div className="flex flex-col gap-1">
+                      <Label className="text-xs text-muted-foreground">
+                        Description
+                      </Label>
+                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                        {viewingItem.description}
+                      </div>
                     </div>
-                  </div>
-                </div>
 
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Category
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {viewingItem.category}
+                    {/* Category & Status */}
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-xs text-muted-foreground">
+                          Category
+                        </Label>
+                        <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                          {viewingItem.category}
+                        </div>
+                      </div>
+                      <div className="flex flex-col gap-1">
+                        <Label className="text-xs text-muted-foreground">
+                          Status
+                        </Label>
+                        <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                          {viewingItem.status}
+                        </div>
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Status
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {viewingItem.status}
-                    </div>
-                  </div>
-                </div>
 
-                <h4 className="text-sm font-semibold text-muted-foreground mt-6">
-                  Pricing
-                </h4>
-                <div className="grid grid-cols-2 gap-4 mt-2">
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Purchase Price
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {formatPrice(viewingItem.purchasePrice)}
+                    {/* Pricing */}
+                    <div>
+                      <h4 className="text-sm font-semibold text-muted-foreground mb-2">
+                        Pricing
+                      </h4>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-xs text-muted-foreground">
+                            Purchase Price
+                          </Label>
+                          <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                            {formatPrice(viewingItem.purchasePrice)}
+                          </div>
+                        </div>
+                        <div className="flex flex-col gap-1">
+                          <Label className="text-xs text-muted-foreground">
+                            Sales Price
+                          </Label>
+                          <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                            {formatPrice(viewingItem.salesPrice)}
+                          </div>
+                        </div>
+                      </div>
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Sales Price
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {formatPrice(viewingItem.salesPrice)}
-                    </div>
+
+                  {/* Right Column: Image Preview */}
+                  <div className="flex flex-col items-center gap-2">
+                    {viewingItem.imageUrl?.trim() ? (
+                      <div className="relative w-full h-96 rounded-lg overflow-hidden border shadow-sm group">
+                        <Image
+                          src={viewingItem.imageUrl.trim()}
+                          alt={viewingItem.itemName || "Item image"}
+                          fill
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          sizes="100vw"
+                          priority
+                        />
+                      </div>
+                    ) : (
+                      <div className="relative w-full h-96 rounded-lg overflow-hidden border shadow-sm flex items-center justify-center bg-muted text-muted-foreground text-sm">
+                        No image available
+                      </div>
+                    )}
                   </div>
                 </div>
 
@@ -2029,7 +2105,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                 </div>
               </Card>
               <Card className="p-4">
-                <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
+                <h4 className="text-m font-bold text-muted-foreground mt-1 text-start">
                   Unit of Measure
                 </h4>
                 <div className="grid grid-cols-2 gap-4 mt-2">
@@ -2050,7 +2126,7 @@ export default function ItemMaster({ onSuccess }: Props) {
                     </div>
                   </div>
                 </div>
-                <div className="grid gap-4 mt-2">
+                <div className="grid grid-cols-2 gap-4 mt-2">
                   <div className="flex flex-col gap-1">
                     <Label className="text-xs text-muted-foreground">
                       Unit Description
@@ -2059,13 +2135,13 @@ export default function ItemMaster({ onSuccess }: Props) {
                       {viewingItem.unitDescription}
                     </div>
                   </div>
-                </div>
-                <div className="flex flex-col gap-1">
-                  <Label className="text-xs text-muted-foreground">
-                    Unit Status
-                  </Label>
-                  <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                    {viewingItem.unitStatus}
+                  <div className="flex flex-col gap-1">
+                    <Label className="text-xs text-muted-foreground">
+                      Unit Status
+                    </Label>
+                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      {viewingItem.unitStatus}
+                    </div>
                   </div>
                 </div>
               </Card>
@@ -2078,7 +2154,7 @@ export default function ItemMaster({ onSuccess }: Props) {
               Close
             </Button>
           </div>
-        </DialogContent>
+        </DialogPanel>
       </Dialog>
     </div>
   );
