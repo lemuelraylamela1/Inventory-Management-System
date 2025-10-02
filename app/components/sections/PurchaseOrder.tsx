@@ -107,7 +107,9 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
   const [editingPO, setEditingPO] = useState<PurchaseOrderType | null>(null);
   const [viewingPO, setViewingPO] = useState<PurchaseOrderType | null>(null);
-
+  const [showItemSuggestions, setShowItemSuggestions] = useState<number | null>(
+    null
+  );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [dateFilter, setDateFilter] = useState("");
   const [supplierFilter, setSupplierFilter] = useState("all");
@@ -1276,218 +1278,286 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                     </div>
                   </div>
                 </div>
-                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
-                  {/* Header Row */}
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Item Code
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Item Name
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Qty
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    UOM
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Purchase Price
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Amount
-                  </div>
-                  <div className="text-center"></div> {/* Trash icon column */}
-                </div>
+                {formData.supplierName && formData.warehouse && (
+                  <>
+                    <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
+                      {/* Header Row */}
+                      <div className="text-xs font-semibold uppercase text-center">
+                        Item Code
+                      </div>
+                      <div className="text-xs font-semibold uppercase text-center">
+                        Item Name
+                      </div>
+                      <div className="text-xs font-semibold uppercase text-center">
+                        Qty
+                      </div>
+                      <div className="text-xs font-semibold uppercase text-center">
+                        UOM
+                      </div>
+                      <div className="text-xs font-semibold uppercase text-center">
+                        Purchase Price
+                      </div>
+                      <div className="text-xs font-semibold uppercase text-center">
+                        Amount
+                      </div>
+                      <div className="text-center"></div>{" "}
+                      {/* Trash icon column */}
+                    </div>
 
-                {itemsData.map((item, index) => (
-                  <div
-                    key={index}
-                    className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
-                    {/* Item Code */}
-                    <input
-                      type="text"
-                      value={item.itemCode || ""}
-                      readOnly
-                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                    />
-                    {/* Item Name */}
-                    <Select
-                      value={item.itemName}
-                      onValueChange={(value) => {
-                        const normalized = value.toUpperCase().trim();
-                        const selected = items.find(
-                          (option) =>
-                            option.itemName?.toUpperCase().trim() === normalized
-                        );
-                        if (!selected) return;
+                    {itemsData.map((item, index) => (
+                      <div
+                        key={index}
+                        className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
+                        {/* Item Code */}
+                        <input
+                          type="text"
+                          value={item.itemCode || ""}
+                          readOnly
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                        />
+                        {/* Item Name */}
+                        <div className="relative w-full">
+                          <input
+                            id={`item-name-${index}`}
+                            type="text"
+                            autoComplete="off"
+                            value={item.itemName || ""}
+                            onClick={() => setShowItemSuggestions(index)}
+                            onBlur={() =>
+                              setTimeout(
+                                () => setShowItemSuggestions(null),
+                                200
+                              )
+                            }
+                            onChange={(e) => {
+                              const value = e.target.value.toUpperCase().trim();
 
-                        // ✅ Update itemsData
-                        setItemsData((prev) => {
-                          const updated = [...prev];
-                          updated[index] = {
-                            ...updated[index],
-                            itemName: normalized,
-                            itemCode: selected.itemCode || "",
-                            unitType: selected.unitType || "",
-                            purchasePrice: selected.purchasePrice || 0,
-                          };
-                          return updated;
-                        });
+                              setItemsData((prev) => {
+                                const updated = [...prev];
+                                updated[index] = {
+                                  ...updated[index],
+                                  itemName: value,
+                                };
+                                return updated;
+                              });
 
-                        // ✅ Sync to formData.items[index]
-                        setFormData((prev) => {
-                          const updatedItems = [...prev.items];
-                          updatedItems[index] = {
-                            ...updatedItems[index],
-                            itemName: normalized,
-                            itemCode: selected.itemCode || "",
-                            unitType: selected.unitType || "",
-                            purchasePrice: selected.purchasePrice || 0,
-                            quantity: updatedItems[index]?.quantity || 1, // fallback
-                          };
-                          return {
-                            ...prev,
-                            items: updatedItems,
-                          };
-                        });
-                      }}>
-                      <SelectTrigger
-                        id={`item-name-${index}`}
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 uppercase focus:outline-none focus:ring-1 focus:ring-primary">
-                        {item.itemName || "Select Item"}
-                      </SelectTrigger>
+                              setFormData((prev) => {
+                                const updatedItems = [...prev.items];
+                                updatedItems[index] = {
+                                  ...updatedItems[index],
+                                  itemName: value,
+                                };
+                                return { ...prev, items: updatedItems };
+                              });
 
-                      <SelectContent>
-                        {items.length > 0 ? (
-                          items.map((option) => {
-                            const label =
-                              option.itemName?.trim() || "Unnamed Item";
-                            return (
-                              <SelectItem
-                                key={option._id || label}
-                                value={label.toUpperCase()}>
-                                {label}
-                              </SelectItem>
-                            );
-                          })
-                        ) : (
-                          <SelectItem disabled value="no-items">
-                            No items available
-                          </SelectItem>
-                        )}
-                      </SelectContent>
-                    </Select>
+                              setShowItemSuggestions(index);
+                            }}
+                            placeholder="Search item name"
+                            className="text-sm uppercase w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8"
+                          />
 
-                    {/* Quantity */}
-                    <input
-                      type="number"
-                      min={1}
-                      value={item.quantity}
-                      onChange={(e) => {
-                        const value = Number(e.target.value);
+                          {/* Magnifying Glass Icon */}
+                          <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 text-muted-foreground"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                              />
+                            </svg>
+                          </div>
 
-                        // ✅ Update itemsData
-                        setItemsData((prev) => {
-                          const updated = [...prev];
-                          updated[index].quantity = value;
-                          return updated;
-                        });
+                          {/* Live Suggestions */}
+                          {showItemSuggestions === index && (
+                            <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                              {items
+                                .filter((option) =>
+                                  option.itemName
+                                    ?.trim()
+                                    .toUpperCase()
+                                    .includes(
+                                      item.itemName?.toUpperCase() || ""
+                                    )
+                                )
+                                .map((option) => {
+                                  const normalized = option.itemName
+                                    ?.trim()
+                                    .toUpperCase();
+                                  return (
+                                    <li
+                                      key={option._id || normalized}
+                                      className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                      onClick={() => {
+                                        setItemsData((prev) => {
+                                          const updated = [...prev];
+                                          updated[index] = {
+                                            ...updated[index],
+                                            itemName: normalized,
+                                            itemCode: option.itemCode || "",
+                                            unitType: option.unitType || "",
+                                            purchasePrice:
+                                              option.purchasePrice || 0,
+                                          };
+                                          return updated;
+                                        });
 
-                        // ✅ Sync to formData.items
-                        setFormData((prev) => {
-                          const updatedItems = [...prev.items];
-                          updatedItems[index] = {
-                            ...updatedItems[index],
-                            quantity: value,
-                          };
-                          return {
-                            ...prev,
-                            items: updatedItems,
-                          };
-                        });
-                      }}
-                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
-                    />
+                                        setFormData((prev) => {
+                                          const updatedItems = [...prev.items];
+                                          updatedItems[index] = {
+                                            ...updatedItems[index],
+                                            itemName: normalized,
+                                            itemCode: option.itemCode || "",
+                                            unitType: option.unitType || "",
+                                            purchasePrice:
+                                              option.purchasePrice || 0,
+                                            quantity:
+                                              updatedItems[index]?.quantity ||
+                                              1,
+                                          };
+                                          return {
+                                            ...prev,
+                                            items: updatedItems,
+                                          };
+                                        });
 
-                    {/* Unit Type */}
-                    <input
-                      type="text"
-                      value={item.unitType || ""}
-                      readOnly
-                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                    />
+                                        setShowItemSuggestions(null);
+                                      }}>
+                                      {normalized}
+                                    </li>
+                                  );
+                                })}
+                              {items.filter((option) =>
+                                option.itemName
+                                  ?.trim()
+                                  .toUpperCase()
+                                  .includes(item.itemName?.toUpperCase() || "")
+                              ).length === 0 && (
+                                <li className="px-3 py-2 text-muted-foreground">
+                                  No matching items found
+                                </li>
+                              )}
+                            </ul>
+                          )}
+                        </div>
 
-                    {/* Purchase Price */}
-                    <input
-                      type="text"
-                      value={
-                        item.purchasePrice !== undefined
-                          ? item.purchasePrice.toLocaleString("en-PH", {
-                              style: "currency",
-                              currency: "PHP",
-                            })
-                          : ""
-                      }
-                      readOnly
-                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                    />
+                        {/* Quantity */}
+                        <input
+                          type="number"
+                          min={1}
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const value = Number(e.target.value);
 
-                    {/* Amount */}
-                    <input
-                      type="text"
-                      value={
-                        item.purchasePrice && item.quantity
-                          ? (item.purchasePrice * item.quantity).toLocaleString(
-                              "en-PH",
-                              {
-                                style: "currency",
-                                currency: "PHP",
-                              }
-                            )
-                          : ""
-                      }
-                      readOnly
-                      className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                    />
+                            // ✅ Update itemsData
+                            setItemsData((prev) => {
+                              const updated = [...prev];
+                              updated[index].quantity = value;
+                              return updated;
+                            });
 
-                    {/* Trash Button */}
-                    <Button
-                      variant="destructive"
-                      className="w-full h-[32px] px-1 text-xs border border-border bg-red-50 hover:bg-red-100 text-red-700 rounded transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus:ring-1 focus:ring-red-400 flex items-center justify-center"
-                      onClick={() => handleRemoveItem(index)}
-                      title="Remove item">
-                      <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
-                    </Button>
-                  </div>
-                ))}
-                <div className="flex w-full justify-end mt-4 gap-6">
-                  {/* Total Quantity */}
-                  <div className="flex items-center gap-2 min-w-[180px]">
-                    <span className="text-sm font-medium">Total Qty:</span>
-                    <input
-                      type="text"
-                      id="total-quantity"
-                      value={formData.totalQuantity}
-                      readOnly
-                      disabled
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
-                    />
-                  </div>
+                            // ✅ Sync to formData.items
+                            setFormData((prev) => {
+                              const updatedItems = [...prev.items];
+                              updatedItems[index] = {
+                                ...updatedItems[index],
+                                quantity: value,
+                              };
+                              return {
+                                ...prev,
+                                items: updatedItems,
+                              };
+                            });
+                          }}
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
 
-                  {/* Total Amount */}
-                  <div className="flex items-center gap-2 min-w-[180px]">
-                    <span className="text-sm font-medium">Total Amount:</span>
-                    <input
-                      type="text"
-                      id="total-amount"
-                      value={formattedTotal}
-                      readOnly
-                      disabled
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
-                    />
-                  </div>
-                </div>
+                        {/* Unit Type */}
+                        <input
+                          type="text"
+                          value={item.unitType || ""}
+                          readOnly
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                        />
 
+                        {/* Purchase Price */}
+                        <input
+                          type="text"
+                          value={
+                            item.purchasePrice !== undefined
+                              ? item.purchasePrice.toLocaleString("en-PH", {
+                                  style: "currency",
+                                  currency: "PHP",
+                                })
+                              : ""
+                          }
+                          readOnly
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                        />
+
+                        {/* Amount */}
+                        <input
+                          type="text"
+                          value={
+                            item.purchasePrice && item.quantity
+                              ? (
+                                  item.purchasePrice * item.quantity
+                                ).toLocaleString("en-PH", {
+                                  style: "currency",
+                                  currency: "PHP",
+                                })
+                              : ""
+                          }
+                          readOnly
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                        />
+
+                        {/* Trash Button */}
+                        <Button
+                          variant="destructive"
+                          className="w-full h-[32px] px-1 text-xs border border-border bg-red-50 hover:bg-red-100 text-red-700 rounded transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus:ring-1 focus:ring-red-400 flex items-center justify-center"
+                          onClick={() => handleRemoveItem(index)}
+                          title="Remove item">
+                          <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
+                        </Button>
+                      </div>
+                    ))}
+                    <div className="flex w-full justify-end mt-4 gap-6">
+                      {/* Total Quantity */}
+                      <div className="flex items-center gap-2 min-w-[180px]">
+                        <span className="text-sm font-medium">Total Qty:</span>
+                        <input
+                          type="text"
+                          id="total-quantity"
+                          value={formData.totalQuantity}
+                          readOnly
+                          disabled
+                          className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
+                        />
+                      </div>
+
+                      {/* Total Amount */}
+                      <div className="flex items-center gap-2 min-w-[180px]">
+                        <span className="text-sm font-medium">
+                          Total Amount:
+                        </span>
+                        <input
+                          type="text"
+                          id="total-amount"
+                          value={formattedTotal}
+                          readOnly
+                          disabled
+                          className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
+                        />
+                      </div>
+                    </div>
+                  </>
+                )}
                 {/* Footer Actions */}
                 <DialogFooter className="pt-4 border-t">
                   <div className="flex w-full justify-between items-center">

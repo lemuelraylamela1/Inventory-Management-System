@@ -136,14 +136,16 @@ export default function InventoryTracker() {
   }, [inventoryItems, selectedWarehouse, searchTerm]);
 
   const paginatedData = useMemo(() => {
-    const sorted = [...filteredData].sort((a, b) => {
-      const aTime = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const bTime = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return bTime - aTime; // latest first
+    const sortedByDateDesc = [...filteredData].sort((a, b) => {
+      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
+      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
+      return timeB - timeA; // Descending: latest first
     });
 
-    const start = Math.max((currentPage - 1) * rowsPerPage, 0);
-    return sorted.slice(start, start + rowsPerPage);
+    const startIndex = Math.max((currentPage - 1) * rowsPerPage, 0);
+    const endIndex = startIndex + rowsPerPage;
+
+    return sortedByDateDesc.slice(startIndex, endIndex);
   }, [filteredData, currentPage, rowsPerPage]);
 
   const sortedPaginatedData = paginatedData.filter(Boolean).sort((a, b) => {
