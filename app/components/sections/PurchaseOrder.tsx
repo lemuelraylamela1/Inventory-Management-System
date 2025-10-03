@@ -115,7 +115,9 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [filteredPOs, setFilteredPOs] = useState<PurchaseOrderType[]>([]);
-
+  const [showSupplierSuggestions, setShowSupplierSuggestions] = useState(false);
+  const [showWarehouseSuggestions, setShowWarehouseSuggestions] =
+    useState(false);
   const [suppliers, setSuppliers] = useState<SupplierType[]>([]);
   const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
   const [items, setItems] = useState<ItemType[]>([]);
@@ -1143,50 +1145,89 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                         <Label htmlFor="create-supplier-name">
                           Supplier Name
                         </Label>
-                        <Select
-                          value={formData.supplierName}
-                          onValueChange={(value) => {
-                            const normalized = value.toUpperCase().trim();
-                            setFormData((prev) => ({
-                              ...prev,
-                              supplierName: normalized,
-                            }));
-                            setValidationErrors((prev) => ({
-                              ...prev,
-                              supplierName: "",
-                            }));
-                          }}>
-                          <SelectTrigger
-                            className={`text-sm uppercase w-full ${
+
+                        <div className="relative">
+                          <Input
+                            id="create-supplier-name"
+                            type="text"
+                            autoComplete="off"
+                            value={formData.supplierName || ""}
+                            onClick={() => setShowSupplierSuggestions(true)}
+                            onChange={(e) => {
+                              const value = e.target.value.toUpperCase(); // ✅ no .trim()
+                              setFormData((prev) => ({
+                                ...prev,
+                                supplierName: value,
+                              }));
+                              setValidationErrors((prev) => ({
+                                ...prev,
+                                supplierName: "",
+                              }));
+                              setShowSupplierSuggestions(true);
+                            }}
+                            onBlur={() =>
+                              setTimeout(
+                                () => setShowSupplierSuggestions(false),
+                                200
+                              )
+                            }
+                            placeholder="Search supplier name"
+                            className={`text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
                               validationErrors.supplierName
                                 ? "border-destructive"
                                 : ""
-                            }`}>
-                            {formData.supplierName || "Select Supplier"}
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.isArray(suppliers) &&
-                            suppliers.length > 0 ? (
-                              suppliers.map((supplier) => {
-                                const label =
-                                  supplier.supplierName?.trim() ||
-                                  "Unnamed Supplier";
-                                const value = label.toUpperCase();
-                                return (
-                                  <SelectItem
-                                    key={supplier._id || value}
-                                    value={value}>
-                                    {label}
-                                  </SelectItem>
+                            }`}
+                          />
+
+                          {/* Suggestions Dropdown */}
+                          {showSupplierSuggestions && (
+                            <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                              {(() => {
+                                const input =
+                                  formData.supplierName?.trim().toUpperCase() ||
+                                  "";
+                                const filtered = suppliers.filter(
+                                  (supplier) => {
+                                    const label =
+                                      supplier.supplierName
+                                        ?.trim()
+                                        .toUpperCase() || "";
+                                    return (
+                                      input === "" || label.includes(input)
+                                    );
+                                  }
                                 );
-                              })
-                            ) : (
-                              <SelectItem disabled value="no-suppliers">
-                                No suppliers available
-                              </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
+
+                                return filtered.length > 0 ? (
+                                  filtered.map((supplier) => {
+                                    const label =
+                                      supplier.supplierName?.trim() ||
+                                      "Unnamed Supplier";
+                                    const value = label.toUpperCase();
+                                    return (
+                                      <li
+                                        key={supplier._id || value}
+                                        className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                        onClick={() => {
+                                          setFormData((prev) => ({
+                                            ...prev,
+                                            supplierName: value,
+                                          }));
+                                          setShowSupplierSuggestions(false);
+                                        }}>
+                                        {label}
+                                      </li>
+                                    );
+                                  })
+                                ) : (
+                                  <li className="px-3 py-2 text-muted-foreground">
+                                    No matching supplier found
+                                  </li>
+                                );
+                              })()}
+                            </ul>
+                          )}
+                        </div>
                         {validationErrors.supplierName && (
                           <p className="text-sm text-destructive">
                             {validationErrors.supplierName}
@@ -1197,49 +1238,88 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       {/* Warehouse */}
                       <div className="flex flex-col flex-1 min-w-[200px]">
                         <Label htmlFor="create-warehouse">Warehouse</Label>
-                        <Select
-                          value={formData.warehouse}
-                          onValueChange={(value) => {
-                            const normalized = value.toUpperCase().trim();
-                            setFormData((prev) => ({
-                              ...prev,
-                              warehouse: normalized,
-                            }));
-                            setValidationErrors((prev) => ({
-                              ...prev,
-                              warehouse: "",
-                            }));
-                          }}>
-                          <SelectTrigger
-                            className={`text-sm uppercase w-full ${
+                        <div className="relative">
+                          <Input
+                            id="create-warehouse"
+                            type="text"
+                            autoComplete="off"
+                            value={formData.warehouse || ""}
+                            onClick={() => setShowWarehouseSuggestions(true)}
+                            onChange={(e) => {
+                              const value = e.target.value.toUpperCase(); // ✅ no .trim()
+                              setFormData((prev) => ({
+                                ...prev,
+                                warehouse: value,
+                              }));
+                              setValidationErrors((prev) => ({
+                                ...prev,
+                                warehouse: "",
+                              }));
+                              setShowWarehouseSuggestions(true);
+                            }}
+                            onBlur={() =>
+                              setTimeout(
+                                () => setShowWarehouseSuggestions(false),
+                                200
+                              )
+                            }
+                            placeholder="Search warehouse"
+                            className={`text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
                               validationErrors.warehouse
                                 ? "border-destructive"
                                 : ""
-                            }`}>
-                            {formData.warehouse || "Select Warehouse"}
-                          </SelectTrigger>
-                          <SelectContent>
-                            {Array.isArray(warehouses) &&
-                            warehouses.length > 0 ? (
-                              warehouses.map((warehouse) => {
-                                const label =
-                                  warehouse.warehouse_name?.trim() ||
-                                  "Unnamed Warehouse";
-                                return (
-                                  <SelectItem
-                                    key={warehouse._id || label}
-                                    value={label.toUpperCase()}>
-                                    {label}
-                                  </SelectItem>
+                            }`}
+                          />
+
+                          {/* Suggestions Dropdown */}
+                          {showWarehouseSuggestions && (
+                            <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                              {(() => {
+                                const input =
+                                  formData.warehouse?.trim().toUpperCase() ||
+                                  "";
+                                const filtered = warehouses.filter(
+                                  (warehouse) => {
+                                    const label =
+                                      warehouse.warehouse_name
+                                        ?.trim()
+                                        .toUpperCase() || "";
+                                    return (
+                                      input === "" || label.includes(input)
+                                    );
+                                  }
                                 );
-                              })
-                            ) : (
-                              <SelectItem disabled value="no-warehouses">
-                                No warehouses available
-                              </SelectItem>
-                            )}
-                          </SelectContent>
-                        </Select>
+
+                                return filtered.length > 0 ? (
+                                  filtered.map((warehouse) => {
+                                    const label =
+                                      warehouse.warehouse_name?.trim() ||
+                                      "Unnamed Warehouse";
+                                    const value = label.toUpperCase();
+                                    return (
+                                      <li
+                                        key={warehouse._id || value}
+                                        className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                        onClick={() => {
+                                          setFormData((prev) => ({
+                                            ...prev,
+                                            warehouse: value,
+                                          }));
+                                          setShowWarehouseSuggestions(false);
+                                        }}>
+                                        {label}
+                                      </li>
+                                    );
+                                  })
+                                ) : (
+                                  <li className="px-3 py-2 text-muted-foreground">
+                                    No matching warehouse found
+                                  </li>
+                                );
+                              })()}
+                            </ul>
+                          )}
+                        </div>
                         {validationErrors.warehouse && (
                           <p className="text-sm text-destructive">
                             {validationErrors.warehouse}
