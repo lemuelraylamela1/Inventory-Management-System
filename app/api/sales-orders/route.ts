@@ -1,30 +1,44 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectMongoDB from "@/libs/mongodb";
 import SalesOrderModel from "@/models/salesOrder";
+import type {
+  SalesOrderItem,
+  SalesOrder,
+} from "../../components/sections/type";
 
-export async function GET() {
-  await connectMongoDB();
-
-  const orders = await SalesOrderModel.find().sort({ creationDate: -1 });
-  return NextResponse.json({ salesOrders: orders });
-}
+type SalesOrderInput = Omit<
+  SalesOrder,
+  "_id" | "soNumber" | "createdAt" | "updatedAt"
+>;
 
 export async function POST(request: NextRequest) {
-  const body = await request.json();
+  const {
+    customer,
+    salesPerson,
+    warehouse,
+    transactionDate,
+    deliveryDate,
+    shippingAddress,
+    notes,
+    status,
+    items,
+    total,
+    totalQuantity,
+    balance,
+    creationDate,
+  }: SalesOrderInput = await request.json();
 
-  const { customer, amount, status, creationDate, transactionDate, remarks } =
-    body;
+  const invalidItem = items.find(
+    (item: SalesOrderItem) =>
+      !item.itemName ||
+      typeof item.quantity !== "number" ||
+      typeof item.price !== "number" ||
+      typeof item.amount !== "number"
+  );
 
-  // Defensive validation aligned with schema
-  if (
-    !customer ||
-    typeof amount !== "number" ||
-    !["PENDING", "PARTIAL", "COMPLETED", "CANCELLED"].includes(status) ||
-    !creationDate ||
-    !transactionDate
-  ) {
+  if (invalidItem) {
     return NextResponse.json(
-      { message: "Missing or invalid fields" },
+      { message: "Invalid item details" },
       { status: 400 }
     );
   }
@@ -33,12 +47,19 @@ export async function POST(request: NextRequest) {
 
   try {
     const newOrder = await SalesOrderModel.create({
-      customer,
-      amount,
-      status,
-      creationDate,
+      customer: customer.trim().toUpperCase(),
+      salesPerson: salesPerson.trim().toUpperCase(),
+      warehouse: warehouse.trim().toUpperCase(),
       transactionDate,
-      remarks,
+      deliveryDate,
+      shippingAddress: shippingAddress?.trim() || "",
+      notes: notes?.trim() || "",
+      status,
+      items,
+      total,
+      totalQuantity,
+      balance,
+      creationDate,
     });
 
     return NextResponse.json(
@@ -52,4 +73,11 @@ export async function POST(request: NextRequest) {
       { status: 500 }
     );
   }
+}
+
+export async function GET() {
+  await connectMongoDB();
+
+  const orders = await SalesOrderModel.find().sort({ createdAt: -1 });
+  return NextResponse.json({ salesOrders: orders });
 }

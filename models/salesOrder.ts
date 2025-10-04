@@ -1,18 +1,51 @@
 import mongoose from "mongoose";
 
-export type SalesOrderStatus =
-  | "PENDING"
-  | "PARTIAL"
-  | "COMPLETED"
-  | "CANCELLED";
+const ItemSchema = new mongoose.Schema(
+  {
+    itemName: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+    description: {
+      type: String,
+      trim: true,
+    },
+    quantity: {
+      type: Number,
+      required: true,
+      min: 1,
+    },
+    unitType: {
+      type: String,
+      trim: true,
+      uppercase: true,
+    },
+    price: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    amount: {
+      type: Number,
+      required: true,
+      min: 0,
+    },
+    itemCode: {
+      type: String,
+      trim: true,
+      uppercase: true,
+    },
+  },
+  { _id: true } // ✅ mutation tracking
+);
 
 const SalesOrderSchema = new mongoose.Schema(
   {
     soNumber: {
       type: String,
       unique: true,
-      trim: true,
-      uppercase: true,
     },
     customer: {
       type: String,
@@ -20,28 +53,60 @@ const SalesOrderSchema = new mongoose.Schema(
       trim: true,
       uppercase: true,
     },
-    amount: {
-      type: Number,
+    salesPerson: {
+      type: String,
       required: true,
-      min: 0,
+      trim: true,
+      uppercase: true,
+    },
+    warehouse: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+    transactionDate: {
+      type: String,
+      default: () => new Date().toISOString().split("T")[0],
+    },
+    deliveryDate: {
+      type: String,
+      trim: true,
+    },
+    shippingAddress: {
+      type: String,
+      trim: true,
+    },
+    notes: {
+      type: String,
+      trim: true,
     },
     status: {
       type: String,
       enum: ["PENDING", "PARTIAL", "COMPLETED", "CANCELLED"],
       default: "PENDING",
-      uppercase: true,
     },
-    creationDate: {
-      type: Date,
-      required: true,
+    items: {
+      type: [ItemSchema],
+      validate: {
+        validator: function (val: { itemName: string }[]) {
+          const so = this as mongoose.Document & { status?: string };
+          return so.status === "CANCELLED" || val.length > 0;
+        },
+        message: "At least one item is required unless SO is cancelled",
+      },
     },
-    transactionDate: {
-      type: Date,
-      required: true,
+    total: {
+      type: Number,
+      default: 0,
     },
-    remarks: {
-      type: String,
-      trim: true,
+    totalQuantity: {
+      type: Number,
+      default: 0,
+    },
+    balance: {
+      type: Number,
+      default: 0,
     },
   },
   { timestamps: true }

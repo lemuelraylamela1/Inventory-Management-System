@@ -230,19 +230,33 @@ export type InventoryType = {
   updatedAt?: Date;
 };
 
+export type SalesOrderItem = {
+  _id: string;
+  itemName: string;
+  description?: string;
+  quantity: number;
+  unitType: string;
+  price: number;
+  amount: number;
+  itemCode?: string;
+};
+
 export type SalesOrder = {
   _id: string;
   soNumber: string;
   customer: string;
-  amount: number;
-  status: "PENDING" | "PARTIAL" | "COMPLETED" | "CANCELLED";
-  creationDate: string; // ISO date string
+  salesPerson: string;
+  warehouse: string;
   transactionDate: string; // ISO date string
-  remarks?: string;
+  deliveryDate?: string; // ISO date string
   shippingAddress?: string;
-  contactPerson?: string;
-  contactPhone?: string;
-  contactEmail?: string;
+  notes?: string;
+  status: "PENDING" | "PARTIAL" | "COMPLETED" | "CANCELLED";
+  items: SalesOrderItem[];
+  total: number;
+  totalQuantity: number;
+  balance: number;
+  creationDate: string; // ISO date string
   createdAt?: string;
   updatedAt?: string;
 };
