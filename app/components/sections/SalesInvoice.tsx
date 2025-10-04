@@ -414,6 +414,6 @@
 //   );
 // }
 
-export function Sales() {
+export default function SalesInvoice() {
   return <h1>Sales</h1>;
 }

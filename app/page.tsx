@@ -5,7 +5,8 @@ import { LoginForm } from "./components/LoginForm";
 import { Sidebar } from "./components/Sidebar";
 import { Header } from "./components/Header";
 import { Dashboard } from "./components/sections/Dashboard";
-import { Sales } from "./components/sections/Sales";
+import SalesInvoice from "./components/sections/SalesInvoice";
+import SalesOrder from "./components/sections/SalesOrder";
 import { UserManagement } from "./components/sections/UserManagement";
 import { GenericSection } from "./components/sections/GenericSection";
 import { Toaster } from "./components/ui/sonner";
@@ -52,24 +53,6 @@ export default function App() {
     switch (activeSection) {
       case "dashboard":
         return <Dashboard />;
-      case "sales":
-        return <Sales />;
-      case "purchase":
-        return (
-          <GenericSection
-            title="Purchase Management"
-            description="Manage supplier orders and purchase transactions"
-            showImportExport={true}
-          />
-        );
-      case "inventory":
-        return (
-          <GenericSection
-            title="Inventory Management"
-            description="Track stock levels, movements, and warehouse operations"
-            showImportExport={true}
-          />
-        );
       case "reports":
         return (
           <GenericSection
@@ -105,6 +88,10 @@ export default function App() {
         return <PurchaseReceipt />;
       case "purchase-return":
         return <PurchaseReturn />;
+      case "sales-order":
+        return <SalesOrder />;
+      case "sales-invoice":
+        return <SalesInvoice />;
       case "sales-person":
         return <SalesPerson />;
       case "supplier":

@@ -532,9 +532,11 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       return;
     }
 
+    // Normalize items using editable quantities
     const normalizedItems = Array.isArray(formData.items)
-      ? formData.items.map((item) => {
-          const quantity = Math.max(Number(item.quantity) || 1, 1);
+      ? formData.items.map((item, index) => {
+          const rawQty = editableItems?.[index];
+          const quantity = Math.max(Number(rawQty) || 1, 1);
           const purchasePrice = Number(item.purchasePrice) || 0;
 
           return {
@@ -547,6 +549,12 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
           };
         })
       : [];
+
+    if (normalizedItems.length === 0) {
+      console.error("❌ No items to update. Aborting.");
+      alert("No items found in the receipt.");
+      return;
+    }
 
     const totalAmount = normalizedItems.reduce(
       (sum, item) => sum + item.amount,
@@ -561,7 +569,6 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       prNumber: formData.prNumber?.trim().toUpperCase() || "",
       supplierInvoiceNum:
         formData.supplierInvoiceNum?.trim().toUpperCase() || "",
-
       poNumber: Array.isArray(formData.poNumber)
         ? formData.poNumber.map((po) => po.trim().toUpperCase())
         : [],
@@ -581,14 +588,20 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       });
 
       console.log("📡 Response status:", res.status);
-      const updatedReceipt: PurchaseReceiptType = await res.json();
-      console.log("✅ Parsed updated receipt:", updatedReceipt);
+      const result = await res.json();
 
       if (!res.ok) {
-        console.error("❌ Update failed:", res.status, updatedReceipt);
-        alert(`Update failed: ${updatedReceipt}`);
+        const errorMessage =
+          typeof result?.error === "string"
+            ? result.error
+            : "Unknown error occurred during update.";
+        console.error("❌ Update failed:", res.status, result);
+        alert(`Update failed: ${errorMessage}`);
         return;
       }
+
+      const updatedReceipt = result as PurchaseReceiptType;
+      console.log("✅ Parsed updated receipt:", updatedReceipt);
 
       setPurchaseReceipts((prev) =>
         prev.map((r) =>

@@ -69,33 +69,56 @@ export async function PUT(
     }
 
     const body = await request.json();
+
+    // Normalize PO numbers
     const poNumbers = normalizePoNumbers(body.poNumber);
-    const purchaseOrders = await PurchaseOrder.find({
-      poNumber: { $in: poNumbers },
-    });
 
-    if (purchaseOrders.length === 0) {
-      return errorResponse("No matching purchase orders found", 404);
+    // Optional PO lookup for supplier/warehouse fallback
+    let supplierName = "UNKNOWN";
+    let warehouse = "UNKNOWN";
+
+    if (poNumbers.length > 0) {
+      const purchaseOrders = await PurchaseOrder.find({
+        poNumber: { $in: poNumbers },
+      });
+
+      if (purchaseOrders.length > 0) {
+        supplierName =
+          normalizeText(purchaseOrders[0]?.supplierName) || "UNKNOWN";
+        warehouse = normalizeText(purchaseOrders[0]?.warehouse) || "UNKNOWN";
+      }
     }
 
-    const editableItems = extractEditableItems(purchaseOrders);
-    if (editableItems.length === 0) {
-      return errorResponse("No editable items found in selected POs", 400);
+    // Normalize items from payload
+    const normalizedItems = Array.isArray(body.items)
+      ? body.items.map((item: PurchaseOrderItem) => ({
+          itemCode: normalizeText(item.itemCode),
+          itemName: normalizeText(item.itemName),
+          quantity: Math.max(Number(item.quantity) || 1, 1),
+          unitType: normalizeText(item.unitType),
+          purchasePrice: Number(item.purchasePrice) || 0,
+          amount: Number(item.amount) || 0,
+        }))
+      : [];
+
+    if (normalizedItems.length === 0) {
+      return errorResponse("No items provided", 400);
     }
 
-    const amount = calculateTotalAmount(editableItems);
+    const amount = calculateTotalAmount(normalizedItems);
+
+    // Update receipt
     const updated = await PurchaseReceipt.findByIdAndUpdate(
       id,
       {
         supplierInvoiceNum: normalizeText(body.supplierInvoiceNum),
         poNumber: poNumbers,
-        supplierName:
-          normalizeText(purchaseOrders[0]?.supplierName) || "UNKNOWN",
-        warehouse: normalizeText(purchaseOrders[0]?.warehouse) || "UNKNOWN",
+        supplierName,
+        warehouse,
         amount,
         remarks: body.remarks?.trim() || "",
         status: normalizeStatus(body.status),
-        items: editableItems,
+        items: normalizedItems,
       },
       { new: true }
     );
