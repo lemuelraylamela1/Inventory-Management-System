@@ -229,3 +229,20 @@ export type InventoryType = {
   createdAt?: Date;
   updatedAt?: Date;
 };
+
+export type SalesOrder = {
+  _id: string;
+  soNumber: string;
+  customer: string;
+  amount: number;
+  status: "PENDING" | "PARTIAL" | "COMPLETED" | "CANCELLED";
+  creationDate: string; // ISO date string
+  transactionDate: string; // ISO date string
+  remarks?: string;
+  shippingAddress?: string;
+  contactPerson?: string;
+  contactPhone?: string;
+  contactEmail?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
