@@ -501,7 +501,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     };
 
     setFormData(normalizedFormData);
-    setSelectedIds(Array(editableItems.length).fill(true)); // default to all selected
+    // setSelectedIds(Array(editableItems.length).fill(true)); // default to all selected
     setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(true);
   };

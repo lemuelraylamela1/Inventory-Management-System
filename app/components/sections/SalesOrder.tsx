@@ -564,7 +564,7 @@ export default function SalesOrder({ onSuccess }: Props) {
     };
 
     setFormData(normalizedFormData);
-    setSelectedIds(Array(editableItems.length).fill(true)); // default to all selected
+    // setSelectedIds(Array(editableItems.length).fill(true)); // default to all selected
     setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(true);
   };
@@ -1238,7 +1238,6 @@ export default function SalesOrder({ onSuccess }: Props) {
                     </div>
 
                     <div className="flex flex-row flex-wrap gap-4">
-                      {/* Supplier Name */}
                       {/* Customer Name */}
                       <div className="flex flex-col flex-1 min-w-[200px]">
                         <Label htmlFor="create-customer-name">
@@ -1253,10 +1252,11 @@ export default function SalesOrder({ onSuccess }: Props) {
                             value={formData.customer || ""}
                             onClick={() => setShowCustomerSuggestions(true)}
                             onChange={(e) => {
-                              const value = e.target.value.toUpperCase(); // ✅ no .trim()
+                              const value = e.target.value.toUpperCase();
                               setFormData((prev) => ({
                                 ...prev,
                                 customer: value,
+                                salesPerson: "", // 🔁 Clear sales person on manual input
                               }));
                               setValidationErrors((prev) => ({
                                 ...prev,
@@ -1302,6 +1302,9 @@ export default function SalesOrder({ onSuccess }: Props) {
                                       customer.customerName?.trim() ||
                                       "Unnamed Customer";
                                     const value = label.toUpperCase();
+                                    const salesPerson =
+                                      customer.salesAgent?.trim() || "";
+
                                     return (
                                       <li
                                         key={customer._id || value}
@@ -1310,6 +1313,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                                           setFormData((prev) => ({
                                             ...prev,
                                             customer: value,
+                                            salesPerson, // ✅ Auto-fill sales person
                                           }));
                                           setShowCustomerSuggestions(false);
                                         }}>
@@ -1334,6 +1338,19 @@ export default function SalesOrder({ onSuccess }: Props) {
                         )}
                       </div>
 
+                      {/* ✅ Sales Person Field */}
+                      <div className="flex flex-col flex-1 min-w-[200px]">
+                        <Label htmlFor="sales-person">Sales Person</Label>
+                        <Input
+                          id="sales-person"
+                          type="text"
+                          value={formData.salesPerson || ""}
+                          readOnly
+                          className="text-sm w-full px-2 py-1 border border-border bg-muted text-muted-foreground"
+                        />
+                      </div>
+                    </div>
+                    <div className="flex flex-row flex-wrap gap-4">
                       {/* Warehouse */}
                       <div className="flex flex-col flex-1 min-w-[200px]">
                         <Label htmlFor="create-warehouse">Warehouse</Label>
@@ -1661,9 +1678,23 @@ export default function SalesOrder({ onSuccess }: Props) {
                             <input
                               type="number"
                               min={1}
+                              max={
+                                inventoryItems.find(
+                                  (inv) => inv.itemCode === item.itemCode
+                                )?.quantity ?? 9999
+                              }
                               value={item.quantity}
                               onChange={(e) => {
-                                const value = Number(e.target.value);
+                                const raw = Number(e.target.value);
+                                const maxQty =
+                                  inventoryItems.find(
+                                    (inv) => inv.itemCode === item.itemCode
+                                  )?.quantity ?? 9999;
+
+                                const value = Math.min(
+                                  Math.max(raw, 1),
+                                  maxQty
+                                ); // clamp between 1 and maxQty
 
                                 setItemsData((prev) => {
                                   const updated = [...prev];
