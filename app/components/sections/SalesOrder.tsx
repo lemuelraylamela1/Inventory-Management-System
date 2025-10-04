@@ -77,7 +77,7 @@ import type {
   SalesOrderItem,
   WarehouseType,
   Customer,
-  ItemType,
+  InventoryItem,
 } from "./type";
 
 import { useRouter } from "next/navigation";
@@ -119,7 +119,7 @@ export default function SalesOrder({ onSuccess }: Props) {
 
   const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
-  const [items, setItems] = useState<ItemType[]>([]);
+  const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
 
   const [itemsData, setItemsData] = useState<SalesOrderItem[]>([
     {
@@ -133,56 +133,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       amount: 0,
     },
   ]);
-
-  useEffect(() => {
-    console.log("Fetching customers...");
-
-    fetch("/api/customers")
-      .then((res) => res.json())
-      .then((response) => {
-        console.log("Raw response:", response);
-
-        const data = Array.isArray(response?.items) ? response.items : [];
-
-        console.log("Parsed customers:", data);
-        setCustomers(data); // ✅ Should match CustomerType[]
-      })
-      .catch((err) => console.error("Failed to fetch customers", err));
-  }, []);
-
-  useEffect(() => {
-    console.log("Fetching warehouses...");
-
-    fetch("/api/warehouses")
-      .then((res) => res.json())
-      .then((response) => {
-        console.log("Raw response:", response);
-
-        const data = Array.isArray(response?.warehouses)
-          ? response.warehouses
-          : [];
-        console.log("Parsed warehouses:", data);
-
-        setWarehouses(data);
-      })
-      .catch((err) => console.error("Failed to fetch warehouses", err));
-  }, []);
-
-  useEffect(() => {
-    console.log("Fetching items...");
-
-    fetch("/api/items")
-      .then((res) => res.json())
-      .then((response) => {
-        console.log("Raw response:", response);
-
-        const data = Array.isArray(response?.items) ? response.items : [];
-        console.log("Parsed items:", data);
-
-        setItems(data);
-      })
-      .catch((err) => console.error("Failed to fetch items", err));
-  }, []);
 
   const router = useRouter();
 
@@ -225,6 +175,73 @@ export default function SalesOrder({ onSuccess }: Props) {
     balance: "",
     creationDate: "",
   });
+
+  useEffect(() => {
+    console.log("Fetching customers...");
+
+    fetch("/api/customers")
+      .then((res) => res.json())
+      .then((response) => {
+        console.log("Raw response:", response);
+
+        const data = Array.isArray(response?.items) ? response.items : [];
+
+        console.log("Parsed customers:", data);
+        setCustomers(data); // ✅ Should match CustomerType[]
+      })
+      .catch((err) => console.error("Failed to fetch customers", err));
+  }, []);
+
+  useEffect(() => {
+    console.log("Fetching warehouses...");
+
+    fetch("/api/warehouses")
+      .then((res) => res.json())
+      .then((response) => {
+        console.log("Raw response:", response);
+
+        const data = Array.isArray(response?.warehouses)
+          ? response.warehouses
+          : [];
+        console.log("Parsed warehouses:", data);
+
+        setWarehouses(data);
+      })
+      .catch((err) => console.error("Failed to fetch warehouses", err));
+  }, []);
+
+  useEffect(() => {
+    const warehouse = formData.warehouse?.trim().toUpperCase();
+    console.log("🏷️ Selected warehouse:", warehouse);
+    if (!warehouse) return;
+
+    const fetchInventoryItems = async () => {
+      try {
+        const res = await fetch(`/api/inventory?warehouse=${warehouse}`, {
+          cache: "no-store",
+        });
+
+        console.log("🌐 Fetch status:", res.status);
+
+        const data = await res.json();
+        console.log("📦 Raw inventory response:", data);
+
+        const items = Array.isArray(data.items)
+          ? data.items
+          : Array.isArray(data)
+          ? data.find((r) => r.warehouse === warehouse)?.items || []
+          : [];
+
+        console.log("✅ Parsed inventory items:", items);
+        setInventoryItems(items);
+      } catch (error) {
+        console.error("❌ Error fetching inventory:", error);
+        setInventoryItems([]);
+      }
+    };
+
+    fetchInventoryItems();
+  }, [formData.warehouse]);
 
   // Filter and paginate data
   const normalizeString = (value?: string) =>
@@ -269,10 +286,6 @@ export default function SalesOrder({ onSuccess }: Props) {
     const start = (currentPage - 1) * rowsPerPage;
     const end = currentPage * rowsPerPage;
     const sliced = filteredSalesOrders.slice(start, end);
-
-    console.log("📊 Pagination range:", start, end);
-    console.log("📦 Filtered sales orders:", filteredSalesOrders);
-    console.log("📄 Paginated sales orders:", sliced);
 
     setPaginatedSalesOrders(sliced);
   }, [filteredSalesOrders, currentPage, rowsPerPage]);
@@ -1534,32 +1547,47 @@ export default function SalesOrder({ onSuccess }: Props) {
                           {/* Live Suggestions */}
                           {showItemSuggestions === index && (
                             <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
-                              {items
-                                .filter((option) =>
-                                  option.itemName
-                                    ?.trim()
-                                    .toUpperCase()
-                                    .includes(
-                                      item.itemName?.toUpperCase() || ""
-                                    )
-                                )
-                                .map((option) => {
+                              {(() => {
+                                const input =
+                                  item.itemName?.toUpperCase().trim() || "";
+
+                                const filtered = inventoryItems.filter(
+                                  (option) =>
+                                    option.itemName
+                                      ?.toUpperCase()
+                                      .includes(input)
+                                );
+
+                                if (filtered.length === 0) {
+                                  return (
+                                    <li className="px-3 py-2 text-muted-foreground">
+                                      No matching items found
+                                    </li>
+                                  );
+                                }
+
+                                return filtered.map((option) => {
                                   const normalized = option.itemName
                                     ?.trim()
                                     .toUpperCase();
                                   return (
                                     <li
-                                      key={option._id || normalized}
+                                      key={option.itemCode || normalized}
                                       className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
                                       onClick={() => {
+                                        const enriched = {
+                                          itemName: normalized,
+                                          itemCode: option.itemCode || "",
+                                          unitType: option.unitType,
+                                          price: option.purchasePrice || 0,
+                                          quantity: 1,
+                                        };
+
                                         setItemsData((prev) => {
                                           const updated = [...prev];
                                           updated[index] = {
                                             ...updated[index],
-                                            itemName: normalized,
-                                            itemCode: option.itemCode || "",
-                                            unitType: option.unitType || "",
-                                            price: option.purchasePrice || 0,
+                                            ...enriched,
                                           };
                                           return updated;
                                         });
@@ -1568,13 +1596,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                                           const updatedItems = [...prev.items];
                                           updatedItems[index] = {
                                             ...updatedItems[index],
-                                            itemName: normalized,
-                                            itemCode: option.itemCode || "",
-                                            unitType: option.unitType || "",
-                                            price: option.purchasePrice || 0,
-                                            quantity:
-                                              updatedItems[index]?.quantity ||
-                                              1,
+                                            ...enriched,
                                           };
                                           return {
                                             ...prev,
@@ -1584,20 +1606,13 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                                         setShowItemSuggestions(null);
                                       }}>
-                                      {normalized}
+                                      {normalized ||
+                                        option.itemCode ||
+                                        "Unnamed Item"}
                                     </li>
                                   );
-                                })}
-                              {items.filter((option) =>
-                                option.itemName
-                                  ?.trim()
-                                  .toUpperCase()
-                                  .includes(item.itemName?.toUpperCase() || "")
-                              ).length === 0 && (
-                                <li className="px-3 py-2 text-muted-foreground">
-                                  No matching items found
-                                </li>
-                              )}
+                                });
+                              })()}
                             </ul>
                           )}
                         </div>
@@ -1632,56 +1647,6 @@ export default function SalesOrder({ onSuccess }: Props) {
                           }}
                           className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
                         />
-
-                        {/* Unit Type */}
-                        <input
-                          type="text"
-                          value={item.unitType || ""}
-                          readOnly
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                        />
-
-                        {/* Purchase Price */}
-                        <input
-                          type="text"
-                          value={
-                            item.price !== undefined
-                              ? item.price.toLocaleString("en-PH", {
-                                  style: "currency",
-                                  currency: "PHP",
-                                })
-                              : ""
-                          }
-                          readOnly
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                        />
-
-                        {/* Amount */}
-                        <input
-                          type="text"
-                          value={
-                            item.price && item.quantity
-                              ? (item.price * item.quantity).toLocaleString(
-                                  "en-PH",
-                                  {
-                                    style: "currency",
-                                    currency: "PHP",
-                                  }
-                                )
-                              : ""
-                          }
-                          readOnly
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                        />
-
-                        {/* Trash Button */}
-                        <Button
-                          variant="destructive"
-                          className="w-full h-[32px] px-1 text-xs border border-border bg-red-50 hover:bg-red-100 text-red-700 rounded transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus:ring-1 focus:ring-red-400 flex items-center justify-center"
-                          onClick={() => handleRemoveItem(index)}
-                          title="Remove item">
-                          <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
-                        </Button>
                       </div>
                     ))}
                     <div className="flex w-full justify-end mt-4 gap-6">
@@ -2097,452 +2062,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       </Card>
 
       {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Purchase Orders</DialogTitle>
-          </DialogHeader>
-
-          {/* Form Fields */}
-          <div className="space-y-4">
-            <div className="grid gap-4 py-4">
-              {/* First Row */}
-              <div className="flex flex-row flex-wrap gap-4">
-                {/* SO Number */}
-                <div className="flex flex-col flex-1 min-w-[200px]">
-                  <Label htmlFor="edit-so-number">SO Number</Label>
-                  <Input
-                    id="edit-so-number"
-                    value={formData.soNumber}
-                    readOnly
-                    disabled
-                    placeholder="Auto-generated"
-                    className="text-sm uppercase bg-muted cursor-not-allowed"
-                  />
-                </div>
-
-                {/* Transaction Date */}
-                <div className="flex flex-col flex-1 min-w-[200px]">
-                  <Label htmlFor="edit-transaction-date">
-                    Transaction Date
-                  </Label>
-                  <Input
-                    id="edit-transaction-date"
-                    value={new Date().toLocaleDateString("en-PH", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
-                    readOnly
-                    disabled
-                    className="text-sm bg-muted cursor-not-allowed"
-                  />
-                </div>
-              </div>
-
-              {/* Second Row */}
-              <div className="flex flex-row flex-wrap gap-4">
-                {/* Customer Name */}
-                <div className="flex flex-col flex-1 min-w-[200px]">
-                  <Label htmlFor="edit-customer-name">Customer Name</Label>
-                  <Select
-                    value={formData.customer}
-                    onValueChange={(value) => {
-                      const normalized = value.toUpperCase().trim();
-                      setFormData((prev) => ({
-                        ...prev,
-                        customer: normalized,
-                      }));
-                      setValidationErrors((prev) => ({
-                        ...prev,
-                        customer: "",
-                      }));
-                    }}>
-                    <SelectTrigger
-                      className={`text-sm uppercase w-full ${
-                        validationErrors.customer ? "border-destructive" : ""
-                      }`}>
-                      {formData.customer || "Select Customer"}
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.isArray(customers) && customers.length > 0 ? (
-                        customers.map((customer) => {
-                          const label =
-                            customer.customerName?.trim() || "Unnamed Customer";
-                          const value = label.toUpperCase();
-                          return (
-                            <SelectItem
-                              key={customer._id || value}
-                              value={value}>
-                              {label}
-                            </SelectItem>
-                          );
-                        })
-                      ) : (
-                        <SelectItem disabled value="no-customers">
-                          No customers available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {validationErrors.customer && (
-                    <p className="text-sm text-destructive">
-                      {validationErrors.customer}
-                    </p>
-                  )}
-                </div>
-
-                {/* Warehouse */}
-                <div className="flex flex-col flex-1 min-w-[200px]">
-                  <Label htmlFor="edit-warehouse">Warehouse</Label>
-                  <Select
-                    value={formData.warehouse}
-                    onValueChange={(value) => {
-                      const normalized = value.toUpperCase().trim();
-                      setFormData((prev) => ({
-                        ...prev,
-                        warehouse: normalized,
-                      }));
-                      setValidationErrors((prev) => ({
-                        ...prev,
-                        warehouse: "",
-                      }));
-                    }}>
-                    <SelectTrigger
-                      className={`text-sm uppercase w-full ${
-                        validationErrors.warehouse ? "border-destructive" : ""
-                      }`}>
-                      {formData.warehouse || "Select Warehouse"}
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.isArray(warehouses) && warehouses.length > 0 ? (
-                        warehouses.map((warehouse) => {
-                          const label =
-                            warehouse.warehouse_name?.trim() ||
-                            "Unnamed Warehouse";
-                          return (
-                            <SelectItem
-                              key={warehouse._id || label}
-                              value={label.toUpperCase()}>
-                              {label}
-                            </SelectItem>
-                          );
-                        })
-                      ) : (
-                        <SelectItem disabled value="no-warehouses">
-                          No warehouses available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {validationErrors.warehouse && (
-                    <p className="text-sm text-destructive">
-                      {validationErrors.warehouse}
-                    </p>
-                  )}
-                </div>
-
-                {/* Notes */}
-                <div className="flex flex-col flex-[2] min-w-[300px]">
-                  <Label htmlFor="edit-notes">Notes</Label>
-                  <Textarea
-                    id="edit-notes"
-                    value={formData.notes}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFormData((prev) => ({ ...prev, notes: value }));
-                      setValidationErrors((prev) => ({ ...prev, notes: "" }));
-                    }}
-                    placeholder="Add any additional notes or comments here"
-                    className={`text-sm ${
-                      validationErrors.notes ? "border-destructive" : ""
-                    }`}
-                  />
-                  {validationErrors.notes && (
-                    <p className="text-sm text-destructive">
-                      {validationErrors.notes}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
-              {/* Header Row */}
-              <div className="text-xs font-semibold uppercase text-center">
-                Item Code
-              </div>
-              <div className="text-xs font-semibold uppercase text-center">
-                Item Name
-              </div>
-              <div className="text-xs font-semibold uppercase text-center">
-                Qty
-              </div>
-              <div className="text-xs font-semibold uppercase text-center">
-                UOM
-              </div>
-              <div className="text-xs font-semibold uppercase text-center">
-                Purchase Price
-              </div>
-              <div className="text-xs font-semibold uppercase text-center">
-                Amount
-              </div>
-              <div className="text-center"></div> {/* Trash icon column */}
-            </div>
-          </div>
-
-          {formData.items?.map((item, index) => {
-            const isZero = item.quantity === 0;
-
-            return (
-              <div
-                key={index}
-                className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0 ${
-                  isZero ? "bg-green-50 text-green-700 animate-fade-in" : ""
-                }`}>
-                {/* Item Code */}
-                <input
-                  type="text"
-                  value={item.itemCode || ""}
-                  readOnly
-                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
-                    isZero ? "bg-green-50 text-green-700" : "bg-white"
-                  }`}
-                />
-
-                {/* Item Name */}
-                <Select
-                  value={item.itemName}
-                  onValueChange={(value) => {
-                    const normalized = value.toUpperCase().trim();
-                    const selected = items.find(
-                      (option) =>
-                        option.itemName?.toUpperCase().trim() === normalized
-                    );
-                    if (!selected) return;
-
-                    setFormData((prev) => {
-                      const updatedItems = [...prev.items];
-                      updatedItems[index] = {
-                        ...updatedItems[index],
-                        itemName: normalized,
-                        itemCode: selected.itemCode || "",
-                        unitType: selected.unitType || "",
-                        price: selected.purchasePrice || 0,
-                        quantity: updatedItems[index]?.quantity || 1,
-                      };
-
-                      const { totalQuantity, total } =
-                        recalculateTotals(updatedItems);
-
-                      return {
-                        ...prev,
-                        items: updatedItems,
-                        totalQuantity,
-                        total,
-                      };
-                    });
-                  }}>
-                  <SelectTrigger
-                    id={`edit-item-name-${index}`}
-                    className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 uppercase focus:outline-none focus:ring-1 focus:ring-primary ${
-                      isZero
-                        ? "bg-green-50 text-green-700 cursor-not-allowed"
-                        : ""
-                    }`}
-                    disabled={isZero}>
-                    {item.itemName || "Select Item"}
-                  </SelectTrigger>
-
-                  <SelectContent>
-                    {items.length > 0 ? (
-                      items.map((option) => {
-                        const label = option.itemName?.trim() || "Unnamed Item";
-                        return (
-                          <SelectItem
-                            key={option._id || label}
-                            value={label.toUpperCase()}>
-                            {label}
-                          </SelectItem>
-                        );
-                      })
-                    ) : (
-                      <SelectItem disabled value="no-items">
-                        No items available
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
-
-                {/* Quantity */}
-                <input
-                  type="number"
-                  min={1}
-                  value={item.quantity}
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    setFormData((prev) => {
-                      const updatedItems = [...prev.items];
-                      updatedItems[index].quantity = value;
-
-                      const { totalQuantity, total } =
-                        recalculateTotals(updatedItems);
-
-                      return {
-                        ...prev,
-                        items: updatedItems,
-                        totalQuantity,
-                        total,
-                      };
-                    });
-                  }}
-                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 focus:outline-none focus:ring-1 focus:ring-primary ${
-                    isZero
-                      ? "bg-green-50 text-green-700 cursor-not-allowed"
-                      : "bg-white"
-                  }`}
-                  disabled={isZero}
-                />
-
-                {/* Unit Type */}
-                <input
-                  type="text"
-                  value={item.unitType || ""}
-                  readOnly
-                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
-                    isZero ? "bg-green-50 text-green-700" : "bg-white"
-                  }`}
-                />
-
-                {/* Purchase Price */}
-                <input
-                  type="text"
-                  value={
-                    item.price !== undefined
-                      ? item.price.toLocaleString("en-PH", {
-                          style: "currency",
-                          currency: "PHP",
-                        })
-                      : ""
-                  }
-                  readOnly
-                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
-                    isZero ? "bg-green-50 text-green-700" : "bg-white"
-                  }`}
-                />
-
-                {/* Amount */}
-                <input
-                  type="text"
-                  value={
-                    item.price && item.quantity
-                      ? (item.price * item.quantity).toLocaleString("en-PH", {
-                          style: "currency",
-                          currency: "PHP",
-                        })
-                      : ""
-                  }
-                  readOnly
-                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
-                    isZero ? "bg-green-50 text-green-700" : "bg-white"
-                  }`}
-                />
-
-                {/* Action Button */}
-                <div className="w-full h-full flex items-center justify-center border border-border border-l-0 border-t-0">
-                  {isZero ? (
-                    <div className="flex items-center gap-1">
-                      <Check className="w-4 h-4 text-green-600 animate-bounce" />
-                      <span className="text-xs font-semibold text-green-700">
-                        Posted
-                      </span>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => {
-                        setFormData((prev) => {
-                          const updatedItems = prev.items.filter(
-                            (_, i) => i !== index
-                          );
-                          const { totalQuantity, total } =
-                            recalculateTotals(updatedItems);
-
-                          return {
-                            ...prev,
-                            items: updatedItems,
-                            totalQuantity,
-                            total,
-                          };
-                        });
-                      }}
-                      title="Remove item">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
-              </div>
-            );
-          })}
-
-          {/* Totals */}
-          <div className="flex w-full justify-end mt-4 gap-6">
-            {/* Total Quantity */}
-            <div className="flex items-center gap-2 min-w-[180px]">
-              <span className="text-sm font-medium">Total Qty:</span>
-              <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                {formData.totalQuantity ?? 0}
-              </span>
-            </div>
-
-            {/* Total Amount */}
-            <div className="flex items-center gap-2 min-w-[180px]">
-              <span className="text-sm font-medium">Total Amount:</span>
-              <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                {formData.total?.toLocaleString("en-PH", {
-                  style: "currency",
-                  currency: "PHP",
-                })}
-              </span>
-            </div>
-          </div>
-
-          {/* Footer Actions */}
-          <DialogFooter className="pt-4 border-t">
-            <div className="flex w-full justify-between items-center">
-              {/* Left: Add Item */}
-              <Button onClick={handleAddItemEdit}>➕ Add Item</Button>
-
-              {/* Right: Cancel & Update */}
-              <div className="flex gap-2">
-                <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setIsEditDialogOpen(false);
-                    setEditingSO(null);
-                    resetForm();
-                  }}>
-                  Cancel
-                </Button>
-
-                <div className="flex items-center gap-2">
-                  {/* Primary Update Button */}
-                  <Button
-                    onClick={handleUpdate}
-                    disabled={
-                      !formData.items.length ||
-                      formData.items.every((item) => !item.itemName?.trim())
-                    }
-                    className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150"
-                    aria-label="Update">
-                    ✏️ Update
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </DialogFooter>
-        </DialogPanel>
-      </Dialog>
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
