@@ -120,7 +120,7 @@ export default function SalesOrder({ onSuccess }: Props) {
   const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
-
+  const [isLoadingInventory, setIsLoadingInventory] = useState(false);
   const [itemsData, setItemsData] = useState<SalesOrderItem[]>([
     {
       _id: "",
@@ -215,6 +215,12 @@ export default function SalesOrder({ onSuccess }: Props) {
     console.log("🏷️ Selected warehouse:", warehouse);
     if (!warehouse) return;
 
+    // 🔁 Clear item fields immediately
+    setItemsData([]);
+    setFormData((prev) => ({ ...prev, items: [] }));
+    setInventoryItems([]);
+    setIsLoadingInventory(true);
+
     const fetchInventoryItems = async () => {
       try {
         const res = await fetch(`/api/inventory?warehouse=${warehouse}`, {
@@ -237,6 +243,8 @@ export default function SalesOrder({ onSuccess }: Props) {
       } catch (error) {
         console.error("❌ Error fetching inventory:", error);
         setInventoryItems([]);
+      } finally {
+        setIsLoadingInventory(false);
       }
     };
 
@@ -1392,10 +1400,18 @@ export default function SalesOrder({ onSuccess }: Props) {
                                         key={warehouse._id || value}
                                         className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
                                         onClick={() => {
-                                          setFormData((prev) => ({
-                                            ...prev,
-                                            warehouse: value,
-                                          }));
+                                          setFormData((prev) => {
+                                            const isReselect =
+                                              prev.warehouse === value;
+                                            return {
+                                              ...prev,
+                                              warehouse: value,
+                                              ...(isReselect && {
+                                                items: [], // ✅ Reset items if reselected
+                                                inventory: [], // ✅ Optional: reset other dependent fields
+                                              }),
+                                            };
+                                          });
                                           setShowWarehouseSuggestions(false);
                                         }}>
                                         {label}
@@ -1475,180 +1491,249 @@ export default function SalesOrder({ onSuccess }: Props) {
                       {/* Trash icon column */}
                     </div>
 
-                    {itemsData.map((item, index) => (
-                      <div
-                        key={index}
-                        className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
-                        {/* Item Code */}
-                        <input
-                          type="text"
-                          value={item.itemCode || ""}
-                          readOnly
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                        />
-                        {/* Item Name */}
-                        <div className="relative w-full">
-                          <input
-                            id={`item-name-${index}`}
-                            type="text"
-                            autoComplete="off"
-                            value={item.itemName || ""}
-                            onClick={() => setShowItemSuggestions(index)}
-                            onBlur={() =>
-                              setTimeout(
-                                () => setShowItemSuggestions(null),
-                                200
-                              )
-                            }
-                            onChange={(e) => {
-                              const value = e.target.value.toUpperCase().trim();
-
-                              setItemsData((prev) => {
-                                const updated = [...prev];
-                                updated[index] = {
-                                  ...updated[index],
-                                  itemName: value,
-                                };
-                                return updated;
-                              });
-
-                              setFormData((prev) => {
-                                const updatedItems = [...prev.items];
-                                updatedItems[index] = {
-                                  ...updatedItems[index],
-                                  itemName: value,
-                                };
-                                return { ...prev, items: updatedItems };
-                              });
-
-                              setShowItemSuggestions(index);
-                            }}
-                            placeholder="Search item name"
-                            className="text-sm uppercase w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8"
-                          />
-
-                          {/* Magnifying Glass Icon */}
-                          <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
-                            <svg
-                              xmlns="http://www.w3.org/2000/svg"
-                              className="h-4 w-4 text-muted-foreground"
-                              fill="none"
-                              viewBox="0 0 24 24"
-                              stroke="currentColor"
-                              strokeWidth={2}>
-                              <path
-                                strokeLinecap="round"
-                                strokeLinejoin="round"
-                                d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
-                              />
-                            </svg>
-                          </div>
-
-                          {/* Live Suggestions */}
-                          {showItemSuggestions === index && (
-                            <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
-                              {(() => {
-                                const input =
-                                  item.itemName?.toUpperCase().trim() || "";
-
-                                const filtered = inventoryItems.filter(
-                                  (option) =>
-                                    option.itemName
-                                      ?.toUpperCase()
-                                      .includes(input)
-                                );
-
-                                if (filtered.length === 0) {
-                                  return (
-                                    <li className="px-3 py-2 text-muted-foreground">
-                                      No matching items found
-                                    </li>
-                                  );
-                                }
-
-                                return filtered.map((option) => {
-                                  const normalized = option.itemName
-                                    ?.trim()
-                                    .toUpperCase();
-                                  return (
-                                    <li
-                                      key={option.itemCode || normalized}
-                                      className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                                      onClick={() => {
-                                        const enriched = {
-                                          itemName: normalized,
-                                          itemCode: option.itemCode || "",
-                                          unitType: option.unitType,
-                                          price: option.purchasePrice || 0,
-                                          quantity: 1,
-                                        };
-
-                                        setItemsData((prev) => {
-                                          const updated = [...prev];
-                                          updated[index] = {
-                                            ...updated[index],
-                                            ...enriched,
-                                          };
-                                          return updated;
-                                        });
-
-                                        setFormData((prev) => {
-                                          const updatedItems = [...prev.items];
-                                          updatedItems[index] = {
-                                            ...updatedItems[index],
-                                            ...enriched,
-                                          };
-                                          return {
-                                            ...prev,
-                                            items: updatedItems,
-                                          };
-                                        });
-
-                                        setShowItemSuggestions(null);
-                                      }}>
-                                      {normalized ||
-                                        option.itemCode ||
-                                        "Unnamed Item"}
-                                    </li>
-                                  );
-                                });
-                              })()}
-                            </ul>
-                          )}
-                        </div>
-
-                        {/* Quantity */}
-                        <input
-                          type="number"
-                          min={1}
-                          value={item.quantity}
-                          onChange={(e) => {
-                            const value = Number(e.target.value);
-
-                            // ✅ Update itemsData
-                            setItemsData((prev) => {
-                              const updated = [...prev];
-                              updated[index].quantity = value;
-                              return updated;
-                            });
-
-                            // ✅ Sync to formData.items
-                            setFormData((prev) => {
-                              const updatedItems = [...prev.items];
-                              updatedItems[index] = {
-                                ...updatedItems[index],
-                                quantity: value,
-                              };
-                              return {
-                                ...prev,
-                                items: updatedItems,
-                              };
-                            });
-                          }}
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
-                        />
+                    {isLoadingInventory ? (
+                      <div className="flex items-center justify-center w-full py-6">
+                        <p className="text-muted-foreground text-sm">
+                          Loading inventory…
+                        </p>
                       </div>
-                    ))}
+                    ) : inventoryItems.length === 0 ? (
+                      <div className="flex items-center justify-center w-full py-6">
+                        <p className="text-muted-foreground text-sm">
+                          No items available for this warehouse.
+                        </p>
+                      </div>
+                    ) : itemsData.length === 0 ? (
+                      <div className="flex items-center justify-center w-full py-6">
+                        <p className="text-muted-foreground text-sm">
+                          No items selected yet.
+                        </p>
+                      </div>
+                    ) : (
+                      <>
+                        {itemsData.map((item, index) => (
+                          <div
+                            key={index}
+                            className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
+                            {/* Item Code */}
+                            <input
+                              type="text"
+                              value={item.itemCode || ""}
+                              readOnly
+                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                            />
+
+                            {/* Item Name */}
+                            <div className="relative w-full">
+                              <input
+                                id={`item-name-${index}`}
+                                type="text"
+                                autoComplete="off"
+                                value={item.itemName || ""}
+                                onClick={() => setShowItemSuggestions(index)}
+                                onBlur={() =>
+                                  setTimeout(
+                                    () => setShowItemSuggestions(null),
+                                    200
+                                  )
+                                }
+                                onChange={(e) => {
+                                  const value = e.target.value
+                                    .toUpperCase()
+                                    .trim();
+
+                                  setItemsData((prev) => {
+                                    const updated = [...prev];
+                                    updated[index] = {
+                                      ...updated[index],
+                                      itemName: value,
+                                    };
+                                    return updated;
+                                  });
+
+                                  setFormData((prev) => {
+                                    const updatedItems = [...prev.items];
+                                    updatedItems[index] = {
+                                      ...updatedItems[index],
+                                      itemName: value,
+                                    };
+                                    return { ...prev, items: updatedItems };
+                                  });
+
+                                  setShowItemSuggestions(index);
+                                }}
+                                placeholder="Search item name"
+                                className="text-sm uppercase w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8"
+                              />
+
+                              {/* Magnifying Glass Icon */}
+                              <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+                                <svg
+                                  xmlns="http://www.w3.org/2000/svg"
+                                  className="h-4 w-4 text-muted-foreground"
+                                  fill="none"
+                                  viewBox="0 0 24 24"
+                                  stroke="currentColor"
+                                  strokeWidth={2}>
+                                  <path
+                                    strokeLinecap="round"
+                                    strokeLinejoin="round"
+                                    d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                                  />
+                                </svg>
+                              </div>
+
+                              {/* Live Suggestions */}
+                              {showItemSuggestions === index && (
+                                <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                                  {(() => {
+                                    const input =
+                                      item.itemName?.toUpperCase().trim() || "";
+                                    const filtered = inventoryItems.filter(
+                                      (option) =>
+                                        option.itemName
+                                          ?.toUpperCase()
+                                          .includes(input)
+                                    );
+
+                                    if (filtered.length === 0) {
+                                      return (
+                                        <li className="px-3 py-2 text-muted-foreground">
+                                          No matching items found
+                                        </li>
+                                      );
+                                    }
+
+                                    return filtered.map((option) => {
+                                      const normalized = option.itemName
+                                        ?.trim()
+                                        .toUpperCase();
+                                      return (
+                                        <li
+                                          key={option.itemCode || normalized}
+                                          className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                          onClick={() => {
+                                            const enriched = {
+                                              itemName: normalized,
+                                              itemCode: option.itemCode || "",
+                                              unitType: option.unitType,
+                                              price: option.purchasePrice || 0,
+                                              quantity: 1,
+                                            };
+
+                                            setItemsData((prev) => {
+                                              const updated = [...prev];
+                                              updated[index] = {
+                                                ...updated[index],
+                                                ...enriched,
+                                              };
+                                              return updated;
+                                            });
+
+                                            setFormData((prev) => {
+                                              const updatedItems = [
+                                                ...prev.items,
+                                              ];
+                                              updatedItems[index] = {
+                                                ...updatedItems[index],
+                                                ...enriched,
+                                              };
+                                              return {
+                                                ...prev,
+                                                items: updatedItems,
+                                              };
+                                            });
+
+                                            setShowItemSuggestions(null);
+                                          }}>
+                                          {normalized ||
+                                            option.itemCode ||
+                                            "Unnamed Item"}
+                                        </li>
+                                      );
+                                    });
+                                  })()}
+                                </ul>
+                              )}
+                            </div>
+
+                            {/* Quantity */}
+                            <input
+                              type="number"
+                              min={1}
+                              value={item.quantity}
+                              onChange={(e) => {
+                                const value = Number(e.target.value);
+
+                                setItemsData((prev) => {
+                                  const updated = [...prev];
+                                  updated[index].quantity = value;
+                                  return updated;
+                                });
+
+                                setFormData((prev) => {
+                                  const updatedItems = [...prev.items];
+                                  updatedItems[index] = {
+                                    ...updatedItems[index],
+                                    quantity: value,
+                                  };
+                                  return { ...prev, items: updatedItems };
+                                });
+                              }}
+                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                            />
+
+                            {/* Unit Type */}
+                            <input
+                              type="text"
+                              value={item.unitType || ""}
+                              readOnly
+                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                            />
+                            {/* Purchase Price */}
+                            <input
+                              type="text"
+                              value={
+                                item.price !== undefined
+                                  ? item.price.toLocaleString("en-PH", {
+                                      style: "currency",
+                                      currency: "PHP",
+                                    })
+                                  : ""
+                              }
+                              readOnly
+                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                            />
+                            {/* Amount */}
+                            <input
+                              type="text"
+                              value={
+                                item.price && item.quantity
+                                  ? (item.price * item.quantity).toLocaleString(
+                                      "en-PH",
+                                      {
+                                        style: "currency",
+                                        currency: "PHP",
+                                      }
+                                    )
+                                  : ""
+                              }
+                              readOnly
+                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                            />
+                            {/* Trash Button */}
+                            <Button
+                              variant="destructive"
+                              className="w-full h-[32px] px-1 text-xs border border-border bg-red-50 hover:bg-red-100 text-red-700 rounded transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus:ring-1 focus:ring-red-400 flex items-center justify-center"
+                              onClick={() => handleRemoveItem(index)}
+                              title="Remove item">
+                              <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
+                            </Button>
+                          </div>
+                        ))}
+                      </>
+                    )}
+
                     <div className="flex w-full justify-end mt-4 gap-6">
                       {/* Total Quantity */}
                       <div className="flex items-center gap-2 min-w-[180px]">
