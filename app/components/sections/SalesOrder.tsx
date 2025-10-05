@@ -67,7 +67,17 @@ import {
   DropdownMenuSeparator,
 } from "../ui/dropdown-menu";
 
-import { Plus, Search, Edit, Trash2, Check, CheckCircle } from "lucide-react";
+import {
+  Plus,
+  Search,
+  Edit,
+  Trash2,
+  XCircle,
+  Check,
+  CheckCircle,
+  Clock,
+  ClipboardList,
+} from "lucide-react";
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -78,6 +88,7 @@ import type {
   WarehouseType,
   Customer,
   InventoryItem,
+  ItemType,
 } from "./type";
 
 import { useRouter } from "next/navigation";
@@ -88,6 +99,35 @@ import { cn } from "../ui/utils";
 type Props = {
   onSuccess?: () => void;
 };
+
+const statusOptions = [
+  {
+    label: "Tag as Pending",
+    value: "PENDING",
+    color: "text-yellow-600",
+    icon: Clock,
+  },
+  {
+    label: "Tag as To Prepare",
+    value: "TO PREPARE",
+    color: "text-blue-600",
+    icon: ClipboardList,
+  },
+  {
+    label: "Tag as Completed",
+    value: "COMPLETED",
+    color: "text-green-600",
+    icon: CheckCircle,
+  },
+  {
+    label: "Tag as Cancelled",
+    value: "CANCELLED",
+    color: "text-red-600",
+    icon: XCircle,
+  },
+];
+
+type Status = (typeof statusOptions)[number]["value"];
 
 export default function SalesOrder({ onSuccess }: Props) {
   const [salesOrders, setSalesOrders] = useState<SalesOrder[]>([]);
@@ -112,7 +152,7 @@ export default function SalesOrder({ onSuccess }: Props) {
   const [customerFilter, setCustomerFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [filteredSOs, setFilteredSOs] = useState<SalesOrder[]>([]);
-
+  const [itemCatalog, setItemCatalog] = useState<ItemType[]>([]);
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [showWarehouseSuggestions, setShowWarehouseSuggestions] =
     useState(false);
@@ -177,6 +217,27 @@ export default function SalesOrder({ onSuccess }: Props) {
   });
 
   useEffect(() => {
+    fetch("/api/items")
+      .then((res) => res.json())
+      .then((response) => {
+        const data = Array.isArray(response?.items) ? response.items : [];
+        console.log("📦 Fetched items:", data);
+        setItemCatalog(data); // ✅ triggers re-render
+      })
+      .catch((err) => console.error("❌ Failed to fetch items", err));
+  }, []);
+
+  const salesPriceMap = useMemo(() => {
+    const map: Record<string, number> = {};
+    itemCatalog.forEach((item) => {
+      const key = item.itemName?.trim().toUpperCase();
+      map[key] = item.salesPrice ?? 0;
+    });
+    console.log("🧾 salesPriceMap built:", map);
+    return map;
+  }, [itemCatalog]);
+
+  useEffect(() => {
     console.log("Fetching customers...");
 
     fetch("/api/customers")
@@ -215,40 +276,51 @@ export default function SalesOrder({ onSuccess }: Props) {
     console.log("🏷️ Selected warehouse:", warehouse);
     if (!warehouse) return;
 
-    // 🔁 Clear item fields immediately
+    // 🔁 Reset state immediately
     setItemsData([]);
     setFormData((prev) => ({ ...prev, items: [] }));
     setInventoryItems([]);
     setIsLoadingInventory(true);
 
-    const fetchInventoryItems = async () => {
+    const fetchInventoryMainItems = async () => {
       try {
-        const res = await fetch(`/api/inventory?warehouse=${warehouse}`, {
-          cache: "no-store",
-        });
+        const res = await fetch(
+          `/api/inventory-main?warehouse=${encodeURIComponent(warehouse)}`,
+          {
+            cache: "no-store",
+          }
+        );
 
         console.log("🌐 Fetch status:", res.status);
 
-        const data = await res.json();
-        console.log("📦 Raw inventory response:", data);
+        const contentType = res.headers.get("content-type") || "";
+        if (!contentType.includes("application/json")) {
+          const fallback = await res.text();
+          console.error("❌ Non-JSON response:", fallback);
+          setInventoryItems([]);
+          return;
+        }
 
-        const items = Array.isArray(data.items)
-          ? data.items
-          : Array.isArray(data)
-          ? data.find((r) => r.warehouse === warehouse)?.items || []
+        const data = await res.json();
+        console.log("📦 Raw InventoryMain response:", data);
+
+        const items = Array.isArray(data)
+          ? data.filter(
+              (item) => item.warehouse?.trim().toUpperCase() === warehouse
+            )
           : [];
 
-        console.log("✅ Parsed inventory items:", items);
+        console.log("✅ Parsed InventoryMain items:", items);
         setInventoryItems(items);
       } catch (error) {
-        console.error("❌ Error fetching inventory:", error);
+        console.error("❌ Error fetching InventoryMain:", error);
         setInventoryItems([]);
       } finally {
         setIsLoadingInventory(false);
       }
     };
 
-    fetchInventoryItems();
+    fetchInventoryMainItems();
   }, [formData.warehouse]);
 
   // Filter and paginate data
@@ -400,23 +472,38 @@ export default function SalesOrder({ onSuccess }: Props) {
     }));
   }, [itemsData]);
 
-  const formattedTotal = new Intl.NumberFormat("en-PH", {
+  const totalAmount = useMemo(() => {
+    return formData.items?.reduce((sum, item) => {
+      const key = item.itemName?.trim().toUpperCase();
+      const price = salesPriceMap[key] ?? 0;
+      const quantity = item.quantity ?? 0;
+      return sum + price * quantity;
+    }, 0);
+  }, [formData.items, salesPriceMap]);
+
+  const formattedTotal = totalAmount.toLocaleString("en-PH", {
     style: "currency",
     currency: "PHP",
-  }).format(Number(formData.total ?? 0));
+  });
 
   const handleCreate = async () => {
     if (!validateForm()) return;
 
-    const normalizedItems = formData.items.map((item) => ({
-      itemName: item.itemName?.trim().toUpperCase() || "UNNAMED",
-      quantity: Number(item.quantity) || 0,
-      unitType: item.unitType?.trim().toUpperCase() || "",
-      price: Number(item.price) || 0,
-      itemCode: item.itemCode?.trim().toUpperCase() || "",
-      description: item.description?.trim() || "",
-      amount: Number(item.quantity) * Number(item.price),
-    }));
+    const normalizedItems = formData.items.map((item) => {
+      const key = item.itemName?.trim().toUpperCase();
+      const price = salesPriceMap[key] ?? 0;
+      const quantity = Number(item.quantity) || 0;
+
+      return {
+        itemName: key || "UNNAMED",
+        quantity,
+        unitType: item.unitType?.trim().toUpperCase() || "",
+        price,
+        itemCode: item.itemCode?.trim().toUpperCase() || "",
+        description: item.description?.trim() || "",
+        amount: quantity * price,
+      };
+    });
 
     const { total, totalQuantity } = normalizedItems.reduce(
       (acc, item) => {
@@ -503,37 +590,37 @@ export default function SalesOrder({ onSuccess }: Props) {
 
   const allowedStatuses: SalesOrder["status"][] = [
     "PENDING",
-    "PARTIAL",
+    "TO PREPARE",
     "CANCELLED",
     "COMPLETED",
   ];
 
   const handleEdit = (so: SalesOrder) => {
-    setEditingSO(so);
+    const normalize = (str?: string): string => str?.trim().toUpperCase() || "";
 
-    const editableItems = so.items
+    const editableItems = (so.items || [])
       .filter((item) => Number(item.quantity) > 0)
-      .map((item) => ({
-        _id: item._id,
-        itemName: item.itemName?.trim().toUpperCase() || "",
-        quantity: Math.max(Number(item.quantity) || 1, 1),
-        unitType: item.unitType?.trim().toUpperCase() || "",
-        price: Number(item.price) || 0,
-        itemCode: item.itemCode?.trim().toUpperCase() || "",
-        description: item.description?.trim() || "",
-        amount: Number(item.quantity) * Number(item.price),
-      }));
+      .map((item, index) => {
+        const quantity = Math.max(Number(item.quantity) || 1, 1);
+        const price = Number(item.price) || 0;
+        const fallbackId = item._id ?? crypto.randomUUID();
 
-    const totalQuantity = editableItems.reduce(
-      (sum, item) => sum + item.quantity,
-      0
-    );
-    const totalAmount = editableItems.reduce(
-      (sum, item) => sum + item.amount,
-      0
-    );
+        return {
+          _id: fallbackId,
+          itemName: normalize(item.itemName),
+          quantity,
+          unitType: normalize(item.unitType),
+          price,
+          itemCode: normalize(item.itemCode),
+          description: item.description?.trim() || "",
+          amount: quantity * price,
+        };
+      });
 
-    const normalizedStatus = so.status?.trim().toUpperCase();
+    const totalQuantity = editableItems.reduce((sum, i) => sum + i.quantity, 0);
+    const totalAmount = editableItems.reduce((sum, i) => sum + i.amount, 0);
+
+    const normalizedStatus = normalize(so.status);
     const status: SalesOrder["status"] = allowedStatuses.includes(
       normalizedStatus as SalesOrder["status"]
     )
@@ -544,10 +631,10 @@ export default function SalesOrder({ onSuccess }: Props) {
       SalesOrder,
       "_id" | "createdAt" | "updatedAt"
     > = {
-      soNumber: so.soNumber.trim().toUpperCase(),
-      customer: so.customer?.trim().toUpperCase() || "",
-      salesPerson: so.salesPerson?.trim().toUpperCase() || "",
-      warehouse: so.warehouse?.trim().toUpperCase() || "",
+      soNumber: normalize(so.soNumber),
+      customer: normalize(so.customer),
+      salesPerson: normalize(so.salesPerson),
+      warehouse: normalize(so.warehouse),
       transactionDate: so.transactionDate,
       deliveryDate: so.deliveryDate,
       shippingAddress: so.shippingAddress?.trim() || "",
@@ -563,8 +650,10 @@ export default function SalesOrder({ onSuccess }: Props) {
           : totalAmount,
     };
 
+    setEditingSO(so);
     setFormData(normalizedFormData);
-    // setSelectedIds(Array(editableItems.length).fill(true)); // default to all selected
+    setItemsData(editableItems);
+    setSelectedIds(editableItems.map((item) => item._id)); // ✅ Always synced
     setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(true);
   };
@@ -578,24 +667,26 @@ export default function SalesOrder({ onSuccess }: Props) {
     const selectedIdsSafe =
       selectedIds.length === formData.items.length
         ? selectedIds
-        : formData.items.map(() => true);
+        : formData.items.map((item) => item._id ?? crypto.randomUUID());
 
     const normalizedItems: SalesOrderItem[] = formData.items
-      .map((item, index) => ({ item, index }))
-      .filter(({ index }) => selectedIdsSafe[index])
-      .map(({ item, index }) => {
-        const fallbackId = editingSO.items?.[index]?._id ?? crypto.randomUUID(); // fallback if missing
+      .map((item, index) => {
+        const fallbackId = item._id ?? selectedIdsSafe[index];
+        const quantity = Math.max(Number(item.quantity) || 1, 1);
+        const price = Number(item.price) || 0;
+
         return {
-          _id: item._id ?? fallbackId,
+          _id: fallbackId,
           itemCode: item.itemCode?.trim().toUpperCase() || "",
           itemName: item.itemName?.trim().toUpperCase() || "",
           unitType: item.unitType?.trim().toUpperCase() || "",
-          quantity: Math.max(Number(item.quantity) || 1, 1),
-          price: Number(item.price) || 0,
+          quantity,
+          price,
           description: item.description?.trim() || "",
-          amount: Number(item.quantity) * Number(item.price),
+          amount: quantity * price,
         };
-      });
+      })
+      .filter((_, index) => selectedIdsSafe[index]); // ✅ Only selected
 
     const totalQuantity = normalizedItems.reduce(
       (sum, item) => sum + item.quantity,
@@ -637,7 +728,7 @@ export default function SalesOrder({ onSuccess }: Props) {
 
     try {
       const res = await fetch(`/api/sales-orders/${editingSO._id}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
@@ -765,6 +856,8 @@ export default function SalesOrder({ onSuccess }: Props) {
 
   const toggleSelectAll = (checked: boolean | "indeterminate") => {
     if (checked === true) {
+      console.log("🔄 toggleSelectAll triggered:", checked);
+
       // Select all sales orders on current page
       const newSelections = [
         ...selectedIds,
@@ -1020,17 +1113,17 @@ export default function SalesOrder({ onSuccess }: Props) {
     setIsCreateDialogOpen(true);
   };
 
-  const handleTagAsComplete = async (soId: string) => {
+  const handleUpdateStatus = async (soId: string, status: Status) => {
     try {
       const res = await fetch(`/api/sales-orders/${soId}`, {
-        method: "PUT",
+        method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "COMPLETED" }),
+        body: JSON.stringify({ status }),
       });
 
       if (!res.ok) throw new Error("Failed to update Sales Order status");
 
-      const updatedSO = await res.json();
+      const { order: updatedSO } = await res.json();
 
       // Update local state
       setPaginatedSalesOrders((prev) =>
@@ -1039,10 +1132,10 @@ export default function SalesOrder({ onSuccess }: Props) {
         )
       );
 
-      toast.success(`SO ${updatedSO.soNumber} marked as completed`);
+      toast.success(`SO ${updatedSO.soNumber} marked as ${updatedSO.status}`);
     } catch (error) {
-      console.error("❌ Error tagging SO as complete:", error);
-      toast.error("Could not tag SO as complete");
+      console.error(`❌ Error updating SO status to ${status}:`, error);
+      toast.error(`Could not update SO status to ${status}`);
     }
   };
 
@@ -1499,7 +1592,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                         UOM
                       </div>
                       <div className="text-xs font-semibold uppercase text-center">
-                        Purchase Price
+                        Sales Price
                       </div>
                       <div className="text-xs font-semibold uppercase text-center">
                         Amount
@@ -1721,37 +1814,41 @@ export default function SalesOrder({ onSuccess }: Props) {
                               readOnly
                               className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
                             />
-                            {/* Purchase Price */}
-                            <input
-                              type="text"
-                              value={
-                                item.price !== undefined
-                                  ? item.price.toLocaleString("en-PH", {
+
+                            {/* Sales Price */}
+                            {formData.items.map((item, index) => {
+                              const key = item.itemName?.trim().toUpperCase();
+                              const price = salesPriceMap[key] ?? 0;
+                              const quantity = item.quantity ?? 0;
+                              const amount = price * quantity;
+
+                              return (
+                                <React.Fragment key={`row-${index}`}>
+                                  {/* Price */}
+                                  <input
+                                    type="text"
+                                    value={price.toLocaleString("en-PH", {
                                       style: "currency",
                                       currency: "PHP",
-                                    })
-                                  : ""
-                              }
-                              readOnly
-                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                            />
-                            {/* Amount */}
-                            <input
-                              type="text"
-                              value={
-                                item.price && item.quantity
-                                  ? (item.price * item.quantity).toLocaleString(
-                                      "en-PH",
-                                      {
-                                        style: "currency",
-                                        currency: "PHP",
-                                      }
-                                    )
-                                  : ""
-                              }
-                              readOnly
-                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                            />
+                                    })}
+                                    readOnly
+                                    className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                                  />
+
+                                  {/* Amount */}
+                                  <input
+                                    type="text"
+                                    value={amount.toLocaleString("en-PH", {
+                                      style: "currency",
+                                      currency: "PHP",
+                                    })}
+                                    readOnly
+                                    className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                                  />
+                                </React.Fragment>
+                              );
+                            })}
+
                             {/* Trash Button */}
                             <Button
                               variant="destructive"
@@ -1980,6 +2077,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                       <TableCell>
                         <Checkbox
                           checked={selectedIds.includes(so._id)}
+                          onClick={(e) => e.stopPropagation()}
                           onCheckedChange={() => toggleSelectOne(so._id)}
                         />
                       </TableCell>
@@ -2001,7 +2099,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                           className={`inline-block text-sm font-medium px-2 py-1 rounded-full ${
                             so.status === "COMPLETED"
                               ? "bg-green-100 text-green-800"
-                              : so.status === "PARTIAL"
+                              : so.status === "TO PREPARE"
                               ? "bg-yellow-100 text-yellow-800"
                               : so.status === "CANCELLED"
                               ? "bg-red-100 text-red-800"
@@ -2025,8 +2123,12 @@ export default function SalesOrder({ onSuccess }: Props) {
                               <Button
                                 variant="ghost"
                                 size="sm"
-                                onClick={() => handleEdit(so)}
-                                title="Edit Sales Order">
+                                title="Edit Sales Order"
+                                aria-label={`Edit SO ${so.soNumber}`}
+                                onClick={(e) => {
+                                  e.stopPropagation(); // ⛔ Prevent checkbox toggle
+                                  handleEdit(so);
+                                }}>
                                 <Edit className="w-4 h-4" />
                               </Button>
 
@@ -2111,13 +2213,20 @@ export default function SalesOrder({ onSuccess }: Props) {
                                 Export as PDF
                               </DropdownMenuItem> */}
 
-                              <DropdownMenuItem
-                                onClick={() => handleTagAsComplete(so._id)}
-                                disabled={so.status === "COMPLETED"}
-                                className="text-green-600">
-                                <CheckCircle className="w-4 h-4 mr-2" />
-                                Tag as Completed
-                              </DropdownMenuItem>
+                              {statusOptions.map(
+                                ({ label, value, color, icon: Icon }) => (
+                                  <DropdownMenuItem
+                                    key={value}
+                                    onClick={() =>
+                                      handleUpdateStatus(so._id, value)
+                                    }
+                                    disabled={so.status === value}
+                                    className={color}>
+                                    <Icon className="w-4 h-4 mr-2" />
+                                    {label}
+                                  </DropdownMenuItem>
+                                )
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </div>
@@ -2178,7 +2287,510 @@ export default function SalesOrder({ onSuccess }: Props) {
       </Card>
 
       {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Edit Purchase Orders</DialogTitle>
+          </DialogHeader>
 
+          {/* Form Fields */}
+          <div className="space-y-4">
+            <div className="grid gap-4 py-4">
+              {/* First Row */}
+              <div className="flex flex-row flex-wrap gap-4">
+                {/* SO Number */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="edit-so-number">SO Number</Label>
+                  <Input
+                    id="edit-so-number"
+                    value={formData.soNumber}
+                    readOnly
+                    disabled
+                    placeholder="Auto-generated"
+                    className="text-sm uppercase bg-muted cursor-not-allowed"
+                  />
+                </div>
+
+                {/* Transaction Date */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="edit-transaction-date">
+                    Transaction Date
+                  </Label>
+                  <Input
+                    id="edit-transaction-date"
+                    value={new Date().toLocaleDateString("en-PH", {
+                      year: "numeric",
+                      month: "long",
+                      day: "numeric",
+                    })}
+                    readOnly
+                    disabled
+                    className="text-sm bg-muted cursor-not-allowed"
+                  />
+                </div>
+              </div>
+
+              {/* Second Row */}
+              <div className="flex flex-row flex-wrap gap-4">
+                {/* Customer Name */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="edit-customer-name">Customer Name</Label>
+                  <Select
+                    value={formData.customer}
+                    onValueChange={(value) => {
+                      const normalized = value.toUpperCase().trim();
+                      setFormData((prev) => ({
+                        ...prev,
+                        customer: normalized,
+                      }));
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        customer: "",
+                      }));
+                    }}>
+                    <SelectTrigger
+                      className={`text-sm uppercase w-full ${
+                        validationErrors.customer ? "border-destructive" : ""
+                      }`}>
+                      {formData.customer || "Select Customer"}
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.isArray(customers) && customers.length > 0 ? (
+                        customers.map((customer) => {
+                          const label =
+                            customer.customerName?.trim() || "Unnamed Customer";
+                          const value = label.toUpperCase();
+                          return (
+                            <SelectItem
+                              key={customer._id || value}
+                              value={value}>
+                              {label}
+                            </SelectItem>
+                          );
+                        })
+                      ) : (
+                        <SelectItem disabled value="no-customers">
+                          No customers available
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {validationErrors.customer && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.customer}
+                    </p>
+                  )}
+                </div>
+
+                {/* Warehouse */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="edit-warehouse">Warehouse</Label>
+                  <Select
+                    value={formData.warehouse}
+                    onValueChange={(value) => {
+                      const normalized = value.toUpperCase().trim();
+                      setFormData((prev) => ({
+                        ...prev,
+                        warehouse: normalized,
+                      }));
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        warehouse: "",
+                      }));
+                    }}>
+                    <SelectTrigger
+                      className={`text-sm uppercase w-full ${
+                        validationErrors.warehouse ? "border-destructive" : ""
+                      }`}>
+                      {formData.warehouse || "Select Warehouse"}
+                    </SelectTrigger>
+                    <SelectContent>
+                      {Array.isArray(warehouses) && warehouses.length > 0 ? (
+                        warehouses.map((warehouse) => {
+                          const label =
+                            warehouse.warehouse_name?.trim() ||
+                            "Unnamed Warehouse";
+                          return (
+                            <SelectItem
+                              key={warehouse._id || label}
+                              value={label.toUpperCase()}>
+                              {label}
+                            </SelectItem>
+                          );
+                        })
+                      ) : (
+                        <SelectItem disabled value="no-warehouses">
+                          No warehouses available
+                        </SelectItem>
+                      )}
+                    </SelectContent>
+                  </Select>
+                  {validationErrors.warehouse && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.warehouse}
+                    </p>
+                  )}
+                </div>
+
+                {/* Notes */}
+                <div className="flex flex-col flex-[2] min-w-[300px]">
+                  <Label htmlFor="edit-notes">Notes</Label>
+                  <Textarea
+                    id="edit-notes"
+                    value={formData.notes}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setFormData((prev) => ({ ...prev, notes: value }));
+                      setValidationErrors((prev) => ({ ...prev, notes: "" }));
+                    }}
+                    placeholder="Add any additional notes or comments here"
+                    className={`text-sm ${
+                      validationErrors.notes ? "border-destructive" : ""
+                    }`}
+                  />
+                  {validationErrors.notes && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.notes}
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+            <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
+              {/* Header Row */}
+              <div className="text-xs font-semibold uppercase text-center">
+                Item Code
+              </div>
+              <div className="text-xs font-semibold uppercase text-center">
+                Item Name
+              </div>
+              <div className="text-xs font-semibold uppercase text-center">
+                Qty
+              </div>
+              <div className="text-xs font-semibold uppercase text-center">
+                UOM
+              </div>
+              <div className="text-xs font-semibold uppercase text-center">
+                Purchase Price
+              </div>
+              <div className="text-xs font-semibold uppercase text-center">
+                Amount
+              </div>
+              <div className="text-center"></div> {/* Trash icon column */}
+            </div>
+          </div>
+
+          {formData.items?.map((item, index) => {
+            const isZero = item.quantity === 0;
+
+            return (
+              <div
+                key={index}
+                className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0 ${
+                  isZero ? "bg-green-50 text-green-700 animate-fade-in" : ""
+                }`}>
+                {/* Item Code */}
+                <input
+                  type="text"
+                  value={item.itemCode || ""}
+                  readOnly
+                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
+                    isZero ? "bg-green-50 text-green-700" : "bg-white"
+                  }`}
+                />
+
+                {/* Item Name */}
+                <div className="relative w-full">
+                  <input
+                    id={`item-name-${index}`}
+                    type="text"
+                    autoComplete="off"
+                    value={item.itemName || ""}
+                    placeholder="Search item name"
+                    disabled={isZero}
+                    className={`text-sm uppercase w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8 ${
+                      isZero
+                        ? "bg-green-50 text-green-700 cursor-not-allowed"
+                        : ""
+                    }`}
+                    onClick={() => setShowItemSuggestions(index)}
+                    onBlur={() =>
+                      setTimeout(() => setShowItemSuggestions(null), 200)
+                    }
+                    onChange={(e) => {
+                      const value = e.target.value?.trim().toUpperCase() || "";
+
+                      setItemsData((prev) => {
+                        const updated = [...prev];
+                        updated[index] = { ...updated[index], itemName: value };
+                        return updated;
+                      });
+
+                      setFormData((prev) => {
+                        const updatedItems = [...prev.items];
+                        updatedItems[index] = {
+                          ...updatedItems[index],
+                          itemName: value,
+                        };
+                        return { ...prev, items: updatedItems };
+                      });
+
+                      setShowItemSuggestions(index);
+                    }}
+                  />
+
+                  {/* Magnifying Glass Icon */}
+                  <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 text-muted-foreground"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                      />
+                    </svg>
+                  </div>
+
+                  {/* Live Suggestions */}
+                  {showItemSuggestions === index && (
+                    <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                      {(() => {
+                        const normalize = (str: string) =>
+                          str?.trim().toUpperCase() || "";
+                        const input = normalize(item.itemName);
+
+                        const filtered = inventoryItems.filter((option) =>
+                          normalize(option.itemName).includes(input)
+                        );
+
+                        if (filtered.length === 0) {
+                          return (
+                            <li className="px-3 py-2 text-muted-foreground">
+                              No matching items found
+                            </li>
+                          );
+                        }
+
+                        return filtered.map((option) => {
+                          const enriched = {
+                            itemName: normalize(option.itemName),
+                            itemCode: option.itemCode || "",
+                            unitType: option.unitType || "",
+                            price: option.purchasePrice || 0,
+                            quantity: 1,
+                          };
+
+                          return (
+                            <li
+                              key={option.itemCode || enriched.itemName}
+                              className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                              onClick={() => {
+                                setItemsData((prev) => {
+                                  const updated = [...prev];
+                                  updated[index] = {
+                                    ...updated[index],
+                                    ...enriched,
+                                  };
+                                  return updated;
+                                });
+
+                                setFormData((prev) => {
+                                  const updatedItems = [...prev.items];
+                                  updatedItems[index] = {
+                                    ...updatedItems[index],
+                                    ...enriched,
+                                  };
+                                  return { ...prev, items: updatedItems };
+                                });
+
+                                setShowItemSuggestions(null);
+                              }}>
+                              {enriched.itemName ||
+                                option.itemCode ||
+                                "Unnamed Item"}
+                            </li>
+                          );
+                        });
+                      })()}
+                    </ul>
+                  )}
+                </div>
+
+                {/* Quantity */}
+                <input
+                  type="number"
+                  min={1}
+                  value={item.quantity}
+                  onChange={(e) => {
+                    const value = Number(e.target.value);
+                    setFormData((prev) => {
+                      const updatedItems = [...prev.items];
+                      updatedItems[index].quantity = value;
+
+                      const { totalQuantity, total } =
+                        recalculateTotals(updatedItems);
+
+                      return {
+                        ...prev,
+                        items: updatedItems,
+                        totalQuantity,
+                        total,
+                      };
+                    });
+                  }}
+                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 focus:outline-none focus:ring-1 focus:ring-primary ${
+                    isZero
+                      ? "bg-green-50 text-green-700 cursor-not-allowed"
+                      : "bg-white"
+                  }`}
+                  disabled={isZero}
+                />
+
+                {/* Unit Type */}
+                <input
+                  type="text"
+                  value={item.unitType || ""}
+                  readOnly
+                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
+                    isZero ? "bg-green-50 text-green-700" : "bg-white"
+                  }`}
+                />
+
+                {/* Purchase Price */}
+                <input
+                  type="text"
+                  value={
+                    item.price !== undefined
+                      ? item.price.toLocaleString("en-PH", {
+                          style: "currency",
+                          currency: "PHP",
+                        })
+                      : ""
+                  }
+                  readOnly
+                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
+                    isZero ? "bg-green-50 text-green-700" : "bg-white"
+                  }`}
+                />
+
+                {/* Amount */}
+                <input
+                  type="text"
+                  value={
+                    item.price && item.quantity
+                      ? (item.price * item.quantity).toLocaleString("en-PH", {
+                          style: "currency",
+                          currency: "PHP",
+                        })
+                      : ""
+                  }
+                  readOnly
+                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
+                    isZero ? "bg-green-50 text-green-700" : "bg-white"
+                  }`}
+                />
+
+                {/* Action Button */}
+                <div className="w-full h-full flex items-center justify-center border border-border border-l-0 border-t-0">
+                  {isZero ? (
+                    <div className="flex items-center gap-1">
+                      <Check className="w-4 h-4 text-green-600 animate-bounce" />
+                      <span className="text-xs font-semibold text-green-700">
+                        Posted
+                      </span>
+                    </div>
+                  ) : (
+                    <Button
+                      variant="destructive"
+                      size="icon"
+                      onClick={() => {
+                        setFormData((prev) => {
+                          const updatedItems = prev.items.filter(
+                            (_, i) => i !== index
+                          );
+                          const { totalQuantity, total } =
+                            recalculateTotals(updatedItems);
+
+                          return {
+                            ...prev,
+                            items: updatedItems,
+                            totalQuantity,
+                            total,
+                          };
+                        });
+                      }}
+                      title="Remove item">
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  )}
+                </div>
+              </div>
+            );
+          })}
+
+          {/* Totals */}
+          <div className="flex w-full justify-end mt-4 gap-6">
+            {/* Total Quantity */}
+            <div className="flex items-center gap-2 min-w-[180px]">
+              <span className="text-sm font-medium">Total Qty:</span>
+              <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
+                {formData.totalQuantity ?? 0}
+              </span>
+            </div>
+
+            {/* Total Amount */}
+            <div className="flex items-center gap-2 min-w-[180px]">
+              <span className="text-sm font-medium">Total Amount:</span>
+              <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
+                {formData.total?.toLocaleString("en-PH", {
+                  style: "currency",
+                  currency: "PHP",
+                })}
+              </span>
+            </div>
+          </div>
+
+          {/* Footer Actions */}
+          <DialogFooter className="pt-4 border-t">
+            <div className="flex w-full justify-between items-center">
+              {/* Left: Add Item */}
+              <Button onClick={handleAddItemEdit}>➕ Add Item</Button>
+
+              {/* Right: Cancel & Update */}
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={() => {
+                    setIsEditDialogOpen(false);
+                    setEditingSO(null);
+                    resetForm();
+                  }}>
+                  Cancel
+                </Button>
+
+                <div className="flex items-center gap-2">
+                  {/* Primary Update Button */}
+                  <Button
+                    onClick={handleUpdate}
+                    disabled={
+                      !formData.items.length ||
+                      formData.items.every((item) => !item.itemName?.trim())
+                    }
+                    className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150"
+                    aria-label="Update">
+                    ✏️ Update
+                  </Button>
+                </div>
+              </div>
+            </div>
+          </DialogFooter>
+        </DialogPanel>
+      </Dialog>
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-xl p-6 scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-transparent bg-white shadow-xl border border-border">

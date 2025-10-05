@@ -97,8 +97,8 @@ export default function InventorySummary() {
   useEffect(() => {
     const fetchInventoryMain = async () => {
       try {
-        const res = await fetch("/api/inventory_main", { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to fetch inventory_main");
+        const res = await fetch("/api/inventory-main", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to fetch inventory-main");
 
         const response = await res.json();
         const data = Array.isArray(response)

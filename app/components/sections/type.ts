@@ -236,9 +236,9 @@ export type SalesOrderItem = {
   description?: string;
   quantity: number;
   unitType: string;
-  price: number;
   amount: number;
   itemCode?: string;
+  salesPrice: number;
 };
 
 export type SalesOrder = {
@@ -251,7 +251,7 @@ export type SalesOrder = {
   deliveryDate?: string; // ISO date string
   shippingAddress?: string;
   notes?: string;
-  status: "PENDING" | "PARTIAL" | "COMPLETED" | "CANCELLED";
+  status: "PENDING" | "TO PREPARE" | "COMPLETED" | "CANCELLED";
   items: SalesOrderItem[];
   total: number;
   totalQuantity: number;

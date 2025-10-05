@@ -37,9 +37,21 @@ export async function PATCH(
 ) {
   await connectMongoDB();
 
-  if (!Types.ObjectId.isValid(params.id)) {
+  const id = params.id?.trim();
+  if (!Types.ObjectId.isValid(id)) {
     return NextResponse.json(
-      { message: "Invalid sales order ID" },
+      { error: "Invalid sales order ID" },
+      { status: 400 }
+    );
+  }
+
+  let payload: Partial<SalesOrder>;
+  try {
+    payload = await request.json();
+  } catch (err) {
+    console.error("❌ Failed to parse JSON:", err);
+    return NextResponse.json(
+      { error: "Malformed request body" },
       { status: 400 }
     );
   }
@@ -54,10 +66,25 @@ export async function PATCH(
     notes,
     status,
     items,
-  }: SalesOrder = await request.json();
+  } = payload;
 
-  // Defensive validation
-  if (
+  // Normalize and validate items
+  const normalizedItems: SalesOrderItem[] = Array.isArray(items)
+    ? items
+        .filter((item) => Number(item.quantity) > 0)
+        .map((item) => ({
+          _id: item._id,
+          itemName: item.itemName?.trim().toUpperCase() || "",
+          quantity: Math.max(Number(item.quantity) || 1, 1),
+          unitType: item.unitType?.trim().toUpperCase() || "",
+          price: Number(item.price) || 0,
+          itemCode: item.itemCode?.trim().toUpperCase() || "",
+          description: item.description?.trim() || "",
+          amount: Number(item.quantity) * Number(item.price),
+        }))
+    : [];
+
+  const isInvalid =
     (customer && typeof customer !== "string") ||
     (salesPerson && typeof salesPerson !== "string") ||
     (warehouse && typeof warehouse !== "string") ||
@@ -66,54 +93,54 @@ export async function PATCH(
     (shippingAddress && typeof shippingAddress !== "string") ||
     (notes && typeof notes !== "string") ||
     (status &&
-      !["PENDING", "PARTIAL", "COMPLETED", "CANCELLED"].includes(status)) ||
+      !["PENDING", "TO PREPARE", "COMPLETED", "CANCELLED"].includes(status)) ||
     (items &&
       (!Array.isArray(items) ||
-        items.some(
-          (item: SalesOrderItem) =>
-            !item.itemName ||
-            typeof item.quantity !== "number" ||
-            typeof item.price !== "number" ||
-            typeof item.amount !== "number"
-        )))
-  ) {
+        normalizedItems.some(
+          (item) =>
+            typeof item.itemName !== "string" ||
+            isNaN(item.quantity) ||
+            isNaN(item.price) ||
+            isNaN(item.amount)
+        )));
+
+  if (isInvalid) {
     return NextResponse.json(
-      { message: "Invalid update payload" },
+      { error: "Invalid update payload" },
       { status: 400 }
     );
   }
 
-  const updatePayload: Partial<SalesOrder> = {};
+  const updatePayload: Partial<SalesOrder> = {
+    customer: customer?.trim().toUpperCase(),
+    salesPerson: salesPerson?.trim().toUpperCase(),
+    warehouse: warehouse?.trim().toUpperCase(),
+    transactionDate,
+    deliveryDate,
+    shippingAddress: shippingAddress?.trim(),
+    notes: notes?.trim(),
+    status,
+  };
 
-  if (customer) updatePayload.customer = customer.trim().toUpperCase();
-  if (salesPerson) updatePayload.salesPerson = salesPerson.trim().toUpperCase();
-  if (warehouse) updatePayload.warehouse = warehouse.trim().toUpperCase();
-  if (transactionDate) updatePayload.transactionDate = transactionDate;
-  if (deliveryDate) updatePayload.deliveryDate = deliveryDate;
-  if (shippingAddress) updatePayload.shippingAddress = shippingAddress.trim();
-  if (notes) updatePayload.notes = notes.trim();
-  if (status) updatePayload.status = status;
-
-  if (items) {
-    updatePayload.items = items;
-    updatePayload.total = items.reduce((sum, i) => sum + i.amount, 0);
-    updatePayload.totalQuantity = items.reduce((sum, i) => sum + i.quantity, 0);
+  if (normalizedItems.length > 0) {
+    updatePayload.items = normalizedItems;
+    updatePayload.total = normalizedItems.reduce((sum, i) => sum + i.amount, 0);
+    updatePayload.totalQuantity = normalizedItems.reduce(
+      (sum, i) => sum + i.quantity,
+      0
+    );
     updatePayload.balance = updatePayload.total;
   }
 
   try {
-    const order = await SalesOrderModel.findByIdAndUpdate(
-      params.id,
-      updatePayload,
-      {
-        new: true,
-        runValidators: true,
-      }
-    );
+    const order = await SalesOrderModel.findByIdAndUpdate(id, updatePayload, {
+      new: true,
+      runValidators: true,
+    });
 
     if (!order) {
       return NextResponse.json(
-        { message: "Sales order not found" },
+        { error: "Sales order not found" },
         { status: 404 }
       );
     }
@@ -122,7 +149,7 @@ export async function PATCH(
   } catch (error) {
     console.error("❌ Error updating sales order:", error);
     return NextResponse.json(
-      { message: "Failed to update sales order" },
+      { error: "Failed to update sales order" },
       { status: 500 }
     );
   }

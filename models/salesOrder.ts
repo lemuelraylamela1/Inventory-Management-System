@@ -83,7 +83,7 @@ const SalesOrderSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["PENDING", "PARTIAL", "COMPLETED", "CANCELLED"],
+      enum: ["PENDING", "TO PREPARE", "COMPLETED", "CANCELLED"],
       default: "PENDING",
     },
     items: {
