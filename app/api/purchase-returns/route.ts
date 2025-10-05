@@ -3,6 +3,7 @@ import PurchaseReceipt from "@/models/purchaseReceipt";
 import PurchaseReturn from "@/models/purchaseReturn";
 import { generateNextReturnNumber } from "@/libs/generateNextReturnNumber";
 import Inventory, { InventoryItem } from "@/models/inventory";
+import InventoryMain from "@/models/inventoryMain";
 
 type ReturnItem = {
   selected?: boolean;
@@ -121,37 +122,52 @@ export async function POST(request: Request) {
         continue;
       }
 
-      const index = inventoryDoc.items.findIndex(
-        (invItem: InventoryItem) => invItem.itemCode === item.itemCode
-      );
+      const previousOnhand = inventoryDoc.items
+        .filter((i: InventoryItem) => i.itemCode === item.itemCode)
+        .reduce((sum: number, i: InventoryItem) => sum + i.quantity, 0);
 
-      if (index === -1) {
-        console.warn(`⚠️ Item ${item.itemCode} not found in inventory`);
-        continue;
-      }
+      const returnEntry: InventoryItem = {
+        itemCode: item.itemCode,
+        itemName: item.itemName,
+        category: "UNCATEGORIZED",
+        quantity: -Math.abs(item.quantity),
+        unitType: item.unitType,
+        purchasePrice: item.purchasePrice,
+        source: prNumber,
+        referenceNumber: returnNumber,
+        receivedAt: now,
+        createdAt: now,
+        updatedAt: now,
+        activity: "RETURNED",
+        user: body.user?.trim() || "SYSTEM",
+        inQty: 0,
+        outQty: item.quantity,
+        currentOnhand: previousOnhand - item.quantity,
+        particulars: `Returned via ${returnNumber}`,
+        date: now.toISOString(),
+      };
 
-      const invItem = inventoryDoc.items[index];
-
-      if (invItem.quantity < item.quantity) {
-        console.warn(
-          `⚠️ Insufficient stock for ${item.itemCode} — available: ${invItem.quantity}, requested: ${item.quantity}`
-        );
-        continue;
-      }
-
-      invItem.quantity -= item.quantity;
-      invItem.updatedAt = now;
-
-      // ✅ Log return activity
-      invItem.activity = "RETURNED";
-      invItem.user = body.user?.trim() || "SYSTEM";
-      invItem.outQty = item.quantity;
-      invItem.inQty = 0;
-      invItem.currentOnhand = invItem.quantity;
-      invItem.particulars = `Returned via ${returnNumber}`;
-      invItem.date = now.toISOString();
-
+      inventoryDoc.items.push(returnEntry);
       await inventoryDoc.save();
+
+      await InventoryMain.findOneAndUpdate(
+        {
+          itemCode: item.itemCode,
+          warehouse: receipt.warehouse?.trim().toUpperCase(),
+        },
+        {
+          $inc: { quantity: -Math.abs(item.quantity) },
+          $set: {
+            itemName: item.itemName,
+            unitType: item.unitType,
+            updatedAt: now,
+          },
+          $setOnInsert: {
+            warehouse: receipt.warehouse?.trim().toUpperCase(),
+          },
+        },
+        { upsert: true }
+      );
     }
 
     return NextResponse.json(

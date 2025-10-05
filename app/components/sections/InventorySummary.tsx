@@ -95,34 +95,31 @@ export default function InventorySummary() {
 
   // ✅ Fetch inventory and enrich with category
   useEffect(() => {
-    const fetchInventory = async () => {
+    const fetchInventoryMain = async () => {
       try {
-        const res = await fetch("/api/inventory", { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to fetch inventory");
+        const res = await fetch("/api/inventory_main", { cache: "no-store" });
+        if (!res.ok) throw new Error("Failed to fetch inventory_main");
 
         const response = await res.json();
         const data = Array.isArray(response)
-          ? response.flatMap((record) =>
-              record.items.map((item: InventoryType) => {
-                const key = item.itemName.trim().toUpperCase();
-                return {
-                  ...item,
-                  warehouse: record.warehouse,
-                  category: categoryMap[key] ?? "UNCATEGORIZED",
-                };
-              })
-            )
+          ? response.map((item: InventoryType) => {
+              const key = item.itemName.trim().toUpperCase();
+              return {
+                ...item,
+                category: categoryMap[key] ?? "UNCATEGORIZED",
+              };
+            })
           : [];
 
         setInventoryItems(data);
       } catch (err) {
-        console.error("Failed to fetch inventory", err);
+        console.error("Failed to fetch inventory_main", err);
         setInventoryItems([]);
       }
     };
 
-    fetchInventory();
-    const interval = setInterval(fetchInventory, 1000);
+    fetchInventoryMain();
+    const interval = setInterval(fetchInventoryMain, 1000);
     return () => clearInterval(interval);
   }, [categoryMap]);
 

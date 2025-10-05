@@ -34,7 +34,7 @@ const InventoryItemSchema = new Schema<InventoryItem>(
     itemCode: { type: String, required: true, trim: true, uppercase: true },
     itemName: { type: String, required: true, trim: true },
     category: { type: String, required: true, trim: true, uppercase: true },
-    quantity: { type: Number, required: true, min: 0 },
+    quantity: { type: Number, required: true },
     unitType: { type: String, required: true, trim: true, uppercase: true },
     purchasePrice: { type: Number, min: 0 },
     source: { type: String, trim: true, uppercase: true },

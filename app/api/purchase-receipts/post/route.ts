@@ -2,24 +2,26 @@ import { NextResponse } from "next/server";
 import PurchaseOrder from "@/models/purchaseOrder";
 import PurchaseReceipt from "@/models/purchaseReceipt";
 import Inventory, { InventoryItem } from "@/models/inventory";
-import { InventoryType, ReceiptItem } from "@/app/components/sections/type";
-import { PurchaseOrderItem } from "@/app/components/sections/type";
+import InventoryMain from "@/models/inventoryMain";
+import { ReceiptItem, PurchaseOrderItem } from "@/app/components/sections/type";
+
+type PurchaseOrderDocument = {
+  _id: string;
+  poNumber: string;
+  items: PurchaseOrderItem[];
+  balance?: number;
+  total?: number;
+};
 
 async function reconcilePOWithReceipt(
-  po: {
-    _id: string;
-    poNumber: string;
-    items: PurchaseOrderItem[];
-    balance?: number;
-    total?: number;
-  },
+  po: PurchaseOrderDocument,
   receiptItems: ReceiptItem[]
-) {
+): Promise<void> {
   const originalBalance =
     typeof po.balance === "number" ? po.balance : po.total ?? 0;
   let totalDeducted = 0;
 
-  const updatedItems = po.items.map((poItem) => {
+  const updatedItems: PurchaseOrderItem[] = po.items.map((poItem) => {
     const matched = receiptItems.find(
       (receiptItem) =>
         receiptItem.itemCode?.trim().toUpperCase() ===
@@ -55,7 +57,7 @@ async function reconcilePOWithReceipt(
         balance: newBalance,
         status: newStatus,
         totalQuantity: filteredItems.reduce(
-          (sum, item) => sum + item.quantity,
+          (sum: number, item: PurchaseOrderItem) => sum + item.quantity,
           0
         ),
         locked: newStatus === "COMPLETED",
@@ -70,13 +72,13 @@ async function reconcilePOWithReceipt(
 
 export async function POST(request: Request) {
   try {
-    const body = await request.json();
+    const body: Record<string, unknown> = await request.json();
 
-    const prNumber = body.prNumber?.trim().toUpperCase();
+    const prNumber = (body.prNumber as string)?.trim().toUpperCase();
     const poNumbers = Array.isArray(body.poNumber)
-      ? body.poNumber.map((po: string) => po.trim().toUpperCase())
+      ? (body.poNumber as string[]).map((po) => po.trim().toUpperCase())
       : [];
-    const username = body.user?.trim() || "SYSTEM";
+    const username = (body.user as string)?.trim() || "SYSTEM";
 
     if (!prNumber || poNumbers.length === 0) {
       return NextResponse.json(
@@ -108,94 +110,94 @@ export async function POST(request: Request) {
     });
 
     for (const po of purchaseOrders) {
-      await reconcilePOWithReceipt(po, receipt.items ?? []);
+      await reconcilePOWithReceipt(
+        po as PurchaseOrderDocument,
+        receipt.items ?? []
+      );
     }
 
     for (const item of receipt.items ?? []) {
       const now = new Date();
-      const inventoryDoc = await Inventory.findOne({
-        warehouse: receipt.warehouse,
-      });
+      const warehouse = receipt.warehouse?.trim().toUpperCase() ?? "";
+      const itemCode = item.itemCode?.trim().toUpperCase() ?? "";
+      const itemName = item.itemName?.trim() ?? "";
+      const unitType = item.unitType?.trim().toUpperCase() ?? "";
+      const quantity = Number(item.quantity);
+
+      const inventoryDoc = await Inventory.findOne({ warehouse });
+
+      const newEntry: InventoryItem = {
+        itemCode,
+        itemName,
+        category: item.category ?? "UNCATEGORIZED",
+        quantity,
+        unitType,
+        purchasePrice: item.purchasePrice,
+        source: receipt.prNumber,
+        referenceNumber: receipt.referenceNumber,
+        receivedAt: now,
+        createdAt: now,
+        updatedAt: now,
+        activity: "PURCHASE",
+        user: username,
+        inQty: quantity,
+        outQty: 0,
+        currentOnhand: 0,
+        particulars: `Received via ${receipt.referenceNumber}`,
+        date: now.toISOString(),
+      };
 
       if (!inventoryDoc) {
+        newEntry.currentOnhand = quantity;
+
         await Inventory.create({
-          warehouse: receipt.warehouse,
-          items: [
-            {
-              itemCode: item.itemCode,
-              itemName: item.itemName,
-              category: item.category ?? "UNCATEGORIZED",
-              quantity: item.quantity,
-              unitType: item.unitType,
-              purchasePrice: item.purchasePrice,
-              source: receipt.prNumber,
-              referenceNumber: receipt.referenceNumber,
-              receivedAt: now,
-              createdAt: now,
-              updatedAt: now,
-              activity: "PURCHASE",
-              user: username,
-              inQty: item.quantity,
-              outQty: 0,
-              currentOnhand: item.quantity,
-              particulars: `Received via ${receipt.referenceNumber}`,
-              date: now.toISOString(),
-            },
-          ],
+          warehouse,
+          items: [newEntry],
           remarks: `Auto-created from receipt ${receipt.prNumber}`,
         });
 
-        console.log(`🆕 Created inventory document for ${receipt.warehouse}`);
-        continue;
+        console.log(`🆕 Created inventory document for ${warehouse}`);
+      } else {
+        inventoryDoc.items.push(newEntry);
+
+        const totalOnhand = inventoryDoc.items
+          .filter((i: InventoryItem) => i.itemName === itemName)
+          .reduce((sum: number, i: InventoryItem) => sum + i.quantity, 0);
+
+        // Lock past transactions by leaving their currentOnhand untouched
+        // Only update the latest transaction
+        const latestIndex = inventoryDoc.items.length - 1;
+        inventoryDoc.items[latestIndex].currentOnhand = inventoryDoc.items
+          .filter((i: InventoryItem) => i.itemName === itemName)
+          .reduce((sum: number, i: InventoryItem) => sum + i.quantity, 0);
+
+        inventoryDoc.items[inventoryDoc.items.length - 1].currentOnhand =
+          totalOnhand;
+
+        await inventoryDoc.save();
+        console.log(`📥 Appended transaction for ${itemCode} in ${warehouse}`);
       }
 
-      const existingIndex = inventoryDoc.items.findIndex(
-        (invItem: InventoryItem) => invItem.itemCode === item.itemCode
+      const totalMainQty = await Inventory.find({ warehouse }).then((docs) =>
+        docs
+          .flatMap((doc) => doc.items)
+          .filter((i: InventoryItem) => i.itemCode === itemCode)
+          .reduce((sum: number, i: InventoryItem) => sum + i.quantity, 0)
       );
 
-      if (existingIndex !== -1) {
-        const existingItem = inventoryDoc.items[existingIndex];
-        existingItem.quantity += item.quantity;
-        existingItem.updatedAt = now;
-        existingItem.activity = "PURCHASE";
-        existingItem.user = username;
-        existingItem.inQty = item.quantity;
-        existingItem.outQty = 0;
-        existingItem.currentOnhand = existingItem.quantity;
-        existingItem.particulars = `Received via ${receipt.referenceNumber}`;
-        existingItem.date = now.toISOString();
-
-        console.log(
-          `🔄 Updated quantity for ${item.itemCode} in ${receipt.warehouse}`
-        );
-      } else {
-        inventoryDoc.items.push({
-          itemCode: item.itemCode,
-          itemName: item.itemName,
-          category: item.category ?? "UNCATEGORIZED",
-          quantity: item.quantity,
-          unitType: item.unitType,
-          purchasePrice: item.purchasePrice,
-          source: receipt.prNumber,
-          referenceNumber: receipt.referenceNumber,
-          receivedAt: now,
-          createdAt: now,
-          updatedAt: now,
-          activity: "PURCHASE",
-          user: username,
-          inQty: item.quantity,
-          outQty: 0,
-          currentOnhand: item.quantity,
-          particulars: `Received via ${receipt.referenceNumber}`,
-          date: now.toISOString(),
-        });
-
-        console.log(
-          `➕ Added new item ${item.itemCode} to ${receipt.warehouse}`
-        );
-      }
-
-      await inventoryDoc.save();
+      await InventoryMain.findOneAndUpdate(
+        { itemCode, warehouse },
+        {
+          $set: {
+            itemName,
+            unitType,
+            quantity: totalMainQty,
+            updatedAt: now,
+          },
+          $setOnInsert: { warehouse },
+        },
+        { upsert: true }
+      );
     }
 
     console.log(`✅ Receipt ${prNumber} posted and inventory updated.`);

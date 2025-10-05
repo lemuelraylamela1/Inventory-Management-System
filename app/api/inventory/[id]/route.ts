@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import Inventory, { InventoryItem } from "@/models/inventory";
+import InventoryMain from "@/models/inventoryMain"; // ✅ import main store
 
 type InventoryPatchPayload = Partial<{
   warehouse: string;
@@ -28,6 +29,8 @@ export async function PATCH(
         { status: 404 }
       );
     }
+
+    const warehouse = inventory.warehouse?.trim().toUpperCase();
 
     // 🔁 Quantity adjustment block
     if (
@@ -63,6 +66,20 @@ export async function PATCH(
       inventory.updatedAt = now;
       await inventory.save();
 
+      // ✅ Sync to inventory_main
+      await InventoryMain.findOneAndUpdate(
+        { itemCode, warehouse },
+        {
+          $set: {
+            itemName: item.itemName,
+            unitType: item.unitType,
+            updatedAt: now,
+          },
+          $inc: { quantity: delta },
+        },
+        { upsert: true, new: true }
+      );
+
       return NextResponse.json(
         { message: "Quantity adjusted", item },
         { status: 200 }
@@ -81,26 +98,50 @@ export async function PATCH(
     }
 
     if (Array.isArray(body.items)) {
-      updates.items = body.items.map((item) => ({
-        itemCode: item.itemCode?.trim().toUpperCase(),
-        itemName: item.itemName?.trim(),
-        category: item.category?.trim().toUpperCase(),
-        quantity: Number(item.quantity),
-        unitType: item.unitType?.trim().toUpperCase(),
-        purchasePrice: Number(item.purchasePrice) || 0,
-        source: item.source?.trim().toUpperCase() || "",
-        referenceNumber: item.referenceNumber?.trim().toUpperCase(),
-        activity: item.activity?.trim().toUpperCase(),
-        user: item.user?.trim(),
-        inQty: item.inQty,
-        outQty: item.outQty,
-        currentOnhand: item.currentOnhand,
-        particulars: item.particulars?.trim(),
-        date: item.date?.trim(),
-        receivedAt: item.receivedAt ? new Date(item.receivedAt) : now,
-        updatedAt: now,
-        createdAt: item.createdAt ? new Date(item.createdAt) : now,
-      }));
+      updates.items = body.items.map((item) => {
+        const normalizedQty = Number(item.quantity);
+        const itemCode = item.itemCode?.trim().toUpperCase();
+        const itemName = item.itemName?.trim();
+        const unitType = item.unitType?.trim().toUpperCase();
+
+        // ✅ Sync each item to inventory_main
+        if (itemCode && itemName && warehouse && !isNaN(normalizedQty)) {
+          InventoryMain.findOneAndUpdate(
+            { itemCode, warehouse },
+            {
+              $set: {
+                itemName,
+                unitType,
+                updatedAt: now,
+              },
+              $setOnInsert: { warehouse },
+              $inc: { quantity: normalizedQty },
+            },
+            { upsert: true }
+          ).catch((err) => console.error("❌ Sync error:", err));
+        }
+
+        return {
+          itemCode,
+          itemName,
+          category: item.category?.trim().toUpperCase(),
+          quantity: normalizedQty,
+          unitType,
+          purchasePrice: Number(item.purchasePrice) || 0,
+          source: item.source?.trim().toUpperCase() || "",
+          referenceNumber: item.referenceNumber?.trim().toUpperCase(),
+          activity: item.activity?.trim().toUpperCase(),
+          user: item.user?.trim(),
+          inQty: item.inQty,
+          outQty: item.outQty,
+          currentOnhand: item.currentOnhand,
+          particulars: item.particulars?.trim(),
+          date: item.date?.trim(),
+          receivedAt: item.receivedAt ? new Date(item.receivedAt) : now,
+          updatedAt: now,
+          createdAt: item.createdAt ? new Date(item.createdAt) : now,
+        };
+      });
     }
 
     updates.updatedAt = now;
@@ -110,6 +151,7 @@ export async function PATCH(
       { $set: updates },
       { new: true }
     );
+
     if (!patched) {
       return NextResponse.json(
         { error: "Inventory not found" },

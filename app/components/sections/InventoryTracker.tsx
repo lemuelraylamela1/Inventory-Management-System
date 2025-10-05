@@ -136,16 +136,16 @@ export default function InventoryTracker() {
   }, [inventoryItems, selectedWarehouse, searchTerm]);
 
   const paginatedData = useMemo(() => {
-    const sortedByDateDesc = [...filteredData].sort((a, b) => {
-      const timeA = a.createdAt ? new Date(a.createdAt).getTime() : 0;
-      const timeB = b.createdAt ? new Date(b.createdAt).getTime() : 0;
-      return timeB - timeA; // Descending: latest first
+    const sortedByDateAsc = [...filteredData].sort((a, b) => {
+      const timeA = new Date(a.updatedAt ?? a.createdAt ?? 0).getTime();
+      const timeB = new Date(b.updatedAt ?? b.createdAt ?? 0).getTime();
+      return timeA - timeB; // Ascending: oldest first
     });
 
     const startIndex = Math.max((currentPage - 1) * rowsPerPage, 0);
     const endIndex = startIndex + rowsPerPage;
 
-    return sortedByDateDesc.slice(startIndex, endIndex);
+    return sortedByDateAsc.slice(startIndex, endIndex);
   }, [filteredData, currentPage, rowsPerPage]);
 
   const sortedPaginatedData = paginatedData.filter(Boolean).sort((a, b) => {
@@ -256,14 +256,17 @@ export default function InventoryTracker() {
               sortedPaginatedData.map((item, index) => (
                 <TableRow key={`${item.itemCode}-${item.warehouse}-${index}`}>
                   <TableCell>
-                    {item.createdAt
-                      ? new Date(item.createdAt).toLocaleDateString("en-PH", {
+                    {item.updatedAt || item.createdAt
+                      ? new Date(
+                          item.updatedAt ?? item.createdAt!
+                        ).toLocaleDateString("en-PH", {
                           year: "numeric",
                           month: "short",
                           day: "numeric",
                         })
                       : "—"}
                   </TableCell>
+
                   <TableCell>{item.itemName ?? "—"}</TableCell>
                   <TableCell>{item.warehouse ?? "—"}</TableCell>
                   <TableCell>
@@ -284,7 +287,7 @@ export default function InventoryTracker() {
                   <TableCell className="text-red-600">
                     {item.outQty > 0 ? item.outQty : "-"}
                   </TableCell>
-                  <TableCell>{item.quantity ?? "—"}</TableCell>
+                  <TableCell>{item.currentOnhand ?? "—"}</TableCell>
                   <TableCell>
                     {item.activity ? (
                       <span
