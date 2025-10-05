@@ -2801,54 +2801,108 @@ export default function SalesOrder({ onSuccess }: Props) {
           {viewingSO && (
             <div className="grid gap-6 py-4">
               <Card className="p-6 rounded-xl shadow-sm border border-border">
-                <h4 className="text-xl font-bold text-primary text-center mb-6 tracking-tight">
-                  Sales Order Info
-                </h4>
+                <div className="grid grid-cols-2 gap-6 w-full">
+                  {/* SO Number */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="so-number"
+                      className="text-xs font-medium text-muted-foreground">
+                      SO Number
+                    </label>
+                    <input
+                      type="text"
+                      id="so-number"
+                      value={viewingSO.soNumber || "—"}
+                      readOnly
+                      disabled
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
+                    />
+                  </div>
 
-                {/* Header Row */}
-                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] border-b py-3 mb-4 bg-primary text-primary-foreground rounded-t shadow-sm">
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide">
-                    SO Number
+                  {/* Customer */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="customer"
+                      className="text-xs font-medium text-muted-foreground">
+                      Customer
+                    </label>
+                    <input
+                      type="text"
+                      id="customer"
+                      value={viewingSO.customer || "—"}
+                      readOnly
+                      disabled
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
+                    />
                   </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Customer
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Sales Person
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Warehouse
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Status
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Notes
-                  </div>
-                  <div className="text-center border-l border-border"></div>
-                </div>
 
-                {/* Data Row */}
-                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-b py-2 text-sm">
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingSO.soNumber || "—"}
+                  {/* Sales Person */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="sales-person"
+                      className="text-xs font-medium text-muted-foreground">
+                      Sales Person
+                    </label>
+                    <input
+                      type="text"
+                      id="sales-person"
+                      value={viewingSO.salesPerson || "—"}
+                      readOnly
+                      disabled
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
+                    />
                   </div>
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingSO.customer || "—"}
+
+                  {/* Warehouse */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="warehouse"
+                      className="text-xs font-medium text-muted-foreground">
+                      Warehouse
+                    </label>
+                    <input
+                      type="text"
+                      id="warehouse"
+                      value={viewingSO.warehouse || "—"}
+                      readOnly
+                      disabled
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
+                    />
                   </div>
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingSO.salesPerson || "—"}
+
+                  {/* Status */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="status"
+                      className="text-xs font-medium text-muted-foreground">
+                      Status
+                    </label>
+                    <input
+                      type="text"
+                      id="status"
+                      value={viewingSO.status || "—"}
+                      readOnly
+                      disabled
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
+                    />
                   </div>
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingSO.warehouse || "—"}
-                  </div>
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingSO.status || "—"}
-                  </div>
-                  <div
-                    className="text-center uppercase border-l border-border max-w-[160px] truncate whitespace-nowrap overflow-hidden"
-                    title={viewingSO.notes}>
-                    {viewingSO.notes || "—"}
+
+                  {/* Notes */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="notes"
+                      className="text-xs font-medium text-muted-foreground">
+                      Notes
+                    </label>
+                    <input
+                      type="text"
+                      id="notes"
+                      value={viewingSO.notes || "—"}
+                      readOnly
+                      disabled
+                      title={viewingSO.notes}
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed truncate"
+                    />
                   </div>
                 </div>
 

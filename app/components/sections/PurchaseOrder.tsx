@@ -2539,55 +2539,108 @@ export default function PurchaseOrder({ onSuccess }: Props) {
           {viewingPO && (
             <div className="grid gap-6 py-4">
               <Card className="p-6 rounded-xl shadow-sm border border-border">
-                <h4 className="text-xl font-bold text-primary text-center mb-6 tracking-tight">
-                  Purchase Order Info
-                </h4>
+                <div className="grid grid-cols-2 gap-6 w-full">
+                  {/* PO Number */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="po-number"
+                      className="text-xs font-medium text-muted-foreground">
+                      PO Number
+                    </label>
+                    <input
+                      type="text"
+                      id="po-number"
+                      value={viewingPO.poNumber || "—"}
+                      readOnly
+                      disabled
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
+                    />
+                  </div>
 
-                {/* Header Row */}
-                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] border-b py-3 mb-4 bg-primary text-primary-foreground rounded-t shadow-sm">
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide">
-                    PO Number
+                  {/* Reference Number */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="reference-number"
+                      className="text-xs font-medium text-muted-foreground">
+                      Reference Number
+                    </label>
+                    <input
+                      type="text"
+                      id="reference-number"
+                      value={viewingPO.referenceNumber || "—"}
+                      readOnly
+                      disabled
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
+                    />
                   </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Reference Number
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Supplier
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Warehouse
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Status
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Remarks
-                  </div>
-                  <div className="text-center border-l border-border"></div>{" "}
-                  {/* Trash icon column */}
-                </div>
 
-                {/* Data Row */}
-                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-b py-2 text-sm">
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingPO.poNumber || "—"}
+                  {/* Supplier */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="supplier-name"
+                      className="text-xs font-medium text-muted-foreground">
+                      Supplier
+                    </label>
+                    <input
+                      type="text"
+                      id="supplier-name"
+                      value={viewingPO.supplierName || "—"}
+                      readOnly
+                      disabled
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
+                    />
                   </div>
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingPO.referenceNumber || "—"}
+
+                  {/* Warehouse */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="warehouse"
+                      className="text-xs font-medium text-muted-foreground">
+                      Warehouse
+                    </label>
+                    <input
+                      type="text"
+                      id="warehouse"
+                      value={viewingPO.warehouse || "—"}
+                      readOnly
+                      disabled
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
+                    />
                   </div>
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingPO.supplierName || "—"}
+
+                  {/* Status */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="status"
+                      className="text-xs font-medium text-muted-foreground">
+                      Status
+                    </label>
+                    <input
+                      type="text"
+                      id="status"
+                      value={viewingPO.status || "—"}
+                      readOnly
+                      disabled
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
+                    />
                   </div>
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingPO.warehouse || "—"}
-                  </div>
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingPO.status || "—"}
-                  </div>
-                  <div
-                    className="text-center uppercase border-l border-border max-w-[160px] truncate whitespace-nowrap overflow-hidden"
-                    title={viewingPO.remarks}>
-                    {viewingPO.remarks || "—"}
+
+                  {/* Remarks */}
+                  <div className="flex flex-col gap-1">
+                    <label
+                      htmlFor="remarks"
+                      className="text-xs font-medium text-muted-foreground">
+                      Remarks
+                    </label>
+                    <input
+                      type="text"
+                      id="remarks"
+                      value={viewingPO.remarks || "—"}
+                      readOnly
+                      disabled
+                      title={viewingPO.remarks}
+                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed truncate"
+                    />
                   </div>
                 </div>
 

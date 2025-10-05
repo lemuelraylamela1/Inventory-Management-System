@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogPanel,
 } from "../ui/dialog";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
@@ -1502,7 +1503,7 @@ export default function Customer({ onSuccess }: Props) {
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-xl p-6 scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-transparent">
+        <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-xl p-6 scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-transparent">
           <DialogHeader>
             <DialogTitle>Customer Details</DialogTitle>
           </DialogHeader>
@@ -1512,14 +1513,14 @@ export default function Customer({ onSuccess }: Props) {
                 <h4 className="text-m font-bold text-muted-foreground mt-1 text-center">
                   General info
                 </h4>
-                <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
                   {/* Customer Code */}
                   {viewingCustomer.customerCode && (
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 flex-1">
                       <Label className="text-xs text-muted-foreground">
                         Customer Code
                       </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      <div className="bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
                         {viewingCustomer.customerCode}
                       </div>
                     </div>
@@ -1527,11 +1528,11 @@ export default function Customer({ onSuccess }: Props) {
 
                   {/* Customer Name */}
                   {viewingCustomer.customerName && (
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 flex-1">
                       <Label className="text-xs text-muted-foreground">
                         Customer Name
                       </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      <div className="bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
                         {viewingCustomer.customerName}
                       </div>
                     </div>
@@ -1539,11 +1540,11 @@ export default function Customer({ onSuccess }: Props) {
 
                   {/* Contact Person */}
                   {viewingCustomer.contactPerson && (
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 flex-1">
                       <Label className="text-xs text-muted-foreground">
                         Contact Person
                       </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      <div className="bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
                         {viewingCustomer.contactPerson}
                       </div>
                     </div>
@@ -1551,47 +1552,23 @@ export default function Customer({ onSuccess }: Props) {
 
                   {/* Contact Number */}
                   {viewingCustomer.contactNumber && (
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 flex-1">
                       <Label className="text-xs text-muted-foreground">
                         Contact Number
                       </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      <div className="bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
                         {viewingCustomer.contactNumber}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Email Address */}
-                  {viewingCustomer.emailAddress && (
-                    <div className="flex flex-col gap-1 col-span-2">
-                      <Label className="text-xs text-muted-foreground">
-                        Email Address
-                      </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                        {viewingCustomer.emailAddress}
-                      </div>
-                    </div>
-                  )}
-
-                  {/* Address */}
-                  {viewingCustomer.address && (
-                    <div className="flex flex-col gap-1 col-span-2">
-                      <Label className="text-xs text-muted-foreground">
-                        Address
-                      </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                        {viewingCustomer.address}
                       </div>
                     </div>
                   )}
 
                   {/* TIN */}
                   {viewingCustomer.TIN && (
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 flex-1">
                       <Label className="text-xs text-muted-foreground">
                         TIN
                       </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      <div className="bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
                         {viewingCustomer.TIN}
                       </div>
                     </div>
@@ -1599,12 +1576,36 @@ export default function Customer({ onSuccess }: Props) {
 
                   {/* Terms */}
                   {viewingCustomer.terms && (
-                    <div className="flex flex-col gap-1">
+                    <div className="flex flex-col gap-1 flex-1">
                       <Label className="text-xs text-muted-foreground">
                         Terms
                       </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                      <div className="bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
                         {viewingCustomer.terms}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Email Address */}
+                  {viewingCustomer.emailAddress && (
+                    <div className="flex flex-col gap-1 flex-1">
+                      <Label className="text-xs text-muted-foreground">
+                        Email Address
+                      </Label>
+                      <div className="bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
+                        {viewingCustomer.emailAddress}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Address */}
+                  {viewingCustomer.address && (
+                    <div className="flex flex-col gap-1 flex-1">
+                      <Label className="text-xs text-muted-foreground">
+                        Address
+                      </Label>
+                      <div className="bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
+                        {viewingCustomer.address}
                       </div>
                     </div>
                   )}
@@ -1672,46 +1673,25 @@ export default function Customer({ onSuccess }: Props) {
                             </div>
                           </div>
                         </div>
-                        <div>
-                          <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+
+                        <div className="flex flex-col sm:flex-row gap-4">
+                          {/* Email Address */}
+                          <div className="flex-1 bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
                             <Label className="text-xs text-muted-foreground">
                               Email Address
                             </Label>
-                            <div>{matchedPerson.emailAddress}</div>
-                          </div>
-                        </div>
-
-                        <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                          <Label className="text-xs text-muted-foreground">
-                            Area
-                          </Label>
-                          <div>{matchedPerson.area}</div>
-                        </div>
-
-                        <div className="flex flex-col sm:flex-row gap-4">
-                          {/* Created Date */}
-                          <div className="flex-1 bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
-                            <Label className="text-xs text-muted-foreground mb-1 block">
-                              Created Date
-                            </Label>
-                            <div className="font-medium">
-                              {new Date(
-                                matchedPerson.createdDT
-                              ).toLocaleDateString()}
+                            <div className="mt-1 font-medium">
+                              {matchedPerson.emailAddress}
                             </div>
                           </div>
 
-                          {/* Last Updated */}
+                          {/* Area */}
                           <div className="flex-1 bg-muted rounded-md px-4 py-3 text-sm border shadow-sm">
-                            <Label className="text-xs text-muted-foreground mb-1 block">
-                              Last Updated
+                            <Label className="text-xs text-muted-foreground">
+                              Area
                             </Label>
-                            <div className="font-medium">
-                              {matchedPerson.updatedAt
-                                ? new Date(
-                                    matchedPerson.updatedAt
-                                  ).toLocaleDateString()
-                                : "—"}
+                            <div className="mt-1 font-medium">
+                              {matchedPerson.area}
                             </div>
                           </div>
                         </div>
@@ -1801,32 +1781,6 @@ export default function Customer({ onSuccess }: Props) {
                               {matchedGroup.discount5}%
                             </div>
                           </div>
-
-                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
-                            <Label className="text-xs text-muted-foreground mb-1 block">
-                              Created Date
-                            </Label>
-                            <div className="font-medium">
-                              {matchedGroup.createdAt
-                                ? new Date(
-                                    matchedGroup.createdAt
-                                  ).toLocaleDateString()
-                                : "—"}
-                            </div>
-                          </div>
-
-                          {matchedGroup.updatedAt && (
-                            <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
-                              <Label className="text-xs text-muted-foreground mb-1 block">
-                                Last Updated
-                              </Label>
-                              <div className="font-medium">
-                                {new Date(
-                                  matchedGroup.updatedAt
-                                ).toLocaleDateString()}
-                              </div>
-                            </div>
-                          )}
                         </div>
                       </div>
                     ) : (
@@ -1845,7 +1799,7 @@ export default function Customer({ onSuccess }: Props) {
               Close
             </Button>
           </div>
-        </DialogContent>
+        </DialogPanel>
       </Dialog>
     </div>
   );
