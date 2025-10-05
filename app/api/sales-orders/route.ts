@@ -66,26 +66,26 @@ export async function POST(request: NextRequest) {
     const now = new Date();
 
     // ✅ Deduct quantities from InventoryMain
-    for (const item of items) {
-      await InventoryMain.findOneAndUpdate(
-        {
-          itemCode: item.itemCode?.trim().toUpperCase(),
-          warehouse: warehouse.trim().toUpperCase(),
-        },
-        {
-          $inc: { quantity: -Math.abs(item.quantity) },
-          $set: {
-            itemName: item.itemName?.trim().toUpperCase(),
-            unitType: item.unitType?.trim().toUpperCase(),
-            updatedAt: now,
-          },
-          $setOnInsert: {
-            warehouse: warehouse.trim().toUpperCase(),
-          },
-        },
-        { upsert: true }
-      );
-    }
+    // for (const item of items) {
+    //   await InventoryMain.findOneAndUpdate(
+    //     {
+    //       itemCode: item.itemCode?.trim().toUpperCase(),
+    //       warehouse: warehouse.trim().toUpperCase(),
+    //     },
+    //     {
+    //       $inc: { quantity: -Math.abs(item.quantity) },
+    //       $set: {
+    //         itemName: item.itemName?.trim().toUpperCase(),
+    //         unitType: item.unitType?.trim().toUpperCase(),
+    //         updatedAt: now,
+    //       },
+    //       $setOnInsert: {
+    //         warehouse: warehouse.trim().toUpperCase(),
+    //       },
+    //     },
+    //     { upsert: true }
+    //   );
+    // }
 
     return NextResponse.json(
       { message: "Sales order created", order: newOrder },
