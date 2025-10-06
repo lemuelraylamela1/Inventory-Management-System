@@ -3,49 +3,60 @@ import mongoose, { Schema, Document, models, model } from "mongoose";
 export interface ICustomerType extends Document {
   groupCode: string;
   groupName: string;
-  discount1: number;
-  discount2: number;
-  discount3: number;
-  discount4: number;
-  discount5: number;
+  discounts: number[];
   createdAt?: Date;
   updatedAt?: Date;
-  createdDT?: string; // Virtual field for formatted date
+  createdDT?: string;
 }
-
-const percentageValidator = {
-  validator: (value: number) => value >= 0 && value <= 100,
-  message: "Discount must be between 0 and 100",
-};
 
 const CustomerTypeSchema = new Schema<ICustomerType>(
   {
-    groupCode: { type: String, required: true, trim: true },
-    groupName: { type: String, required: true, trim: true },
-    discount1: { type: Number, default: 0, validate: percentageValidator },
-    discount2: { type: Number, default: 0, validate: percentageValidator },
-    discount3: { type: Number, default: 0, validate: percentageValidator },
-    discount4: { type: Number, default: 0, validate: percentageValidator },
-    discount5: { type: Number, default: 0, validate: percentageValidator },
+    groupCode: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+    groupName: {
+      type: String,
+      required: true,
+      trim: true,
+      uppercase: true,
+    },
+    discounts: {
+      type: [Number],
+      default: [],
+      validate: {
+        validator: (arr: number[]) =>
+          Array.isArray(arr) &&
+          arr.every((val) => typeof val === "number" && val >= 0 && val <= 100),
+        message: "Each discount must be a number between 0 and 100",
+      },
+      set: (arr: number[]) =>
+        arr
+          .map((val) => {
+            const num = typeof val === "number" ? val : parseFloat(String(val));
+            return isNaN(num) ? null : Math.round(num * 100) / 100;
+          })
+          .filter((val) => val !== null),
+    },
   },
-  { timestamps: true }
+  {
+    timestamps: true,
+    toJSON: { virtuals: true, getters: true },
+    toObject: { virtuals: true, getters: true },
+  }
 );
 
-// ✅ Virtual field for formatted createdAt
+// ✅ Virtual field for MMDDYYYY format
 CustomerTypeSchema.virtual("createdDT").get(function () {
   if (!this.createdAt) return null;
-
   const date = new Date(this.createdAt);
   const mm = String(date.getMonth() + 1).padStart(2, "0");
   const dd = String(date.getDate()).padStart(2, "0");
   const yyyy = date.getFullYear();
-
-  return `${mm}${dd}${yyyy}`; // 👈 returns MMDDYYYY
+  return `${mm}${dd}${yyyy}`;
 });
-
-// ✅ Ensure virtuals are included in JSON and object outputs
-CustomerTypeSchema.set("toJSON", { virtuals: true });
-CustomerTypeSchema.set("toObject", { virtuals: true });
 
 export const CustomerType =
   models.CustomerType ||

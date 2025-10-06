@@ -50,14 +50,10 @@ export type SalesPersonType = {
 
 export type CustomerType = {
   _id: string;
-  createdDT: Date;
+  createdDT: string; // MMDDYYYY format from virtual
   groupCode: string;
   groupName: string;
-  discount1: number;
-  discount2: number;
-  discount3: number;
-  discount4: number;
-  discount5: number;
+  discounts: string[]; // formatted with two decimals via getter
   createdAt?: Date;
   updatedAt?: Date;
 };

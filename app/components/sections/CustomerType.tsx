@@ -79,22 +79,25 @@ export default function CustomerType({ onSuccess }: Props) {
   const [formData, setFormData] = useState({
     groupCode: "",
     groupName: "",
-    discount1: "",
-    discount2: "",
-    discount3: "",
-    discount4: "",
-    discount5: "",
+    discounts: [""], // Start with one discount
   });
 
   const [validationErrors, setValidationErrors] = useState({
     groupCode: "",
     groupName: "",
-    discount1: "",
-    discount2: "",
-    discount3: "",
-    discount4: "",
-    discount5: "",
+    discounts: [""], // One error slot per discount input
   });
+
+  const handleAddDiscount = () => {
+    setFormData((prev) => ({
+      ...prev,
+      discounts: [...prev.discounts, ""],
+    }));
+    setValidationErrors((prev) => ({
+      ...prev,
+      discounts: [...prev.discounts, ""],
+    }));
+  };
 
   // Filter and paginate data
   const filteredCustomerTypes = useMemo(() => {
@@ -125,77 +128,49 @@ export default function CustomerType({ onSuccess }: Props) {
     const errors = {
       groupCode: "",
       groupName: "",
-      discount1: "",
-      discount2: "",
-      discount3: "",
-      discount4: "",
-      discount5: "",
+      discounts: [] as string[], // One error slot per discount
     };
 
-    // Required: groupCode
     if (!formData.groupCode.trim()) {
-      errors.groupCode = "Group Code is required";
-    } else {
-      const duplicateCode = customerTypes.find(
-        (ct) =>
-          ct.groupCode.toLowerCase() === formData.groupCode.toLowerCase() &&
-          (!isEdit || ct._id !== editingCustomerType?._id)
-      );
-      if (duplicateCode) {
-        errors.groupCode = "Group Code already exists";
-      }
+      errors.groupCode = "Group code is required";
     }
 
-    // Required: groupName
     if (!formData.groupName.trim()) {
-      errors.groupName = "Group Name is required";
-    } else {
-      const duplicateName = customerTypes.find(
-        (ct) =>
-          ct.groupName.toLowerCase() === formData.groupName.toLowerCase() &&
-          (!isEdit || ct._id !== editingCustomerType?._id)
-      );
-      if (duplicateName) {
-        errors.groupName = "Group Name already exists";
-      }
+      errors.groupName = "Group name is required";
     }
 
-    // Validate discounts
-    const discountFields = [
-      "discount1",
-      "discount2",
-      "discount3",
-      "discount4",
-      "discount5",
-    ] as const;
-
-    for (const field of discountFields) {
-      const rawValue = formData[field];
-      const value = parseFloat(rawValue);
-
-      if (!rawValue.trim()) {
-        errors[field] = `${field} is required`;
-      } else if (isNaN(value) || value < 0 || value > 100) {
-        errors[field] = `${field} must be a percentage between 0 and 100`;
+    formData.discounts.forEach((val, index) => {
+      const num = parseFloat(val);
+      if (val === "") {
+        errors.discounts[index] = "Required";
+      } else if (isNaN(num) || num < 0 || num > 100) {
+        errors.discounts[index] = "Must be between 0 and 100";
+      } else {
+        errors.discounts[index] = "";
       }
-    }
+    });
 
     setValidationErrors(errors);
-    return !Object.values(errors).some((error) => error !== "");
+
+    // Optional: return boolean for form validity
+    const hasErrors =
+      errors.groupCode ||
+      errors.groupName ||
+      errors.discounts.some((msg) => msg !== "");
+
+    return !hasErrors;
   };
 
   const handleCreate = async () => {
     if (!validateForm()) return;
 
     const payload = {
-      ...formData,
       groupCode: formData.groupCode?.toUpperCase(),
       groupName: formData.groupName?.toUpperCase(),
-      discount1: Number(formData.discount1),
-      discount2: Number(formData.discount2),
-      discount3: Number(formData.discount3),
-      discount4: Number(formData.discount4),
-      discount5: Number(formData.discount5),
+      discounts: formData.discounts.map((val) => {
+        const num = parseFloat(val);
+        return isNaN(num) ? null : Math.round(num * 100) / 100;
+      }),
     };
 
     console.log("Creating customer type:", payload);
@@ -241,30 +216,30 @@ export default function CustomerType({ onSuccess }: Props) {
     setFormData({
       groupCode: customer.groupCode || "",
       groupName: customer.groupName || "",
-      discount1: customer.discount1?.toString() || "0",
-      discount2: customer.discount2?.toString() || "0",
-      discount3: customer.discount3?.toString() || "0",
-      discount4: customer.discount4?.toString() || "0",
-      discount5: customer.discount5?.toString() || "0",
+      discounts: customer.discounts?.map((val) => Number(val).toFixed(2)) || [
+        "",
+      ], // fallback to one empty field
     });
 
     setValidationErrors({
       groupCode: "",
       groupName: "",
-      discount1: "",
-      discount2: "",
-      discount3: "",
-      discount4: "",
-      discount5: "",
+      discounts: customer.discounts?.map(() => "") || [""],
     });
 
     setIsEditDialogOpen(true);
   };
 
   const handleUpdate = async () => {
-    if (!editingCustomerType || !validateForm(true)) {
-      return;
-    }
+    if (!editingCustomerType || !validateForm(true)) return;
+
+    const payload = {
+      groupCode: formData.groupCode.trim().toUpperCase(),
+      groupName: formData.groupName.trim().toUpperCase(),
+      discounts: formData.discounts.map(
+        (val) => Math.round(parseFloat(val || "0") * 100) / 100
+      ),
+    };
 
     try {
       const res = await fetch(
@@ -274,15 +249,7 @@ export default function CustomerType({ onSuccess }: Props) {
           headers: {
             "Content-Type": "application/json",
           },
-          body: JSON.stringify({
-            groupCode: formData.groupCode.trim(),
-            groupName: formData.groupName.trim(),
-            discount1: parseFloat(formData.discount1) || 0,
-            discount2: parseFloat(formData.discount2) || 0,
-            discount3: parseFloat(formData.discount3) || 0,
-            discount4: parseFloat(formData.discount4) || 0,
-            discount5: parseFloat(formData.discount5) || 0,
-          }),
+          body: JSON.stringify(payload),
         }
       );
 
@@ -292,7 +259,6 @@ export default function CustomerType({ onSuccess }: Props) {
 
       const updatedCustomer = await res.json();
 
-      // Update local state
       setCustomerTypes((prev) =>
         prev.map((ct) =>
           ct._id === editingCustomerType._id ? updatedCustomer : ct
@@ -300,6 +266,7 @@ export default function CustomerType({ onSuccess }: Props) {
       );
     } catch (err) {
       console.error("Update error:", err);
+      alert("Something went wrong. Please try again.");
       return;
     }
 
@@ -308,20 +275,12 @@ export default function CustomerType({ onSuccess }: Props) {
     setFormData({
       groupCode: "",
       groupName: "",
-      discount1: "",
-      discount2: "",
-      discount3: "",
-      discount4: "",
-      discount5: "",
+      discounts: [""], // Reset to one empty field
     });
     setValidationErrors({
       groupCode: "",
       groupName: "",
-      discount1: "",
-      discount2: "",
-      discount3: "",
-      discount4: "",
-      discount5: "",
+      discounts: [""],
     });
     setIsEditDialogOpen(false);
   };
@@ -361,21 +320,13 @@ export default function CustomerType({ onSuccess }: Props) {
     setFormData({
       groupCode: "",
       groupName: "",
-      discount1: "",
-      discount2: "",
-      discount3: "",
-      discount4: "",
-      discount5: "",
+      discounts: [""], // Start with one empty discount field
     });
 
     setValidationErrors({
       groupCode: "",
       groupName: "",
-      discount1: "",
-      discount2: "",
-      discount3: "",
-      discount4: "",
-      discount5: "",
+      discounts: [""], // Match the length of formData.discounts
     });
   };
 
@@ -446,15 +397,27 @@ export default function CustomerType({ onSuccess }: Props) {
   const fetchCustomerTypes = async () => {
     try {
       const res = await fetch("/api/customer-types", {
-        cache: "no-store",
+        method: "GET",
+        headers: {
+          Accept: "application/json",
+        },
+        cache: "no-store", // 👈 ensures fresh data
       });
 
-      if (!res.ok) throw new Error("Failed to fetch customer types");
+      if (!res.ok) {
+        const errorText = await res.text();
+        throw new Error(`Fetch failed: ${res.status} ${errorText}`);
+      }
 
       const data = await res.json();
-      const customerTypes = Array.isArray(data) ? data : data.items;
 
-      setCustomerTypes(Array.isArray(customerTypes) ? customerTypes : []);
+      const customerTypes = Array.isArray(data?.items)
+        ? data.items
+        : Array.isArray(data)
+        ? data
+        : [];
+
+      setCustomerTypes(customerTypes);
     } catch (error) {
       console.error("Error loading customer types:", error);
       setCustomerTypes([]);
@@ -577,51 +540,109 @@ export default function CustomerType({ onSuccess }: Props) {
                           </p>
                         )}
                       </div>
+
                       {/* Discount Fields */}
-                      {Array.from({ length: 5 }, (_, i) => {
-                        const key = `discount${i + 1}` as keyof typeof formData;
-                        return (
-                          <div className="grid gap-2" key={key}>
-                            <Label htmlFor={`create-${key}`}>{`Discount ${
-                              i + 1
-                            }`}</Label>
-                            <div className="flex items-center gap-1">
-                              <Input
-                                id={`create-${key}`}
-                                type="text"
-                                inputMode="numeric" // mobile-friendly keyboard
-                                pattern="[0-9]*" // hint for numeric-only input
-                                value={formData[key]}
-                                onChange={(e) => {
-                                  const raw = e.target.value;
-                                  const numeric = raw.replace(/[^0-9.]/g, ""); // strip non-numeric
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    [key]: numeric,
-                                  }));
-                                  setValidationErrors((prev) => ({
-                                    ...prev,
-                                    [key]: "",
-                                  }));
-                                }}
-                                placeholder="0"
-                                className={cn(
-                                  "text-sm w-full",
-                                  validationErrors[key] && "border-destructive"
-                                )}
-                              />
-                              <span className="text-sm text-muted-foreground">
-                                %
-                              </span>
-                            </div>
-                            {validationErrors[key] && (
-                              <p className="text-sm text-destructive">
-                                {validationErrors[key]}
-                              </p>
-                            )}
-                          </div>
-                        );
-                      })}
+                      <div className="col-span-2 grid gap-3">
+                        <Label className="text-sm font-medium text-muted-foreground">
+                          Discounts (%)
+                        </Label>
+                        <div className="flex flex-col gap-3">
+                          {formData.discounts.length === 0 ? (
+                            <Button
+                              type="button"
+                              variant="ghost"
+                              onClick={handleAddDiscount}
+                              className="w-fit text-sm">
+                              + Add Discount
+                            </Button>
+                          ) : (
+                            <>
+                              {formData.discounts.map((value, index) => (
+                                <div
+                                  key={index}
+                                  className="flex items-center gap-2">
+                                  <Input
+                                    type="number"
+                                    step="0.01"
+                                    min="0"
+                                    max="100"
+                                    value={value}
+                                    onChange={(e) => {
+                                      let raw = e.target.value;
+                                      raw = raw.replace(/[^0-9.]/g, "");
+                                      const [intPart, decimalPart] =
+                                        raw.split(".");
+                                      const sanitized =
+                                        decimalPart !== undefined
+                                          ? `${intPart}.${decimalPart.slice(
+                                              0,
+                                              2
+                                            )}`
+                                          : intPart;
+
+                                      const updated = [...formData.discounts];
+                                      updated[index] = sanitized;
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        discounts: updated,
+                                      }));
+
+                                      const errorUpdate = [
+                                        ...validationErrors.discounts,
+                                      ];
+                                      errorUpdate[index] = "";
+                                      setValidationErrors((prev) => ({
+                                        ...prev,
+                                        discounts: errorUpdate,
+                                      }));
+                                    }}
+                                    placeholder={`Discount ${index + 1}`}
+                                    className={cn(
+                                      "text-sm w-full",
+                                      validationErrors.discounts?.[index] &&
+                                        "border-destructive"
+                                    )}
+                                  />
+                                  <span className="text-sm text-muted-foreground">
+                                    %
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const updated = [...formData.discounts];
+                                      updated.splice(index, 1);
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        discounts: updated,
+                                      }));
+
+                                      const errorUpdate = [
+                                        ...validationErrors.discounts,
+                                      ];
+                                      errorUpdate.splice(index, 1);
+                                      setValidationErrors((prev) => ({
+                                        ...prev,
+                                        discounts: errorUpdate,
+                                      }));
+                                    }}
+                                    className="p-1"
+                                    aria-label={`Remove Discount ${index + 1}`}>
+                                    <Trash2 className="w-4 h-4 text-red-500 hover:text-red-600" />
+                                  </button>
+                                </div>
+                              ))}
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                onClick={handleAddDiscount}
+                                disabled={!formData.discounts.at(-1)?.trim()}
+                                className="w-fit text-sm">
+                                + Add Discount
+                              </Button>
+                            </>
+                          )}
+                        </div>
+                      </div>
                     </div>
                   </div>
                 </Card>
@@ -638,16 +659,12 @@ export default function CustomerType({ onSuccess }: Props) {
                   <Button
                     onClick={handleCreate}
                     disabled={
-                      !`${formData.groupCode}`.trim() ||
-                      !`${formData.groupName}`.trim() ||
-                      !`${formData.discount1}`.trim() ||
-                      !`${formData.discount2}`.trim() ||
-                      !`${formData.discount3}`.trim() ||
-                      !`${formData.discount4}`.trim() ||
-                      !`${formData.discount5}`.trim() ||
-                      Object.values(validationErrors).some(
-                        (error) => error !== ""
-                      )
+                      !formData.groupCode.trim() ||
+                      !formData.groupName.trim() ||
+                      formData.discounts.some((val) => !val.trim()) ||
+                      validationErrors.groupCode !== "" ||
+                      validationErrors.groupName !== "" ||
+                      validationErrors.discounts.some((err) => err !== "")
                     }>
                     Create
                   </Button>
@@ -891,46 +908,97 @@ export default function CustomerType({ onSuccess }: Props) {
                   )}
                 </div>
 
-                {/* Discounts 1–5 */}
-                {Array.from({ length: 5 }).map((_, index) => {
-                  const key = `discount${index + 1}` as keyof typeof formData;
-                  return (
-                    <div key={key} className="grid gap-2">
-                      <Label htmlFor={key}>{`Discount ${index + 1}`}</Label>
-                      <div className="flex items-center gap-1">
+                {/* Discounts */}
+                <div className="col-span-2 grid gap-3">
+                  <Label className="text-sm font-medium text-muted-foreground">
+                    Discounts (%)
+                  </Label>
+                  <div className="flex flex-col gap-3">
+                    {formData.discounts.map((value, index) => (
+                      <div key={index} className="flex items-center gap-2">
                         <Input
-                          id={key}
-                          inputMode="numeric"
-                          pattern="[0-9]*"
-                          value={formData[key]}
+                          type="number"
+                          step="0.01"
+                          min="0"
+                          max="100"
+                          value={value}
                           onChange={(e) => {
-                            const raw = e.target.value;
-                            const numeric = raw.replace(/[^0-9.]/g, ""); // strip non-numeric
+                            let raw = e.target.value;
+                            raw = raw.replace(/[^0-9.]/g, "");
+                            const [intPart, decimalPart] = raw.split(".");
+                            const sanitized =
+                              decimalPart !== undefined
+                                ? `${intPart}.${decimalPart.slice(0, 2)}`
+                                : intPart;
+
+                            const updated = [...formData.discounts];
+                            updated[index] = sanitized;
                             setFormData((prev) => ({
                               ...prev,
-                              [key]: numeric,
+                              discounts: updated,
                             }));
+
+                            const errorUpdate = [...validationErrors.discounts];
+                            errorUpdate[index] = "";
                             setValidationErrors((prev) => ({
                               ...prev,
-                              [key]: "",
+                              discounts: errorUpdate,
                             }));
                           }}
                           placeholder={`Discount ${index + 1}`}
                           className={cn(
                             "text-sm w-full",
-                            validationErrors[key] && "border-destructive"
+                            validationErrors.discounts[index] &&
+                              "border-destructive"
                           )}
                         />
                         <span className="text-sm text-muted-foreground">%</span>
+                        <button
+                          type="button"
+                          onClick={() => {
+                            const updated = [...formData.discounts];
+                            updated.splice(index, 1);
+                            setFormData((prev) => ({
+                              ...prev,
+                              discounts: updated,
+                            }));
+
+                            const errorUpdate = [...validationErrors.discounts];
+                            errorUpdate.splice(index, 1);
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              discounts: errorUpdate,
+                            }));
+                          }}
+                          className="p-1"
+                          aria-label={`Remove Discount ${index + 1}`}>
+                          <Trash2 className="w-4 h-4 text-red-500 hover:text-red-600" />
+                        </button>
                       </div>
-                      {validationErrors[key] && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors[key]}
-                        </p>
-                      )}
-                    </div>
-                  );
-                })}
+                    ))}
+
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={() => {
+                        setFormData((prev) => ({
+                          ...prev,
+                          discounts: [...prev.discounts, ""],
+                        }));
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          discounts: [...prev.discounts, ""],
+                        }));
+                      }}
+                      disabled={
+                        formData.discounts.length === 0 ||
+                        !formData.discounts.at(-1)?.trim()
+                      }
+                      className="w-fit text-sm">
+                      + Add Discount
+                    </Button>
+                  </div>
+                </div>
               </div>
             </Card>
           </div>
@@ -949,12 +1017,10 @@ export default function CustomerType({ onSuccess }: Props) {
               disabled={
                 !formData.groupCode.trim() ||
                 !formData.groupName.trim() ||
-                !formData.discount1.trim() ||
-                !formData.discount2.trim() ||
-                !formData.discount3.trim() ||
-                !formData.discount4.trim() ||
-                !formData.discount5.trim() ||
-                Object.values(validationErrors).some((error) => error !== "")
+                formData.discounts.some((val) => !val.trim()) ||
+                validationErrors.groupCode !== "" ||
+                validationErrors.groupName !== "" ||
+                validationErrors.discounts.some((err) => err !== "")
               }>
               Update
             </Button>
@@ -968,10 +1034,12 @@ export default function CustomerType({ onSuccess }: Props) {
           <DialogHeader>
             <DialogTitle>Customer Type Details</DialogTitle>
           </DialogHeader>
+
           {viewingCustomerType && (
             <div className="grid gap-6 py-4">
               <Card className="p-4">
-                <div className="grid grid-cols-2 gap-4 mt-2">
+                <div className="grid grid-cols-2 gap-4">
+                  {/* Group Code */}
                   <div className="flex flex-col gap-1">
                     <Label className="text-xs text-muted-foreground">
                       Group Code
@@ -980,6 +1048,8 @@ export default function CustomerType({ onSuccess }: Props) {
                       {viewingCustomerType.groupCode}
                     </div>
                   </div>
+
+                  {/* Group Name */}
                   <div className="flex flex-col gap-1">
                     <Label className="text-xs text-muted-foreground">
                       Group Name
@@ -988,50 +1058,23 @@ export default function CustomerType({ onSuccess }: Props) {
                       {viewingCustomerType.groupName}
                     </div>
                   </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Discount 1
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {viewingCustomerType.discount1}
+
+                  {/* Discounts */}
+                  {viewingCustomerType.discounts.map((discount, index) => (
+                    <div key={index} className="flex flex-col gap-1">
+                      <Label className="text-xs text-muted-foreground">
+                        Discount {index + 1}
+                      </Label>
+                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                        {Number(discount).toFixed(2)}
+                      </div>
                     </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Discount 2
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {viewingCustomerType.discount2}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Discount 3
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {viewingCustomerType.discount3}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Discount 4
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {viewingCustomerType.discount4}
-                    </div>
-                  </div>
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
-                      Discount 5
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                      {viewingCustomerType.discount5}
-                    </div>
-                  </div>
+                  ))}
                 </div>
               </Card>
             </div>
           )}
+
           <div className="flex justify-end">
             <Button
               variant="outline"

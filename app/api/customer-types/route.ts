@@ -6,34 +6,28 @@ import connectMongoDB from "../../../libs/mongodb";
 interface CustomerTypePayload {
   groupCode: string;
   groupName: string;
-  discount1: number;
-  discount2: number;
-  discount3: number;
-  discount4: number;
-  discount5: number;
+  discounts: number[];
 }
 
 interface BulkPayload {
   items: CustomerTypePayload[];
 }
+// Helper to transform string fields to uppercase
+const toUpperCaseFields = (item: CustomerTypePayload): CustomerTypePayload => ({
+  groupCode: item.groupCode.toUpperCase(),
+  groupName: item.groupName.toUpperCase(),
+  discounts: item.discounts
+    .map((val) => {
+      const num = typeof val === "number" ? val : parseFloat(String(val));
+      return isNaN(num) ? null : Math.round(num * 100) / 100;
+    })
+    .filter((val) => val !== null), // 👈 remove invalid entries
+});
 
 export async function POST(request: NextRequest) {
   await connectMongoDB();
 
   const body: CustomerTypePayload | BulkPayload = await request.json();
-
-  // Helper to transform string fields to uppercase
-  const toUpperCaseFields = (
-    item: CustomerTypePayload
-  ): CustomerTypePayload => ({
-    groupCode: item.groupCode.toUpperCase(),
-    groupName: item.groupName.toUpperCase(),
-    discount1: item.discount1,
-    discount2: item.discount2,
-    discount3: item.discount3,
-    discount4: item.discount4,
-    discount5: item.discount5,
-  });
 
   try {
     if ("items" in body && Array.isArray(body.items)) {
@@ -45,24 +39,14 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const {
-      groupCode,
-      groupName,
-      discount1,
-      discount2,
-      discount3,
-      discount4,
-      discount5,
-    } = toUpperCaseFields(body as CustomerTypePayload);
+    const { groupCode, groupName, discounts } = toUpperCaseFields(
+      body as CustomerTypePayload
+    );
 
     await CustomerType.create({
       groupCode,
       groupName,
-      discount1,
-      discount2,
-      discount3,
-      discount4,
-      discount5,
+      discounts,
     });
 
     return NextResponse.json(

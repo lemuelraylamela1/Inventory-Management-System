@@ -1719,6 +1719,7 @@ export default function Customer({ onSuccess }: Props) {
                         </h4>
 
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+                          {/* Group Name */}
                           <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
                             <Label className="text-xs text-muted-foreground mb-1 block">
                               Group Name
@@ -1728,6 +1729,7 @@ export default function Customer({ onSuccess }: Props) {
                             </div>
                           </div>
 
+                          {/* Group Code */}
                           <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
                             <Label className="text-xs text-muted-foreground mb-1 block">
                               Group Code
@@ -1737,50 +1739,19 @@ export default function Customer({ onSuccess }: Props) {
                             </div>
                           </div>
 
-                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
-                            <Label className="text-xs text-muted-foreground mb-1 block">
-                              Discount 1
-                            </Label>
-                            <div className="font-medium">
-                              {matchedGroup.discount1}%
+                          {/* Discounts */}
+                          {matchedGroup.discounts?.map((discount, index) => (
+                            <div
+                              key={index}
+                              className="bg-muted rounded-md px-4 py-3 border shadow-sm">
+                              <Label className="text-xs text-muted-foreground mb-1 block">
+                                Discount {index + 1}
+                              </Label>
+                              <div className="font-medium">
+                                {Number(discount).toFixed(2)}%
+                              </div>
                             </div>
-                          </div>
-
-                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
-                            <Label className="text-xs text-muted-foreground mb-1 block">
-                              Discount 2
-                            </Label>
-                            <div className="font-medium">
-                              {matchedGroup.discount2}%
-                            </div>
-                          </div>
-
-                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
-                            <Label className="text-xs text-muted-foreground mb-1 block">
-                              Discount 3
-                            </Label>
-                            <div className="font-medium">
-                              {matchedGroup.discount3}%
-                            </div>
-                          </div>
-
-                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
-                            <Label className="text-xs text-muted-foreground mb-1 block">
-                              Discount 4
-                            </Label>
-                            <div className="font-medium">
-                              {matchedGroup.discount4}%
-                            </div>
-                          </div>
-
-                          <div className="bg-muted rounded-md px-4 py-3 border shadow-sm">
-                            <Label className="text-xs text-muted-foreground mb-1 block">
-                              Discount 5
-                            </Label>
-                            <div className="font-medium">
-                              {matchedGroup.discount5}%
-                            </div>
-                          </div>
+                          ))}
                         </div>
                       </div>
                     ) : (
