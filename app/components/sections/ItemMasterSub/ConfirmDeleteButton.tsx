@@ -47,7 +47,7 @@ export function ConfirmDeleteButton({
         <AlertDialogHeader>
           <AlertDialogTitle>Confirm Deletion</AlertDialogTitle>
           <AlertDialogDescription>
-            Are you sure you want to delete <strong>{item.item_name}</strong>?
+            Are you sure you want to delete <strong>{item.itemName}</strong>?
             This action cannot be undone.
           </AlertDialogDescription>
         </AlertDialogHeader>

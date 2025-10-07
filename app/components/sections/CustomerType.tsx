@@ -243,7 +243,7 @@ export default function CustomerType({ onSuccess }: Props) {
 
     try {
       const res = await fetch(
-        `/api/customer-types/${editingCustomerType._id}`,
+        `/api/customer-types/by-id/${editingCustomerType._id}`,
         {
           method: "PUT",
           headers: {

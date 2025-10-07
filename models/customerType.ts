@@ -61,3 +61,5 @@ CustomerTypeSchema.virtual("createdDT").get(function () {
 export const CustomerType =
   models.CustomerType ||
   model<ICustomerType>("CustomerType", CustomerTypeSchema);
+
+export default CustomerType;

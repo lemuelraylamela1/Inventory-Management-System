@@ -57,7 +57,27 @@ export default function ImportItems({ onUploadSuccess }: Props) {
   };
 
   const handleDownloadTemplate = () => {
-    // const worksheet = XLSX.utils.aoa_to_sheet(templateHeaders);
+    const templateHeaders = [
+      [
+        "itemCode",
+        "itemName",
+        "purchasePrice",
+        "salesPrice",
+        "description",
+        "category",
+        "status",
+        "length",
+        "width",
+        "height",
+        "weight",
+        "createdDT",
+        "unitCode",
+        "unitType",
+        "unitDescription",
+        "unitStatus",
+      ],
+    ];
+
     const sampleRow = [
       [
         "ITEM001", // itemCode
@@ -72,14 +92,19 @@ export default function ImportItems({ onUploadSuccess }: Props) {
         2, // height
         0.5, // weight
         new Date().toISOString(), // createdDT
+        "UNIT001", // unitCode
+        "BOX", // unitType
+        "Box of 10 items", // unitDescription
+        "ACTIVE", // unitStatus
       ],
     ];
+
     const worksheet = XLSX.utils.aoa_to_sheet([
       ...templateHeaders,
       ...sampleRow,
     ]);
 
-    const createdDTCellRef = XLSX.utils.encode_cell({ r: 1, c: 11 }); // row 1, column 11
+    const createdDTCellRef = XLSX.utils.encode_cell({ r: 1, c: 12 }); // row 1, column 12
     worksheet[createdDTCellRef].t = "d"; // 'd' = date type
 
     const workbook = XLSX.utils.book_new();

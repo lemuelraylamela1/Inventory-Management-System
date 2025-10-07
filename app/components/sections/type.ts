@@ -199,6 +199,7 @@ export type InventoryItem = {
   quantity: number;
   unitType: string;
   purchasePrice?: number;
+  salesPrice?: number;
   source?: string; // e.g. PR or PO reference
   referenceNumber: string;
   receivedAt?: Date;
@@ -245,15 +246,14 @@ export type SalesOrder = {
   salesPerson: string;
   warehouse: string;
   transactionDate: string; // ISO date string
-  deliveryDate?: string; // ISO date string
+  deliveryDate?: string;
   shippingAddress?: string;
   notes?: string;
   status: "PENDING" | "TO PREPARE" | "COMPLETED" | "CANCELLED";
   items: SalesOrderItem[];
   total: number;
   totalQuantity: number;
-  balance: number;
-  creationDate: string; // ISO date string
+  creationDate: string;
   createdAt?: string;
   updatedAt?: string;
 };

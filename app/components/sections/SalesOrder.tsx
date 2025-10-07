@@ -89,6 +89,7 @@ import type {
   Customer,
   InventoryItem,
   ItemType,
+  CustomerType,
 } from "./type";
 
 import { useRouter } from "next/navigation";
@@ -148,6 +149,8 @@ export default function SalesOrder({ onSuccess }: Props) {
     null
   );
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [editingIds, setEditingIds] = useState<string[]>([]);
+
   const [dateFilter, setDateFilter] = useState("");
   const [customerFilter, setCustomerFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
@@ -159,6 +162,7 @@ export default function SalesOrder({ onSuccess }: Props) {
 
   const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoadingInventory, setIsLoadingInventory] = useState(false);
   const [itemsData, setItemsData] = useState<SalesOrderItem[]>([
@@ -166,7 +170,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       _id: "",
       itemCode: "",
       itemName: "",
-      description: "",
       unitType: "",
       price: 0,
       quantity: 1,
@@ -177,7 +180,11 @@ export default function SalesOrder({ onSuccess }: Props) {
   const router = useRouter();
 
   const [formData, setFormData] = useState<
-    Omit<SalesOrder, "_id" | "createdAt" | "updatedAt">
+    Omit<SalesOrder, "_id" | "createdAt" | "updatedAt"> & {
+      customerType?: string;
+      customerTypeData?: CustomerType;
+      discounts?: string[];
+    }
   >({
     soNumber: "",
     customer: "",
@@ -191,8 +198,10 @@ export default function SalesOrder({ onSuccess }: Props) {
     items: [],
     total: 0,
     totalQuantity: 0,
-    balance: 0,
     creationDate: new Date().toISOString().split("T")[0],
+    customerType: "",
+    customerTypeData: undefined,
+    discounts: [],
   });
 
   const [validationErrors, setValidationErrors] = useState<
@@ -212,7 +221,6 @@ export default function SalesOrder({ onSuccess }: Props) {
     status: "",
     total: "",
     totalQuantity: "",
-    balance: "",
     creationDate: "",
   });
 
@@ -236,6 +244,65 @@ export default function SalesOrder({ onSuccess }: Props) {
     console.log("🧾 salesPriceMap built:", map);
     return map;
   }, [itemCatalog]);
+
+  const totalWeight = useMemo(() => {
+    if (!Array.isArray(formData.items)) return 0;
+
+    return formData.items.reduce((sum, entry) => {
+      const itemName = entry.itemName?.trim().toUpperCase();
+      const quantity = entry.quantity ?? 0;
+      const item = itemCatalog.find(
+        (i) => i.itemName?.trim().toUpperCase() === itemName
+      );
+      const weight = item?.weight ?? 0;
+      return sum + weight * quantity;
+    }, 0);
+  }, [formData.items, itemCatalog]);
+
+  const formattedWeight = `${totalWeight.toFixed(2)} kg`;
+
+  const totalCBM = useMemo(() => {
+    if (!Array.isArray(formData.items)) {
+      console.warn("⚠️ formData.items is not an array");
+      return 0;
+    }
+
+    let total = 0;
+
+    formData.items.forEach((entry, index) => {
+      const itemName = entry.itemName?.trim().toUpperCase();
+      const quantity = entry.quantity ?? 0;
+
+      const item = itemCatalog.find(
+        (i) => i.itemName?.trim().toUpperCase() === itemName
+      );
+
+      if (!item) {
+        console.warn(`🔍 Item not found in catalog: '${itemName}'`);
+        return;
+      }
+
+      const lengthCm = item.length ?? 0;
+      const widthCm = item.width ?? 0;
+      const heightCm = item.height ?? 0;
+
+      const cbmPerUnit = (lengthCm / 100) * (widthCm / 100) * (heightCm / 100);
+      const cbmTotal = cbmPerUnit * quantity;
+
+      console.log(
+        `📦 [${index}] ${itemName} → L:${lengthCm}cm W:${widthCm}cm H:${heightCm}cm × Q:${quantity} = ${cbmTotal.toFixed(
+          3
+        )} m³`
+      );
+
+      total += cbmTotal;
+    });
+
+    console.log(`📊 Total CBM: ${total.toFixed(3)} m³`);
+    return total;
+  }, [formData.items, itemCatalog]);
+
+  const formattedCBM = `${totalCBM.toFixed(5)} m³`;
 
   useEffect(() => {
     console.log("Fetching customers...");
@@ -403,7 +470,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       status: "",
       total: "",
       totalQuantity: "",
-      balance: "",
       creationDate: "",
     };
 
@@ -529,7 +595,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       items: normalizedItems,
       total,
       totalQuantity,
-      balance: Number(formData.balance ?? total) || 0,
     };
 
     console.log("Creating sales order:", payload);
@@ -584,7 +649,6 @@ export default function SalesOrder({ onSuccess }: Props) {
     status: "",
     total: "",
     totalQuantity: "",
-    balance: "",
     creationDate: "",
   };
 
@@ -600,7 +664,7 @@ export default function SalesOrder({ onSuccess }: Props) {
 
     const editableItems = (so.items || [])
       .filter((item) => Number(item.quantity) > 0)
-      .map((item, index) => {
+      .map((item) => {
         const quantity = Math.max(Number(item.quantity) || 1, 1);
         const price = Number(item.price) || 0;
         const fallbackId = item._id ?? crypto.randomUUID();
@@ -641,19 +705,12 @@ export default function SalesOrder({ onSuccess }: Props) {
       notes: so.notes?.trim() || "",
       status,
       creationDate: so.creationDate,
-      items: editableItems,
+      items: editableItems, // ✅ This drives the dialog content
       total: totalAmount,
       totalQuantity,
-      balance:
-        typeof so.balance === "number" && !isNaN(so.balance)
-          ? so.balance
-          : totalAmount,
     };
 
-    setEditingSO(so);
     setFormData(normalizedFormData);
-    setItemsData(editableItems);
-    setSelectedIds(editableItems.map((item) => item._id)); // ✅ Always synced
     setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(true);
   };
@@ -718,10 +775,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       items: normalizedItems,
       total: totalAmount,
       totalQuantity,
-      balance:
-        typeof formData.balance === "number" && !isNaN(formData.balance)
-          ? formData.balance
-          : totalAmount,
     };
 
     console.log("📦 Sending update payload:", payload);
@@ -768,7 +821,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       items: [],
       total: 0,
       totalQuantity: 0,
-      balance: 0,
     });
     setSelectedIds([]);
     setValidationErrors(defaultValidationErrors);
@@ -834,7 +886,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       items: [],
       total: 0,
       totalQuantity: 0,
-      balance: 0,
     });
 
     setValidationErrors({
@@ -850,7 +901,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       creationDate: "",
       total: "",
       totalQuantity: "",
-      balance: "",
     });
   };
 
@@ -998,19 +1048,22 @@ export default function SalesOrder({ onSuccess }: Props) {
     }
   };
   const handleAddItem = () => {
-    setItemsData((prev) => [
+    const newItem = {
+      _id: crypto.randomUUID(),
+      itemCode: "",
+      itemName: "",
+      unitType: "",
+      price: 0,
+      quantity: 1,
+      amount: 0,
+    };
+
+    setItemsData((prev) => [...prev, newItem]);
+
+    setFormData((prev) => ({
       ...prev,
-      {
-        _id: crypto.randomUUID(), // or use nanoid() if preferred
-        itemCode: "",
-        itemName: "",
-        description: "",
-        unitType: "",
-        price: 0,
-        quantity: 1,
-        amount: 0,
-      },
-    ]);
+      items: [...prev.items, newItem],
+    }));
   };
 
   const handleRemoveAllItems = () => {
@@ -1245,6 +1298,31 @@ export default function SalesOrder({ onSuccess }: Props) {
     toast.success("PDF exported successfully");
   };
 
+  const subtotal = parseFloat(formattedTotal.replace(/[^0-9.]/g, ""));
+  const discountFactor = Array.isArray(formData.discounts)
+    ? formData.discounts.reduce((acc, d) => {
+        const pct = parseFloat(d);
+        return isNaN(pct) ? acc : acc * (1 - pct / 100);
+      }, 1)
+    : 1;
+
+  const totalAfterDiscounts = subtotal * discountFactor;
+  const formattedNetTotal = isNaN(totalAfterDiscounts)
+    ? "Invalid"
+    : totalAfterDiscounts.toLocaleString("en-US", {
+        style: "currency",
+        currency: "PHP",
+      });
+
+  const subtotalPeso = parseFloat(formattedTotal.replace(/[^\d.]/g, ""));
+  const totalAmountPeso = parseFloat(formattedNetTotal.replace(/[^\d.]/g, ""));
+  const pesoDiscount = Math.max(subtotalPeso - totalAmountPeso, 0);
+
+  const formattedPesoDiscount = `₱${pesoDiscount.toLocaleString("en-PH", {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  })}`;
+
   return (
     <div className="space-y-6">
       <Card>
@@ -1286,7 +1364,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                 </Button>
               </DialogTrigger>
 
-              <DialogPanel className="space-y-6">
+              <DialogPanel className="max-h-[80vh] overflow-y-auto px-6 py-4">
                 {/* Header */}
                 <DialogHeader className="border-b pb-4">
                   <DialogTitle className="text-xl font-semibold tracking-tight">
@@ -1332,11 +1410,10 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                     <div className="flex flex-row flex-wrap gap-4">
                       {/* Customer Name */}
-                      <div className="flex flex-col flex-1 min-w-[200px]">
+                      <div className="flex flex-col flex-1 min-w-[240px]">
                         <Label htmlFor="create-customer-name">
                           Customer Name
                         </Label>
-
                         <div className="relative">
                           <Input
                             id="create-customer-name"
@@ -1349,7 +1426,10 @@ export default function SalesOrder({ onSuccess }: Props) {
                               setFormData((prev) => ({
                                 ...prev,
                                 customer: value,
-                                salesPerson: "", // 🔁 Clear sales person on manual input
+                                salesPerson: "",
+                                customerType: "",
+                                customerTypeData: undefined,
+                                discounts: [],
                               }));
                               setValidationErrors((prev) => ({
                                 ...prev,
@@ -1370,8 +1450,6 @@ export default function SalesOrder({ onSuccess }: Props) {
                                 : ""
                             }`}
                           />
-
-                          {/* Suggestions Dropdown */}
                           {showCustomerSuggestions && (
                             <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
                               {(() => {
@@ -1395,19 +1473,70 @@ export default function SalesOrder({ onSuccess }: Props) {
                                       customer.customerName?.trim() ||
                                       "Unnamed Customer";
                                     const value = label.toUpperCase();
-                                    const salesPerson =
-                                      customer.salesAgent?.trim() || "";
 
                                     return (
                                       <li
                                         key={customer._id || value}
                                         className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                                        onClick={() => {
-                                          setFormData((prev) => ({
-                                            ...prev,
-                                            customer: value,
-                                            salesPerson, // ✅ Auto-fill sales person
-                                          }));
+                                        onClick={async () => {
+                                          const customerName =
+                                            customer.customerName
+                                              ?.trim()
+                                              .toUpperCase() || "";
+                                          const salesPerson =
+                                            customer.salesAgent?.trim() || "";
+                                          const customerGroup =
+                                            customer.customerGroup
+                                              ?.trim()
+                                              .toUpperCase() || "";
+
+                                          try {
+                                            const res = await fetch(
+                                              `/api/customer-types/by-group/${customerGroup}`
+                                            );
+                                            if (!res.ok)
+                                              throw new Error(
+                                                `HTTP ${res.status}`
+                                              );
+
+                                            const text = await res.text();
+                                            if (!text)
+                                              throw new Error(
+                                                "Empty response body"
+                                              );
+
+                                            const customerTypeData: CustomerType =
+                                              JSON.parse(text);
+                                            const discounts = Array.isArray(
+                                              customerTypeData.discounts
+                                            )
+                                              ? customerTypeData.discounts
+                                              : [];
+
+                                            console.log(
+                                              "📦 Fetched customerTypeData:",
+                                              customerTypeData
+                                            );
+                                            console.log(
+                                              `🎯 Discounts for ${customerGroup}:`,
+                                              discounts
+                                            );
+
+                                            setFormData((prev) => ({
+                                              ...prev,
+                                              customer: customerName,
+                                              salesPerson,
+                                              customerType: customerGroup,
+                                              customerTypeData,
+                                              discounts,
+                                            }));
+                                          } catch (err) {
+                                            console.error(
+                                              `❌ Failed to fetch customer type ${customerGroup}`,
+                                              err
+                                            );
+                                          }
+
                                           setShowCustomerSuggestions(false);
                                         }}>
                                         {label}
@@ -1431,6 +1560,43 @@ export default function SalesOrder({ onSuccess }: Props) {
                         )}
                       </div>
 
+                      {/* Delivery Date */}
+                      <div className="flex flex-col flex-1 min-w-[240px]">
+                        <Label htmlFor="create-deliveryDate">
+                          Delivery Date
+                        </Label>
+                        <Input
+                          type="date"
+                          id="create-deliveryDate"
+                          value={formData.deliveryDate}
+                          min={new Date().toISOString().split("T")[0]} // ⛔ Prevent past dates
+                          onChange={(e) => {
+                            const value = e.target.value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              deliveryDate: value,
+                            }));
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              deliveryDate: "",
+                            }));
+                          }}
+                          placeholder="Enter delivery date"
+                          className={`text-sm pr-2 appearance-none bg-[url('data:image/svg+xml;utf8,<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>')] bg-no-repeat bg-right bg-[length:1.25rem_1.25rem] ${
+                            validationErrors.deliveryDate
+                              ? "border-destructive"
+                              : ""
+                          }`}
+                        />
+                        {validationErrors.deliveryDate && (
+                          <p className="text-sm text-destructive">
+                            {validationErrors.deliveryDate}
+                          </p>
+                        )}
+                      </div>
+                    </div>
+
+                    <div className="flex flex-row flex-wrap gap-4">
                       {/* ✅ Sales Person Field */}
                       <div className="flex flex-col flex-1 min-w-[200px]">
                         <Label htmlFor="sales-person">Sales Person</Label>
@@ -1442,8 +1608,6 @@ export default function SalesOrder({ onSuccess }: Props) {
                           className="text-sm w-full px-2 py-1 border border-border bg-muted text-muted-foreground"
                         />
                       </div>
-                    </div>
-                    <div className="flex flex-row flex-wrap gap-4">
                       {/* Warehouse */}
                       <div className="flex flex-col flex-1 min-w-[200px]">
                         <Label htmlFor="create-warehouse">Warehouse</Label>
@@ -1543,35 +1707,65 @@ export default function SalesOrder({ onSuccess }: Props) {
                           </p>
                         )}
                       </div>
-
-                      {/* Notes */}
-                      <div className="flex flex-col flex-[2] min-w-[300px]">
-                        <Label htmlFor="create-notes">Notes</Label>
-                        <Textarea
-                          id="create-notes"
-                          value={formData.notes}
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setFormData((prev) => ({
-                              ...prev,
-                              notes: value,
-                            }));
-                            setValidationErrors((prev) => ({
-                              ...prev,
-                              notes: "",
-                            }));
-                          }}
-                          placeholder="Add any additional notes or comments here"
-                          className={`text-sm ${
-                            validationErrors.notes ? "border-destructive" : ""
-                          }`}
-                        />
-                        {validationErrors.notes && (
-                          <p className="text-sm text-destructive">
-                            {validationErrors.notes}
-                          </p>
-                        )}
-                      </div>
+                    </div>
+                    <div className="flex flex-col flex-[2] min-w-[300px]">
+                      <Label htmlFor="create-shippingAddress">
+                        Shipping Address
+                      </Label>
+                      <Textarea
+                        id="create-shippingAddress"
+                        value={formData.shippingAddress}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData((prev) => ({
+                            ...prev,
+                            shippingAddress: value,
+                          }));
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            shippingAddress: "",
+                          }));
+                        }}
+                        placeholder="Enter the delivery address for this order"
+                        className={`text-sm ${
+                          validationErrors.shippingAddress
+                            ? "border-destructive"
+                            : ""
+                        }`}
+                      />
+                      {validationErrors.shippingAddress && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.shippingAddress}
+                        </p>
+                      )}
+                    </div>
+                    {/* Notes */}
+                    <div className="flex flex-col flex-[2] min-w-[300px]">
+                      <Label htmlFor="create-notes">Notes</Label>
+                      <Textarea
+                        id="create-notes"
+                        value={formData.notes}
+                        onChange={(e) => {
+                          const value = e.target.value;
+                          setFormData((prev) => ({
+                            ...prev,
+                            notes: value,
+                          }));
+                          setValidationErrors((prev) => ({
+                            ...prev,
+                            notes: "",
+                          }));
+                        }}
+                        placeholder="Add any additional notes or comments here"
+                        className={`text-sm ${
+                          validationErrors.notes ? "border-destructive" : ""
+                        }`}
+                      />
+                      {validationErrors.notes && (
+                        <p className="text-sm text-destructive">
+                          {validationErrors.notes}
+                        </p>
+                      )}
                     </div>
                   </div>
                 </div>
@@ -1726,8 +1920,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                                             const enriched = {
                                               itemName: normalized,
                                               itemCode: option.itemCode || "",
-                                              unitType: option.unitType,
-                                              price: option.purchasePrice || 0,
+                                              unitType: option.unitType || "",
+                                              price: option.salesPrice ?? 0,
                                               quantity: 1,
                                             };
 
@@ -1814,40 +2008,43 @@ export default function SalesOrder({ onSuccess }: Props) {
                               readOnly
                               className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
                             />
-
-                            {/* Sales Price */}
-                            {formData.items.map((item, index) => {
-                              const key = item.itemName?.trim().toUpperCase();
-                              const price = salesPriceMap[key] ?? 0;
-                              const quantity = item.quantity ?? 0;
-                              const amount = price * quantity;
-
-                              return (
-                                <React.Fragment key={`row-${index}`}>
-                                  {/* Price */}
-                                  <input
-                                    type="text"
-                                    value={price.toLocaleString("en-PH", {
+                            {/* Price */}
+                            <input
+                              type="text"
+                              value={(() => {
+                                const key = item.itemName?.trim().toUpperCase();
+                                const price = salesPriceMap[key] ?? 0;
+                                return price > 0
+                                  ? price.toLocaleString("en-PH", {
                                       style: "currency",
                                       currency: "PHP",
-                                    })}
-                                    readOnly
-                                    className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                                  />
+                                    })
+                                  : "";
+                              })()}
+                              readOnly
+                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right text-sm"
+                              placeholder="₱0.00"
+                            />
 
-                                  {/* Amount */}
-                                  <input
-                                    type="text"
-                                    value={amount.toLocaleString("en-PH", {
+                            {/* Amount */}
+                            <input
+                              type="text"
+                              value={(() => {
+                                const key = item.itemName?.trim().toUpperCase();
+                                const price = salesPriceMap[key] ?? 0;
+                                const quantity = item.quantity ?? 0;
+                                const amount = price * quantity;
+                                return amount > 0
+                                  ? amount.toLocaleString("en-PH", {
                                       style: "currency",
                                       currency: "PHP",
-                                    })}
-                                    readOnly
-                                    className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
-                                  />
-                                </React.Fragment>
-                              );
-                            })}
+                                    })
+                                  : "";
+                              })()}
+                              readOnly
+                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right text-sm"
+                              placeholder="₱0.00"
+                            />
 
                             {/* Trash Button */}
                             <Button
@@ -1862,33 +2059,109 @@ export default function SalesOrder({ onSuccess }: Props) {
                       </>
                     )}
 
-                    <div className="flex w-full justify-end mt-4 gap-6">
-                      {/* Total Quantity */}
-                      <div className="flex items-center gap-2 min-w-[180px]">
-                        <span className="text-sm font-medium">Total Qty:</span>
-                        <input
-                          type="text"
-                          id="total-quantity"
-                          value={formData.totalQuantity}
-                          readOnly
-                          disabled
-                          className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
-                        />
+                    <div className="flex flex-col w-full mt-8 gap-8">
+                      {/* Header */}
+                      <div className="flex items-center justify-between border-b border-border pb-3">
+                        <h3 className="text-lg font-semibold text-primary tracking-wide">
+                          Order Summary
+                        </h3>
                       </div>
 
-                      {/* Total Amount */}
-                      <div className="flex items-center gap-2 min-w-[180px]">
-                        <span className="text-sm font-medium">
-                          Total Amount:
-                        </span>
-                        <input
-                          type="text"
-                          id="total-amount"
-                          value={formattedTotal}
-                          readOnly
-                          disabled
-                          className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
-                        />
+                      {/* Metrics Row */}
+                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                        {[
+                          {
+                            label: "Total Quantity",
+                            value: formData.totalQuantity,
+                          },
+                          { label: "Total Weight", value: formattedWeight },
+                          { label: "Total CBM", value: formattedCBM },
+                        ].map(({ label, value }, i) => (
+                          <div
+                            key={i}
+                            className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm hover:shadow-md transition">
+                            <span className="text-[11px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
+                              {label}
+                            </span>
+                            <span className="text-base font-semibold text-foreground text-right">
+                              {value}
+                            </span>
+                          </div>
+                        ))}
+                      </div>
+
+                      {/* Financial Breakdown */}
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        {/* Left Column */}
+                        <div className="flex flex-col gap-4">
+                          {/* SubTotal */}
+                          <div className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm">
+                            <span className="text-[11px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
+                              SubTotal
+                            </span>
+                            <span className="text-base font-semibold text-foreground text-right">
+                              {formattedTotal}
+                            </span>
+                          </div>
+
+                          {/* Discounts */}
+                          <div className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm">
+                            <span className="text-[11px] font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                              Discounts
+                            </span>
+                            {Array.isArray(formData.discounts) &&
+                            formData.discounts.length > 0 ? (
+                              <div className="flex flex-col gap-2">
+                                {formData.discounts.map((d, i) => {
+                                  const value = parseFloat(d);
+                                  const formatted = isNaN(value)
+                                    ? "Invalid"
+                                    : `${value.toFixed(2)}%`;
+
+                                  return (
+                                    <div
+                                      key={i}
+                                      className="flex justify-between items-center bg-background px-3 py-2 rounded border border-border hover:bg-muted/50 transition">
+                                      <span className="font-medium text-primary">
+                                        Discount {i + 1}
+                                      </span>
+                                      <span className="text-right">
+                                        {formatted}
+                                      </span>
+                                    </div>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="italic text-muted-foreground">
+                                No discounts available
+                              </p>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Right Column */}
+                        <div className="flex flex-col gap-4">
+                          {/* Peso Discounts */}
+                          <div className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm">
+                            <span className="text-[11px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
+                              Peso Discounts
+                            </span>
+                            <span className="text-base font-semibold text-foreground text-right">
+                              {formattedPesoDiscount}
+                            </span>
+                          </div>
+
+                          {/* Total Amount */}
+                          <div className="flex flex-col bg-gradient-to-r from-primary/20 to-primary/10 px-5 py-4 rounded-lg border border-primary shadow-md">
+                            <span className="text-[11px] font-medium text-primary mb-1 uppercase tracking-wide">
+                              Total Amount
+                            </span>
+                            <span className="text-xl font-bold text-primary text-right">
+                              {formattedNetTotal}
+                            </span>
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </>
@@ -2926,6 +3199,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                   <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
                     Amount
                   </div>
+                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border"></div>
                 </div>
 
                 {/* Item Rows */}
