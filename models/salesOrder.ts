@@ -1,86 +1,53 @@
-import mongoose from "mongoose";
+import mongoose, { Schema, model, models, HydratedDocument } from "mongoose";
+import {
+  computeTotalQuantity,
+  formatWeight,
+  formatCBM,
+  computeSubtotal,
+  computeNetTotal,
+  computePesoDiscount,
+} from "../libs/salesOrderMetrics";
+import type {
+  SalesOrder,
+  SalesOrderItem,
+} from "../app/components/sections/type";
 
-const ItemSchema = new mongoose.Schema(
+// 🧩 Item Schema
+const ItemSchema = new Schema<SalesOrderItem>(
   {
-    itemName: {
-      type: String,
-      required: true,
-      trim: true,
-      uppercase: true,
-    },
-    description: {
-      type: String,
-      trim: true,
-    },
-    quantity: {
-      type: Number,
-      required: true,
-      min: 1,
-    },
-    unitType: {
-      type: String,
-      trim: true,
-      uppercase: true,
-    },
-    price: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    amount: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    itemCode: {
-      type: String,
-      trim: true,
-      uppercase: true,
-    },
+    itemName: { type: String, required: true, trim: true, uppercase: true },
+    description: { type: String, trim: true },
+    quantity: { type: Number, required: true, min: 1 },
+    unitType: { type: String, trim: true, uppercase: true },
+    price: { type: Number, required: true, min: 0 },
+    amount: { type: Number, required: true, min: 0 },
+    itemCode: { type: String, trim: true, uppercase: true },
+    salesPrice: { type: Number },
+    weight: { type: Number, default: 0 },
+    cbm: { type: Number, default: 0 },
   },
-  { _id: true } // ✅ mutation tracking
+  { _id: true }
 );
 
-const SalesOrderSchema = new mongoose.Schema(
+// 🧾 Sales Order Document Type
+export interface SalesOrderDocument extends Omit<SalesOrder, "_id"> {
+  _id: mongoose.Types.ObjectId;
+}
+
+// 🧾 Sales Order Schema
+const SalesOrderSchema = new Schema<SalesOrderDocument>(
   {
-    soNumber: {
-      type: String,
-      unique: true,
-    },
-    customer: {
-      type: String,
-      required: true,
-      trim: true,
-      uppercase: true,
-    },
-    salesPerson: {
-      type: String,
-      required: true,
-      trim: true,
-      uppercase: true,
-    },
-    warehouse: {
-      type: String,
-      required: true,
-      trim: true,
-      uppercase: true,
-    },
+    soNumber: { type: String, unique: true },
+    customer: { type: String, required: true, trim: true, uppercase: true },
+    salesPerson: { type: String, required: true, trim: true, uppercase: true },
+    warehouse: { type: String, required: true, trim: true, uppercase: true },
     transactionDate: {
       type: String,
       default: () => new Date().toISOString().split("T")[0],
     },
-    deliveryDate: {
-      type: String,
-      trim: true,
-    },
-    shippingAddress: {
-      type: String,
-      trim: true,
-    },
-    notes: {
-      type: String,
-      trim: true,
-    },
+    deliveryDate: { type: String, trim: true },
+    shippingAddress: { type: String, trim: true },
+    notes: { type: String, trim: true },
     status: {
       type: String,
       enum: ["PENDING", "TO PREPARE", "COMPLETED", "CANCELLED"],
@@ -89,41 +56,37 @@ const SalesOrderSchema = new mongoose.Schema(
     items: {
       type: [ItemSchema],
       validate: {
-        validator: function (val: { itemName: string }[]) {
-          const so = this as mongoose.Document & { status?: string };
+        validator: function (val: SalesOrderItem[]) {
+          const so = this as HydratedDocument<SalesOrderDocument>;
           return so.status === "CANCELLED" || val.length > 0;
         },
         message: "At least one item is required unless SO is cancelled",
       },
     },
-    total: {
-      type: Number,
-      default: 0,
-    },
-    totalQuantity: {
-      type: Number,
-      default: 0,
-    },
-    balance: {
-      type: Number,
-      default: 0,
-    },
+    discounts: { type: [String], default: [] },
+    total: { type: Number, default: 0 },
+    totalQuantity: { type: Number, default: 0 },
+    balance: { type: Number, default: 0 },
+    formattedWeight: { type: String, default: "0.00 kg" },
+    formattedCBM: { type: String, default: "0.000 m³" },
+    formattedTotal: { type: String, default: "0.00" },
+    formattedNetTotal: { type: String, default: "0.00" },
+    formattedPesoDiscount: { type: String, default: "0.00%" },
+    creationDate: { type: String, trim: true },
   },
   { timestamps: true }
 );
 
-// Auto-generate soNumber before saving
+// 🔢 Auto-generate soNumber
 SalesOrderSchema.pre("validate", async function (next) {
-  if (this.soNumber) return next();
+  const so = this as HydratedDocument<SalesOrderDocument>;
+  if (so.soNumber) return next();
 
-  const lastSO = await mongoose
-    .model("SalesOrder")
-    .findOne({})
+  const lastSO = await SalesOrderModel.findOne({})
     .sort({ createdAt: -1 })
     .select("soNumber");
 
   let nextNumber = 1;
-
   if (lastSO?.soNumber) {
     const numericPart = lastSO.soNumber.replace(/^SO/, "");
     const parsed = parseInt(numericPart, 10);
@@ -131,10 +94,30 @@ SalesOrderSchema.pre("validate", async function (next) {
   }
 
   const padded = String(nextNumber).padStart(10, "0");
-  this.soNumber = `SO${padded}`;
+  so.soNumber = `SO${padded}`;
+  next();
+});
+
+// 🧠 Inject computed fields before saving
+SalesOrderSchema.pre("save", function (next) {
+  const so = this as HydratedDocument<SalesOrderDocument>;
+
+  const items = so.items ?? [];
+  const discounts = so.discounts ?? [];
+
+  so.totalQuantity = computeTotalQuantity(items);
+  so.formattedWeight = formatWeight(items);
+  so.formattedCBM = formatCBM(items);
+  so.formattedTotal = computeSubtotal(items);
+  so.formattedNetTotal = computeNetTotal(so);
+  so.formattedPesoDiscount = computePesoDiscount(discounts);
 
   next();
 });
 
-export default mongoose.models.SalesOrder ||
-  mongoose.model("SalesOrder", SalesOrderSchema);
+// 🧾 Export Model
+const SalesOrderModel =
+  models.SalesOrder ||
+  model<SalesOrderDocument>("SalesOrder", SalesOrderSchema);
+
+export default SalesOrderModel;

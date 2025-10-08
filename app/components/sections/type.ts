@@ -227,6 +227,9 @@ export type InventoryType = {
   updatedAt?: Date;
 };
 
+import type { Types } from "mongoose";
+
+// 🔹 Base item type
 export type SalesOrderItem = {
   _id: string;
   itemName: string;
@@ -237,23 +240,39 @@ export type SalesOrderItem = {
   amount: number;
   itemCode?: string;
   salesPrice?: number;
+  weight?: number;
+  cbm?: number;
 };
 
+// 🔹 Full SalesOrder document (from DB)
 export type SalesOrder = {
-  _id: string;
+  _id: string | Types.ObjectId;
   soNumber: string;
   customer: string;
   salesPerson: string;
   warehouse: string;
-  transactionDate: string; // ISO date string
+  transactionDate: string;
   deliveryDate?: string;
   shippingAddress?: string;
   notes?: string;
   status: "PENDING" | "TO PREPARE" | "COMPLETED" | "CANCELLED";
   items: SalesOrderItem[];
+  discounts?: string[];
   total: number;
   totalQuantity: number;
+  balance: number;
+  formattedWeight: string;
+  formattedCBM: string;
+  formattedTotal: string;
+  formattedNetTotal: string;
+  formattedPesoDiscount: string;
   creationDate: string;
   createdAt?: string;
   updatedAt?: string;
 };
+
+// 🔹 Input payload for creation
+export type SalesOrderInput = Omit<
+  SalesOrder,
+  "_id" | "soNumber" | "createdAt" | "updatedAt"
+>;

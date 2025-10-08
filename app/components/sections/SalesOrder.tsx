@@ -92,6 +92,14 @@ import type {
   CustomerType,
 } from "./type";
 
+import {
+  formatWeight,
+  formatCBM,
+  computeNetTotal,
+  computePesoDiscount,
+  computeSubtotal,
+} from "@/libs/salesOrderMetrics";
+
 import { useRouter } from "next/navigation";
 import { Checkbox } from "../ui/checkbox";
 import { toast } from "sonner";
@@ -162,6 +170,7 @@ export default function SalesOrder({ onSuccess }: Props) {
 
   const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
+  const [customerTypes, setCustomerTypes] = useState<CustomerType[]>([]);
 
   const [inventoryItems, setInventoryItems] = useState<InventoryItem[]>([]);
   const [isLoadingInventory, setIsLoadingInventory] = useState(false);
@@ -183,7 +192,6 @@ export default function SalesOrder({ onSuccess }: Props) {
     Omit<SalesOrder, "_id" | "createdAt" | "updatedAt"> & {
       customerType?: string;
       customerTypeData?: CustomerType;
-      discounts?: string[];
     }
   >({
     soNumber: "",
@@ -198,9 +206,13 @@ export default function SalesOrder({ onSuccess }: Props) {
     items: [],
     total: 0,
     totalQuantity: 0,
+    balance: 0,
     creationDate: new Date().toISOString().split("T")[0],
-    customerType: "",
-    customerTypeData: undefined,
+    formattedWeight: "0.00 kg",
+    formattedCBM: "0.000 m³",
+    formattedTotal: "0.00",
+    formattedNetTotal: "0.00",
+    formattedPesoDiscount: "0.00%",
     discounts: [],
   });
 
@@ -221,7 +233,14 @@ export default function SalesOrder({ onSuccess }: Props) {
     status: "",
     total: "",
     totalQuantity: "",
+    balance: "",
     creationDate: "",
+    formattedWeight: "",
+    formattedCBM: "",
+    formattedTotal: "",
+    formattedNetTotal: "",
+    formattedPesoDiscount: "",
+    discounts: "",
   });
 
   useEffect(() => {
@@ -321,6 +340,16 @@ export default function SalesOrder({ onSuccess }: Props) {
   }, []);
 
   useEffect(() => {
+    fetch("/api/customer-types")
+      .then((res) => res.json())
+      .then((response) => {
+        const data = Array.isArray(response?.items) ? response.items : [];
+        setCustomerTypes(data);
+      })
+      .catch((err) => console.error("❌ Failed to fetch customer types", err));
+  }, []);
+
+  useEffect(() => {
     console.log("Fetching warehouses...");
 
     fetch("/api/warehouses")
@@ -343,9 +372,15 @@ export default function SalesOrder({ onSuccess }: Props) {
     console.log("🏷️ Selected warehouse:", warehouse);
     if (!warehouse) return;
 
-    // 🔁 Reset state immediately
-    setItemsData([]);
-    setFormData((prev) => ({ ...prev, items: [] }));
+    // 🛡️ Skip reset if editing dialog is open
+    if (isEditDialogOpen) {
+      console.log("🛑 Skipping warehouse reset during edit");
+    } else {
+      // 🔁 Reset state only during create flow
+      setItemsData([]);
+      setFormData((prev) => ({ ...prev, items: [] }));
+    }
+
     setInventoryItems([]);
     setIsLoadingInventory(true);
 
@@ -388,7 +423,7 @@ export default function SalesOrder({ onSuccess }: Props) {
     };
 
     fetchInventoryMainItems();
-  }, [formData.warehouse]);
+  }, [formData.warehouse, isEditDialogOpen]);
 
   // Filter and paginate data
   const normalizeString = (value?: string) =>
@@ -470,7 +505,14 @@ export default function SalesOrder({ onSuccess }: Props) {
       status: "",
       total: "",
       totalQuantity: "",
+      balance: "",
       creationDate: "",
+      formattedWeight: "",
+      formattedCBM: "",
+      formattedTotal: "",
+      formattedNetTotal: "",
+      formattedPesoDiscount: "",
+      discounts: "",
     };
 
     // Required: customer
@@ -649,7 +691,14 @@ export default function SalesOrder({ onSuccess }: Props) {
     status: "",
     total: "",
     totalQuantity: "",
+    balance: "",
     creationDate: "",
+    formattedWeight: "",
+    formattedCBM: "",
+    formattedTotal: "",
+    formattedNetTotal: "",
+    formattedPesoDiscount: "",
+    discounts: "",
   };
 
   const allowedStatuses: SalesOrder["status"][] = [
@@ -660,57 +709,97 @@ export default function SalesOrder({ onSuccess }: Props) {
   ];
 
   const handleEdit = (so: SalesOrder) => {
-    const normalize = (str?: string): string => str?.trim().toUpperCase() || "";
+    setEditingSO(so);
 
-    const editableItems = (so.items || [])
+    const editableItems = so.items
       .filter((item) => Number(item.quantity) > 0)
       .map((item) => {
+        const key = item.itemName?.trim().toUpperCase();
+        const price = salesPriceMap[key] ?? 0;
         const quantity = Math.max(Number(item.quantity) || 1, 1);
-        const price = Number(item.price) || 0;
-        const fallbackId = item._id ?? crypto.randomUUID();
 
         return {
-          _id: fallbackId,
-          itemName: normalize(item.itemName),
+          _id: item._id ?? crypto.randomUUID(),
+          itemName: key || "UNNAMED",
           quantity,
-          unitType: normalize(item.unitType),
+          unitType: item.unitType?.trim().toUpperCase() || "",
           price,
-          itemCode: normalize(item.itemCode),
+          itemCode: item.itemCode?.trim().toUpperCase() || "",
           description: item.description?.trim() || "",
           amount: quantity * price,
         };
       });
 
-    const totalQuantity = editableItems.reduce((sum, i) => sum + i.quantity, 0);
-    const totalAmount = editableItems.reduce((sum, i) => sum + i.amount, 0);
+    const totalQuantity = editableItems.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+    const totalAmount = editableItems.reduce(
+      (sum, item) => sum + item.amount,
+      0
+    );
 
-    const normalizedStatus = normalize(so.status);
+    const normalizedStatus = so.status?.trim().toUpperCase();
     const status: SalesOrder["status"] = allowedStatuses.includes(
       normalizedStatus as SalesOrder["status"]
     )
       ? (normalizedStatus as SalesOrder["status"])
       : "PENDING";
 
-    const normalizedFormData: Omit<
-      SalesOrder,
-      "_id" | "createdAt" | "updatedAt"
-    > = {
-      soNumber: normalize(so.soNumber),
-      customer: normalize(so.customer),
-      salesPerson: normalize(so.salesPerson),
-      warehouse: normalize(so.warehouse),
-      transactionDate: so.transactionDate,
-      deliveryDate: so.deliveryDate,
+    // 🧠 Resolve discount from customerGroup → groupName → discounts[0]
+    const matchedCustomer = customers.find(
+      (c) =>
+        c.customerName?.trim().toUpperCase() ===
+        so.customer?.trim().toUpperCase()
+    );
+
+    const customerGroup = matchedCustomer?.customerGroup?.trim().toUpperCase();
+
+    const matchedCustomerType = customerTypes.find(
+      (ct) => ct.groupName?.trim().toUpperCase() === customerGroup
+    );
+
+    const resolvedDiscounts: string[] = matchedCustomerType?.discounts ?? [];
+
+    const discountRate = matchedCustomerType?.discounts?.[0]
+      ? parseFloat(matchedCustomerType.discounts[0]) / 100
+      : 0;
+
+    const formattedPesoDiscount = `${(discountRate * 100).toFixed(2)}%`;
+    const netTotal = totalAmount * (1 - discountRate);
+
+    const hydratedFormData: typeof formData = {
+      soNumber: so.soNumber.trim().toUpperCase(),
+      customer: so.customer?.trim().toUpperCase() || "",
+      salesPerson: so.salesPerson?.trim().toUpperCase() || "",
+      warehouse: so.warehouse?.trim().toUpperCase() || "",
+      transactionDate:
+        so.transactionDate ?? new Date().toISOString().split("T")[0],
+      deliveryDate: so.deliveryDate ?? "",
       shippingAddress: so.shippingAddress?.trim() || "",
       notes: so.notes?.trim() || "",
       status,
-      creationDate: so.creationDate,
-      items: editableItems, // ✅ This drives the dialog content
+      creationDate: so.creationDate ?? new Date().toISOString().split("T")[0],
+      items: editableItems,
       total: totalAmount,
       totalQuantity,
+      balance: typeof so.balance === "number" ? so.balance : totalAmount,
+      formattedWeight: so.formattedWeight ?? "0.00 kg",
+      formattedCBM: so.formattedCBM ?? "0.000 m³",
+      formattedTotal: totalAmount.toLocaleString("en-PH", {
+        style: "currency",
+        currency: "PHP",
+      }),
+      formattedNetTotal: netTotal.toLocaleString("en-PH", {
+        style: "currency",
+        currency: "PHP",
+      }),
+      formattedPesoDiscount,
+      discounts: resolvedDiscounts,
     };
 
-    setFormData(normalizedFormData);
+    setFormData(hydratedFormData);
+    setItemsData(editableItems);
     setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(true);
   };
@@ -724,26 +813,27 @@ export default function SalesOrder({ onSuccess }: Props) {
     const selectedIdsSafe =
       selectedIds.length === formData.items.length
         ? selectedIds
-        : formData.items.map((item) => item._id ?? crypto.randomUUID());
+        : formData.items.map(() => true);
 
-    const normalizedItems: SalesOrderItem[] = formData.items
-      .map((item, index) => {
-        const fallbackId = item._id ?? selectedIdsSafe[index];
+    const normalizedItems = formData.items
+      .map((item, index) => ({ item, index }))
+      .filter(({ index }) => selectedIdsSafe[index])
+      .map(({ item }) => {
+        const key = item.itemName?.trim().toUpperCase();
+        const price = salesPriceMap[key] ?? (Number(item.price) || 0);
         const quantity = Math.max(Number(item.quantity) || 1, 1);
-        const price = Number(item.price) || 0;
 
         return {
-          _id: fallbackId,
+          _id: item._id ?? crypto.randomUUID(),
           itemCode: item.itemCode?.trim().toUpperCase() || "",
-          itemName: item.itemName?.trim().toUpperCase() || "",
+          itemName: key || "UNNAMED",
           unitType: item.unitType?.trim().toUpperCase() || "",
           quantity,
           price,
           description: item.description?.trim() || "",
           amount: quantity * price,
         };
-      })
-      .filter((_, index) => selectedIdsSafe[index]); // ✅ Only selected
+      });
 
     const totalQuantity = normalizedItems.reduce(
       (sum, item) => sum + item.quantity,
@@ -771,10 +861,13 @@ export default function SalesOrder({ onSuccess }: Props) {
       shippingAddress: formData.shippingAddress?.trim() || "",
       notes: formData.notes?.trim() || "",
       status,
-      creationDate: formData.creationDate,
       items: normalizedItems,
       total: totalAmount,
       totalQuantity,
+      balance:
+        typeof formData.balance === "number" && !isNaN(formData.balance)
+          ? formData.balance
+          : totalAmount,
     };
 
     console.log("📦 Sending update payload:", payload);
@@ -797,7 +890,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       }
 
       setSalesOrders((prev) =>
-        prev.map((so) => (so._id === result._id ? result : so))
+        prev.map((so) => (so._id === result.order._id ? result.order : so))
       );
     } catch (err) {
       console.error("🔥 Network or unexpected error:", err);
@@ -821,6 +914,15 @@ export default function SalesOrder({ onSuccess }: Props) {
       items: [],
       total: 0,
       totalQuantity: 0,
+      balance: 0,
+      formattedWeight: "0.00 kg",
+      formattedCBM: "0.000 m³",
+      formattedTotal: "0.00",
+      formattedNetTotal: "0.00",
+      formattedPesoDiscount: "0.00%",
+      discounts: [],
+      customerType: "",
+      customerTypeData: undefined,
     });
     setSelectedIds([]);
     setValidationErrors(defaultValidationErrors);
@@ -886,6 +988,15 @@ export default function SalesOrder({ onSuccess }: Props) {
       items: [],
       total: 0,
       totalQuantity: 0,
+      balance: 0,
+      formattedWeight: "0.00 kg",
+      formattedCBM: "0.000 m³",
+      formattedTotal: "0.00",
+      formattedNetTotal: "0.00",
+      formattedPesoDiscount: "0.00%",
+      discounts: [],
+      customerType: "",
+      customerTypeData: undefined,
     });
 
     setValidationErrors({
@@ -901,28 +1012,45 @@ export default function SalesOrder({ onSuccess }: Props) {
       creationDate: "",
       total: "",
       totalQuantity: "",
+      balance: "",
+      formattedWeight: "",
+      formattedCBM: "",
+      formattedTotal: "",
+      formattedNetTotal: "",
+      formattedPesoDiscount: "",
+      discounts: "",
     });
   };
 
   const toggleSelectAll = (checked: boolean | "indeterminate") => {
     if (checked === true) {
-      console.log("🔄 toggleSelectAll triggered:", checked);
+      console.log("🔄 Select all triggered");
 
-      // Select all sales orders on current page
-      const newSelections = [
-        ...selectedIds,
-        ...paginatedSalesOrders
-          .filter((so) => !selectedIds.includes(so._id))
-          .map((so) => so._id),
-      ];
-      setSelectedIds(newSelections);
-    } else if (checked === false) {
-      // Unselect all sales orders on current page
-      const remaining = selectedIds.filter(
-        (id) => !paginatedSalesOrders.some((so) => so._id === id)
+      const currentPageIds = paginatedSalesOrders.map((so) => so._id);
+      const newSelections = Array.from(
+        new Set([
+          ...selectedIds,
+          ...paginatedSalesOrders
+            .filter((so) => !selectedIds.includes(String(so._id)))
+            .map((so) => String(so._id)),
+        ])
       );
-      setSelectedIds(remaining);
+
+      setSelectedIds(newSelections);
     }
+
+    if (checked === false) {
+      console.log("🔄 Unselect all triggered");
+
+      const currentPageIds = new Set(paginatedSalesOrders.map((so) => so._id));
+      const remainingSelections = selectedIds.filter(
+        (id) => !currentPageIds.has(id)
+      );
+
+      setSelectedIds(remainingSelections);
+    }
+
+    // No-op for "indeterminate" — handled by checkbox UI state only
   };
 
   const toggleSelectOne = (id: string) => {
@@ -939,7 +1067,9 @@ export default function SalesOrder({ onSuccess }: Props) {
 
     try {
       // Optimistically remove from UI
-      setSalesOrders((prev) => prev.filter((so) => !_ids.includes(so._id)));
+      setSalesOrders((prev) =>
+        prev.filter((so) => !_ids.includes(String(so._id)))
+      );
 
       const results = await Promise.allSettled(
         _ids.map(async (_id) => {
@@ -1017,36 +1147,109 @@ export default function SalesOrder({ onSuccess }: Props) {
     if (soId) fetchSingleSO(soId);
   }, [soId]);
 
+  // const normalizeSalesOrderItem = (item: SalesOrderItem): SalesOrderItem => ({
+  //   itemCode: item.itemCode?.trim().toUpperCase() || "",
+  //   itemName: item.itemName?.trim().toUpperCase() || "",
+  //   unitType: item.unitType?.trim().toUpperCase() || "",
+  //   quantity: Number(item.quantity) || 0,
+  //   price: Number(item.price) || 0,
+  //   description: item.description?.trim() || "",
+  //   amount: Number(item.quantity) * Number(item.price),
+  // });
+
   const fetchSingleSO = async (soId: string) => {
     try {
       const res = await fetch(`/api/sales-orders/${soId}`, {
         cache: "no-store",
       });
-
       if (!res.ok) throw new Error("Failed to fetch Sales Order");
 
-      const data = await res.json();
+      const raw = await res.json();
 
-      const normalizedItems = (data.items || []).map(
-        (item: SalesOrderItem) => ({
-          itemName: item.itemName?.trim().toUpperCase() || "",
-          quantity: Number(item.quantity) || 0,
-          unit: item.unitType?.trim().toUpperCase() || "",
-          price: Number(item.price) || 0,
-          itemCode: item.itemCode?.trim().toUpperCase() || "",
-          description: item.description?.trim() || "",
-          amount: Number(item.quantity) * Number(item.price),
-        })
+      const normalizedItems = Array.isArray(raw.items)
+        ? raw.items.map(soId)
+        : [];
+
+      const totalQuantity = normalizedItems.reduce(
+        (sum: number, item: SalesOrderItem) => sum + item.quantity,
+        0
       );
 
+      const totalAmount = normalizedItems.reduce(
+        (sum: number, item: SalesOrderItem) => sum + item.amount,
+        0
+      );
+
+      const formattedWeight = formatWeight(normalizedItems);
+      const formattedCBM = formatCBM(normalizedItems);
+      const formattedTotal = totalAmount.toLocaleString("en-PH", {
+        style: "currency",
+        currency: "PHP",
+      });
+
+      const formattedNetTotal = computeNetTotal({
+        ...raw,
+        items: normalizedItems,
+      });
+      const formattedPesoDiscount = computePesoDiscount(raw.discounts ?? []);
+
+      const hydratedSO: SalesOrder = {
+        _id: raw._id ? String(raw._id) : "",
+        soNumber: raw.soNumber ?? "",
+        customer: raw.customer ?? "",
+        salesPerson: raw.salesPerson ?? "",
+        warehouse: raw.warehouse ?? "",
+        transactionDate: raw.transactionDate ?? "",
+        deliveryDate: raw.deliveryDate ?? "",
+        shippingAddress: raw.shippingAddress?.trim() ?? "",
+        notes: raw.notes?.trim() ?? "",
+        status: raw.status ?? "PENDING",
+        creationDate:
+          raw.creationDate ?? new Date().toISOString().split("T")[0],
+        items: normalizedItems,
+        total: totalAmount,
+        totalQuantity,
+        balance: raw.balance ?? 0,
+        formattedWeight,
+        formattedCBM,
+        formattedTotal,
+        formattedNetTotal,
+        formattedPesoDiscount,
+        discounts: raw.discounts ?? [],
+      };
+
       setItemsData(normalizedItems);
-      setFormData({ ...data, items: normalizedItems });
+      setFormData(hydratedSO);
     } catch (error) {
-      console.error("Error loading Sales Order:", error);
+      console.error("❌ Error loading Sales Order:", error);
       setItemsData([]);
-      setFormData({} as SalesOrder);
+      setFormData({
+        soNumber: "",
+        customer: "",
+        salesPerson: "",
+        warehouse: "",
+        transactionDate: new Date().toISOString().split("T")[0],
+        deliveryDate: "",
+        shippingAddress: "",
+        notes: "",
+        status: "PENDING",
+        creationDate: new Date().toISOString().split("T")[0],
+        items: [],
+        total: 0,
+        totalQuantity: 0,
+        balance: 0,
+        formattedWeight: "0.00 kg",
+        formattedCBM: "0.000 m³",
+        formattedTotal: "0.00",
+        formattedNetTotal: "0.00",
+        formattedPesoDiscount: "0.00%",
+        discounts: [],
+        customerType: "",
+        customerTypeData: undefined,
+      });
     }
   };
+
   const handleAddItem = () => {
     const newItem = {
       _id: crypto.randomUUID(),
@@ -1133,19 +1336,19 @@ export default function SalesOrder({ onSuccess }: Props) {
     }));
   };
 
-  const recalculateTotals = (items: SalesOrderItem[]) => {
-    const totalQuantity = items.reduce(
-      (sum, item) => sum + (item.quantity || 0),
-      0
-    );
+  // const recalculateTotals = (items: SalesOrderItem[]) => {
+  //   const totalQuantity = items.reduce(
+  //     (sum, item) => sum + (item.quantity || 0),
+  //     0
+  //   );
 
-    const totalAmount = items.reduce(
-      (sum, item) => sum + (item.amount || item.quantity * item.price || 0),
-      0
-    );
+  //   const totalAmount = items.reduce(
+  //     (sum, item) => sum + (item.amount || item.quantity * item.price || 0),
+  //     0
+  //   );
 
-    return { totalQuantity, total: totalAmount };
-  };
+  //   return { totalQuantity, total: totalAmount };
+  // };
 
   const handleSave = async () => {
     if (!validateForm()) {
@@ -1772,27 +1975,38 @@ export default function SalesOrder({ onSuccess }: Props) {
                 {formData.warehouse && (
                   <>
                     <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
-                      {/* Header Row */}
-                      <div className="text-xs font-semibold uppercase text-center">
+                      {/* Item Code */}
+                      <div className="text-xs font-semibold uppercase text-start px-2">
                         Item Code
                       </div>
-                      <div className="text-xs font-semibold uppercase text-center">
+
+                      {/* Item Name */}
+                      <div className="text-xs font-semibold uppercase text-start px-2">
                         Item Name
                       </div>
-                      <div className="text-xs font-semibold uppercase text-center">
+
+                      {/* Quantity */}
+                      <div className="text-xs font-semibold uppercase text-end px-2">
                         Qty
                       </div>
-                      <div className="text-xs font-semibold uppercase text-center">
+
+                      {/* Unit of Measure */}
+                      <div className="text-xs font-semibold uppercase text-start px-2">
                         UOM
                       </div>
-                      <div className="text-xs font-semibold uppercase text-center">
+
+                      {/* Sales Price */}
+                      <div className="text-xs font-semibold uppercase text-end px-2">
                         Sales Price
                       </div>
-                      <div className="text-xs font-semibold uppercase text-center">
+
+                      {/* Amount */}
+                      <div className="text-xs font-semibold uppercase text-end px-2">
                         Amount
                       </div>
-                      <div className="text-center"></div>{" "}
-                      {/* Trash icon column */}
+
+                      {/* Trash Icon Column */}
+                      <div className="text-center"></div>
                     </div>
 
                     {isLoadingInventory ? (
@@ -1998,7 +2212,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                                   return { ...prev, items: updatedItems };
                                 });
                               }}
-                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary text-end"
                             />
 
                             {/* Unit Type */}
@@ -2058,6 +2272,9 @@ export default function SalesOrder({ onSuccess }: Props) {
                         ))}
                       </>
                     )}
+
+                    {/* Left: Add Item */}
+                    <Button onClick={handleAddItem}>Add Item</Button>
 
                     <div className="flex flex-col w-full mt-8 gap-8">
                       {/* Header */}
@@ -2168,76 +2385,64 @@ export default function SalesOrder({ onSuccess }: Props) {
                 )}
                 {/* Footer Actions */}
                 <DialogFooter className="pt-4 border-t">
-                  <div className="flex w-full justify-between items-center">
-                    {/* Left: Add Item */}
-                    <Button onClick={handleAddItem}>Add Item</Button>
+                  <div className="flex w-full justify-end items-center gap-2">
+                    {/* Cancel Button */}
+                    <Button
+                      variant="ghost"
+                      onClick={() => {
+                        setIsCreateDialogOpen(false);
+                        resetForm();
+                      }}>
+                      Cancel
+                    </Button>
 
-                    {/* Right: Cancel & Create */}
-                    <div className="flex gap-2">
+                    {/* Save + Dropdown */}
+                    <div className="flex items-center gap-2">
+                      {/* Primary Save Button */}
                       <Button
-                        variant="ghost"
-                        onClick={() => {
-                          setIsCreateDialogOpen(false);
-                          resetForm();
-                        }}>
-                        Cancel
+                        onClick={handleSave}
+                        disabled={
+                          !formData.items.length ||
+                          formData.items.every((item) => !item.itemName?.trim())
+                        }
+                        className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                        aria-label="Save">
+                        💾 Save
                       </Button>
-                      {/* <Button onClick={handleCreate}>Create</Button> */}
-                      <div className="flex items-center gap-2">
-                        {/* Primary Save Button */}
-                        <Button
-                          onClick={handleSave}
-                          disabled={
-                            !formData.items.length ||
-                            formData.items.every(
-                              (item) => !item.itemName?.trim()
-                            )
-                          }
-                          className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
-                          aria-label="Save">
-                          💾 Save
-                        </Button>
 
-                        {/* Dropdown for More Actions */}
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              className="bg-muted text-foreground hover:bg-muted/80 px-3 py-2 rounded-md shadow-sm transition-colors duration-150"
-                              aria-label="Open more save options">
-                              ▾ More
-                            </Button>
-                          </DropdownMenuTrigger>
+                      {/* Dropdown for More Actions */}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <Button
+                            className="bg-muted text-foreground hover:bg-muted/80 px-3 py-2 rounded-md shadow-sm transition-colors duration-150"
+                            aria-label="Open more save options">
+                            ▾ More
+                          </Button>
+                        </DropdownMenuTrigger>
 
-                          <DropdownMenuContent
-                            align="end"
-                            sideOffset={8}
-                            className="w-[220px] rounded-md border border-border bg-white shadow-lg animate-in fade-in slide-in-from-top-2">
-                            <DropdownMenuLabel className="px-3 py-2 text-xs font-medium text-muted-foreground">
-                              Additional actions
-                            </DropdownMenuLabel>
+                        <DropdownMenuContent
+                          align="end"
+                          sideOffset={8}
+                          className="w-[220px] rounded-md border border-border bg-white shadow-lg animate-in fade-in slide-in-from-top-2">
+                          <DropdownMenuLabel className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                            Additional actions
+                          </DropdownMenuLabel>
 
-                            <DropdownMenuSeparator />
+                          <DropdownMenuSeparator />
 
-                            <DropdownMenuItem
-                              onClick={handleSaveAndCreate}
-                              disabled={
-                                !formData.items.length ||
-                                formData.items.every(
-                                  (item) => !item.itemName?.trim()
-                                )
-                              }
-                              className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">
-                              🆕 Save & New
-                            </DropdownMenuItem>
-
-                            {/* <DropdownMenuItem
-                              onClick={handleSaveAndPreview}
-                              className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">
-                              👁️ Save & Preview
-                            </DropdownMenuItem> */}
-                          </DropdownMenuContent>
-                        </DropdownMenu>
-                      </div>
+                          <DropdownMenuItem
+                            onClick={handleSaveAndCreate}
+                            disabled={
+                              !formData.items.length ||
+                              formData.items.every(
+                                (item) => !item.itemName?.trim()
+                              )
+                            }
+                            className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">
+                            🆕 Save & New
+                          </DropdownMenuItem>
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   </div>
                 </DialogFooter>
@@ -2346,12 +2551,14 @@ export default function SalesOrder({ onSuccess }: Props) {
                   </TableRow>
                 ) : (
                   paginatedSalesOrders.map((so: SalesOrder) => (
-                    <TableRow key={so._id}>
+                    <TableRow key={String(so._id)}>
                       <TableCell>
                         <Checkbox
-                          checked={selectedIds.includes(so._id)}
+                          checked={selectedIds.includes(String(so._id))}
                           onClick={(e) => e.stopPropagation()}
-                          onCheckedChange={() => toggleSelectOne(so._id)}
+                          onCheckedChange={() =>
+                            toggleSelectOne(String(so._id))
+                          }
                         />
                       </TableCell>
                       <TableCell>
@@ -2399,7 +2606,6 @@ export default function SalesOrder({ onSuccess }: Props) {
                                 title="Edit Sales Order"
                                 aria-label={`Edit SO ${so.soNumber}`}
                                 onClick={(e) => {
-                                  e.stopPropagation(); // ⛔ Prevent checkbox toggle
                                   handleEdit(so);
                                 }}>
                                 <Edit className="w-4 h-4" />
@@ -2433,7 +2639,9 @@ export default function SalesOrder({ onSuccess }: Props) {
                                       Cancel
                                     </AlertDialogCancel>
                                     <AlertDialogAction
-                                      onClick={() => handleDelete(so._id)}>
+                                      onClick={() =>
+                                        handleDelete(String(so._id))
+                                      }>
                                       Delete
                                     </AlertDialogAction>
                                   </AlertDialogFooter>
@@ -2491,7 +2699,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                                   <DropdownMenuItem
                                     key={value}
                                     onClick={() =>
-                                      handleUpdateStatus(so._id, value)
+                                      handleUpdateStatus(String(so._id), value)
                                     }
                                     disabled={so.status === value}
                                     className={color}>
@@ -2561,25 +2769,27 @@ export default function SalesOrder({ onSuccess }: Props) {
 
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Purchase Orders</DialogTitle>
+        <DialogPanel className="max-h-[80vh] overflow-y-auto px-6 py-4">
+          {/* Header */}
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="text-xl font-semibold tracking-tight">
+              Edit Sales Order
+            </DialogTitle>
           </DialogHeader>
 
-          {/* Form Fields */}
+          {/* Form Content Slot (optional placeholder) */}
           <div className="space-y-4">
             <div className="grid gap-4 py-4">
-              {/* First Row */}
               <div className="flex flex-row flex-wrap gap-4">
                 {/* SO Number */}
                 <div className="flex flex-col flex-1 min-w-[200px]">
                   <Label htmlFor="edit-so-number">SO Number</Label>
                   <Input
                     id="edit-so-number"
-                    value={formData.soNumber}
+                    value={formData.soNumber || "—"}
                     readOnly
                     disabled
-                    placeholder="Auto-generated"
+                    placeholder="Sales Order Number"
                     className="text-sm uppercase bg-muted cursor-not-allowed"
                   />
                 </div>
@@ -2591,11 +2801,18 @@ export default function SalesOrder({ onSuccess }: Props) {
                   </Label>
                   <Input
                     id="edit-transaction-date"
-                    value={new Date().toLocaleDateString("en-PH", {
-                      year: "numeric",
-                      month: "long",
-                      day: "numeric",
-                    })}
+                    value={
+                      formData.transactionDate
+                        ? new Date(formData.transactionDate).toLocaleDateString(
+                            "en-PH",
+                            {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            }
+                          )
+                        : "—"
+                    }
                     readOnly
                     disabled
                     className="text-sm bg-muted cursor-not-allowed"
@@ -2603,51 +2820,134 @@ export default function SalesOrder({ onSuccess }: Props) {
                 </div>
               </div>
 
-              {/* Second Row */}
               <div className="flex flex-row flex-wrap gap-4">
                 {/* Customer Name */}
-                <div className="flex flex-col flex-1 min-w-[200px]">
+                <div className="flex flex-col flex-1 min-w-[240px]">
                   <Label htmlFor="edit-customer-name">Customer Name</Label>
-                  <Select
-                    value={formData.customer}
-                    onValueChange={(value) => {
-                      const normalized = value.toUpperCase().trim();
-                      setFormData((prev) => ({
-                        ...prev,
-                        customer: normalized,
-                      }));
-                      setValidationErrors((prev) => ({
-                        ...prev,
-                        customer: "",
-                      }));
-                    }}>
-                    <SelectTrigger
-                      className={`text-sm uppercase w-full ${
+                  <div className="relative">
+                    <Input
+                      id="edit-customer-name"
+                      type="text"
+                      autoComplete="off"
+                      value={formData.customer || ""}
+                      onClick={() => setShowCustomerSuggestions(true)}
+                      onChange={(e) => {
+                        const value = e.target.value.toUpperCase();
+                        setFormData((prev) => ({
+                          ...prev,
+                          customer: value,
+                          salesPerson: "",
+                          customerType: "",
+                          customerTypeData: undefined,
+                          discounts: [],
+                        }));
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          customer: "",
+                        }));
+                        setShowCustomerSuggestions(true);
+                      }}
+                      onBlur={() =>
+                        setTimeout(() => setShowCustomerSuggestions(false), 200)
+                      }
+                      placeholder="Search customer name"
+                      className={`text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
                         validationErrors.customer ? "border-destructive" : ""
-                      }`}>
-                      {formData.customer || "Select Customer"}
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.isArray(customers) && customers.length > 0 ? (
-                        customers.map((customer) => {
-                          const label =
-                            customer.customerName?.trim() || "Unnamed Customer";
-                          const value = label.toUpperCase();
-                          return (
-                            <SelectItem
-                              key={customer._id || value}
-                              value={value}>
-                              {label}
-                            </SelectItem>
+                      }`}
+                    />
+                    {showCustomerSuggestions && (
+                      <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                        {(() => {
+                          const input =
+                            formData.customer?.trim().toUpperCase() || "";
+                          const filtered = customers.filter((customer) => {
+                            const label =
+                              customer.customerName?.trim().toUpperCase() || "";
+                            return input === "" || label.includes(input);
+                          });
+
+                          return filtered.length > 0 ? (
+                            filtered.map((customer) => {
+                              const label =
+                                customer.customerName?.trim() ||
+                                "Unnamed Customer";
+                              const value = label.toUpperCase();
+
+                              return (
+                                <li
+                                  key={customer._id || value}
+                                  className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                  onClick={async () => {
+                                    const customerName =
+                                      customer.customerName
+                                        ?.trim()
+                                        .toUpperCase() || "";
+                                    const salesPerson =
+                                      customer.salesAgent?.trim() || "";
+                                    const customerGroup =
+                                      customer.customerGroup
+                                        ?.trim()
+                                        .toUpperCase() || "";
+
+                                    try {
+                                      const res = await fetch(
+                                        `/api/customer-types/by-group/${customerGroup}`
+                                      );
+                                      if (!res.ok)
+                                        throw new Error(`HTTP ${res.status}`);
+
+                                      const text = await res.text();
+                                      if (!text)
+                                        throw new Error("Empty response body");
+
+                                      const customerTypeData: CustomerType =
+                                        JSON.parse(text);
+                                      const discounts = Array.isArray(
+                                        customerTypeData.discounts
+                                      )
+                                        ? customerTypeData.discounts
+                                        : [];
+
+                                      console.log(
+                                        "📦 Fetched customerTypeData:",
+                                        customerTypeData
+                                      );
+                                      console.log(
+                                        `🎯 Discounts for ${customerGroup}:`,
+                                        discounts
+                                      );
+
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        customer: customerName,
+                                        salesPerson,
+                                        customerType: customerGroup,
+                                        customerTypeData,
+                                        discounts,
+                                      }));
+                                    } catch (err) {
+                                      console.error(
+                                        `❌ Failed to fetch customer type ${customerGroup}`,
+                                        err
+                                      );
+                                    }
+
+                                    setShowCustomerSuggestions(false);
+                                  }}>
+                                  {label}
+                                </li>
+                              );
+                            })
+                          ) : (
+                            <li className="px-3 py-2 text-muted-foreground">
+                              No matching customer found
+                            </li>
                           );
-                        })
-                      ) : (
-                        <SelectItem disabled value="no-customers">
-                          No customers available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
+                        })()}
+                      </ul>
+                    )}
+                  </div>
+
                   {validationErrors.customer && (
                     <p className="text-sm text-destructive">
                       {validationErrors.customer}
@@ -2655,644 +2955,667 @@ export default function SalesOrder({ onSuccess }: Props) {
                   )}
                 </div>
 
-                {/* Warehouse */}
-                <div className="flex flex-col flex-1 min-w-[200px]">
-                  <Label htmlFor="edit-warehouse">Warehouse</Label>
-                  <Select
-                    value={formData.warehouse}
-                    onValueChange={(value) => {
-                      const normalized = value.toUpperCase().trim();
+                {/* Delivery Date */}
+                <div className="flex flex-col flex-1 min-w-[240px]">
+                  <Label htmlFor="edit-deliveryDate">Delivery Date</Label>
+                  <Input
+                    type="date"
+                    id="edit-deliveryDate"
+                    value={formData.deliveryDate}
+                    min={new Date().toISOString().split("T")[0]} // ⛔ Prevent past dates
+                    onChange={(e) => {
+                      const value = e.target.value;
                       setFormData((prev) => ({
                         ...prev,
-                        warehouse: normalized,
+                        deliveryDate: value,
                       }));
                       setValidationErrors((prev) => ({
                         ...prev,
-                        warehouse: "",
+                        deliveryDate: "",
                       }));
-                    }}>
-                    <SelectTrigger
-                      className={`text-sm uppercase w-full ${
+                    }}
+                    placeholder="Enter delivery date"
+                    className={`text-sm pr-2 appearance-none bg-[url('data:image/svg+xml;utf8,<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>')] bg-no-repeat bg-right bg-[length:1.25rem_1.25rem] ${
+                      validationErrors.deliveryDate ? "border-destructive" : ""
+                    }`}
+                  />
+                  {validationErrors.deliveryDate && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.deliveryDate}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-row flex-wrap gap-4">
+                {/* ✅ Sales Person Field */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="edit-sales-person">Sales Person</Label>
+                  <Input
+                    id="edit-sales-person"
+                    type="text"
+                    value={formData.salesPerson || ""}
+                    readOnly
+                    className="text-sm w-full px-2 py-1 border border-border bg-muted text-muted-foreground"
+                  />
+                </div>
+
+                {/* Warehouse */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="edit-warehouse">Warehouse</Label>
+                  <div className="relative">
+                    <Input
+                      id="edit-warehouse"
+                      type="text"
+                      autoComplete="off"
+                      value={formData.warehouse || ""}
+                      onClick={() => setShowWarehouseSuggestions(true)}
+                      onChange={(e) => {
+                        const value = e.target.value.toUpperCase();
+                        setFormData((prev) => ({
+                          ...prev,
+                          warehouse: value,
+                        }));
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          warehouse: "",
+                        }));
+                        setShowWarehouseSuggestions(true);
+                      }}
+                      onBlur={() =>
+                        setTimeout(
+                          () => setShowWarehouseSuggestions(false),
+                          200
+                        )
+                      }
+                      placeholder="Search warehouse"
+                      className={`text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
                         validationErrors.warehouse ? "border-destructive" : ""
-                      }`}>
-                      {formData.warehouse || "Select Warehouse"}
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.isArray(warehouses) && warehouses.length > 0 ? (
-                        warehouses.map((warehouse) => {
-                          const label =
-                            warehouse.warehouse_name?.trim() ||
-                            "Unnamed Warehouse";
-                          return (
-                            <SelectItem
-                              key={warehouse._id || label}
-                              value={label.toUpperCase()}>
-                              {label}
-                            </SelectItem>
+                      }`}
+                    />
+
+                    {/* Suggestions Dropdown */}
+                    {showWarehouseSuggestions && (
+                      <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                        {(() => {
+                          const input =
+                            formData.warehouse?.trim().toUpperCase() || "";
+                          const filtered = warehouses.filter((warehouse) => {
+                            const label =
+                              warehouse.warehouse_name?.trim().toUpperCase() ||
+                              "";
+                            return input === "" || label.includes(input);
+                          });
+
+                          return filtered.length > 0 ? (
+                            filtered.map((warehouse) => {
+                              const label =
+                                warehouse.warehouse_name?.trim() ||
+                                "Unnamed Warehouse";
+                              const value = label.toUpperCase();
+                              return (
+                                <li
+                                  key={warehouse._id || value}
+                                  className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                  onClick={() => {
+                                    setFormData((prev) => {
+                                      const isReselect =
+                                        prev.warehouse === value;
+                                      return {
+                                        ...prev,
+                                        warehouse: value,
+                                        ...(isReselect && {
+                                          items: [],
+                                          inventory: [],
+                                        }),
+                                      };
+                                    });
+                                    setShowWarehouseSuggestions(false);
+                                  }}>
+                                  {label}
+                                </li>
+                              );
+                            })
+                          ) : (
+                            <li className="px-3 py-2 text-muted-foreground">
+                              No matching warehouse found
+                            </li>
                           );
-                        })
-                      ) : (
-                        <SelectItem disabled value="no-warehouses">
-                          No warehouses available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
+                        })()}
+                      </ul>
+                    )}
+                  </div>
                   {validationErrors.warehouse && (
                     <p className="text-sm text-destructive">
                       {validationErrors.warehouse}
                     </p>
                   )}
                 </div>
+              </div>
 
-                {/* Notes */}
-                <div className="flex flex-col flex-[2] min-w-[300px]">
-                  <Label htmlFor="edit-notes">Notes</Label>
-                  <Textarea
-                    id="edit-notes"
-                    value={formData.notes}
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFormData((prev) => ({ ...prev, notes: value }));
-                      setValidationErrors((prev) => ({ ...prev, notes: "" }));
-                    }}
-                    placeholder="Add any additional notes or comments here"
-                    className={`text-sm ${
-                      validationErrors.notes ? "border-destructive" : ""
-                    }`}
-                  />
-                  {validationErrors.notes && (
-                    <p className="text-sm text-destructive">
-                      {validationErrors.notes}
-                    </p>
-                  )}
-                </div>
-              </div>
-            </div>
-            <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
-              {/* Header Row */}
-              <div className="text-xs font-semibold uppercase text-center">
-                Item Code
-              </div>
-              <div className="text-xs font-semibold uppercase text-center">
-                Item Name
-              </div>
-              <div className="text-xs font-semibold uppercase text-center">
-                Qty
-              </div>
-              <div className="text-xs font-semibold uppercase text-center">
-                UOM
-              </div>
-              <div className="text-xs font-semibold uppercase text-center">
-                Purchase Price
-              </div>
-              <div className="text-xs font-semibold uppercase text-center">
-                Amount
-              </div>
-              <div className="text-center"></div> {/* Trash icon column */}
-            </div>
-          </div>
-
-          {formData.items?.map((item, index) => {
-            const isZero = item.quantity === 0;
-
-            return (
-              <div
-                key={index}
-                className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0 ${
-                  isZero ? "bg-green-50 text-green-700 animate-fade-in" : ""
-                }`}>
-                {/* Item Code */}
-                <input
-                  type="text"
-                  value={item.itemCode || ""}
-                  readOnly
-                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
-                    isZero ? "bg-green-50 text-green-700" : "bg-white"
+              {/* Shipping Address */}
+              <div className="flex flex-col flex-[2] min-w-[300px]">
+                <Label htmlFor="edit-shippingAddress">Shipping Address</Label>
+                <Textarea
+                  id="edit-shippingAddress"
+                  value={formData.shippingAddress}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      shippingAddress: value,
+                    }));
+                    setValidationErrors((prev) => ({
+                      ...prev,
+                      shippingAddress: "",
+                    }));
+                  }}
+                  placeholder="Enter the delivery address for this order"
+                  className={`text-sm ${
+                    validationErrors.shippingAddress ? "border-destructive" : ""
                   }`}
                 />
+                {validationErrors.shippingAddress && (
+                  <p className="text-sm text-destructive">
+                    {validationErrors.shippingAddress}
+                  </p>
+                )}
+              </div>
+
+              {/* Notes */}
+              <div className="flex flex-col flex-[2] min-w-[300px]">
+                <Label htmlFor="edit-notes">Notes</Label>
+                <Textarea
+                  id="edit-notes"
+                  value={formData.notes}
+                  onChange={(e) => {
+                    const value = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      notes: value,
+                    }));
+                    setValidationErrors((prev) => ({
+                      ...prev,
+                      notes: "",
+                    }));
+                  }}
+                  placeholder="Add any additional notes or comments here"
+                  className={`text-sm ${
+                    validationErrors.notes ? "border-destructive" : ""
+                  }`}
+                />
+                {validationErrors.notes && (
+                  <p className="text-sm text-destructive">
+                    {validationErrors.notes}
+                  </p>
+                )}
+              </div>
+            </div>
+          </div>
+          {formData.warehouse && (
+            <>
+              <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
+                {/* Item Code */}
+                <div className="text-xs font-semibold uppercase text-start px-2">
+                  Item Code
+                </div>
 
                 {/* Item Name */}
-                <div className="relative w-full">
-                  <input
-                    id={`item-name-${index}`}
-                    type="text"
-                    autoComplete="off"
-                    value={item.itemName || ""}
-                    placeholder="Search item name"
-                    disabled={isZero}
-                    className={`text-sm uppercase w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8 ${
-                      isZero
-                        ? "bg-green-50 text-green-700 cursor-not-allowed"
-                        : ""
-                    }`}
-                    onClick={() => setShowItemSuggestions(index)}
-                    onBlur={() =>
-                      setTimeout(() => setShowItemSuggestions(null), 200)
-                    }
-                    onChange={(e) => {
-                      const value = e.target.value?.trim().toUpperCase() || "";
-
-                      setItemsData((prev) => {
-                        const updated = [...prev];
-                        updated[index] = { ...updated[index], itemName: value };
-                        return updated;
-                      });
-
-                      setFormData((prev) => {
-                        const updatedItems = [...prev.items];
-                        updatedItems[index] = {
-                          ...updatedItems[index],
-                          itemName: value,
-                        };
-                        return { ...prev, items: updatedItems };
-                      });
-
-                      setShowItemSuggestions(index);
-                    }}
-                  />
-
-                  {/* Magnifying Glass Icon */}
-                  <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
-                    <svg
-                      xmlns="http://www.w3.org/2000/svg"
-                      className="h-4 w-4 text-muted-foreground"
-                      fill="none"
-                      viewBox="0 0 24 24"
-                      stroke="currentColor"
-                      strokeWidth={2}>
-                      <path
-                        strokeLinecap="round"
-                        strokeLinejoin="round"
-                        d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
-                      />
-                    </svg>
-                  </div>
-
-                  {/* Live Suggestions */}
-                  {showItemSuggestions === index && (
-                    <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
-                      {(() => {
-                        const normalize = (str: string) =>
-                          str?.trim().toUpperCase() || "";
-                        const input = normalize(item.itemName);
-
-                        const filtered = inventoryItems.filter((option) =>
-                          normalize(option.itemName).includes(input)
-                        );
-
-                        if (filtered.length === 0) {
-                          return (
-                            <li className="px-3 py-2 text-muted-foreground">
-                              No matching items found
-                            </li>
-                          );
-                        }
-
-                        return filtered.map((option) => {
-                          const enriched = {
-                            itemName: normalize(option.itemName),
-                            itemCode: option.itemCode || "",
-                            unitType: option.unitType || "",
-                            price: option.purchasePrice || 0,
-                            quantity: 1,
-                          };
-
-                          return (
-                            <li
-                              key={option.itemCode || enriched.itemName}
-                              className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                              onClick={() => {
-                                setItemsData((prev) => {
-                                  const updated = [...prev];
-                                  updated[index] = {
-                                    ...updated[index],
-                                    ...enriched,
-                                  };
-                                  return updated;
-                                });
-
-                                setFormData((prev) => {
-                                  const updatedItems = [...prev.items];
-                                  updatedItems[index] = {
-                                    ...updatedItems[index],
-                                    ...enriched,
-                                  };
-                                  return { ...prev, items: updatedItems };
-                                });
-
-                                setShowItemSuggestions(null);
-                              }}>
-                              {enriched.itemName ||
-                                option.itemCode ||
-                                "Unnamed Item"}
-                            </li>
-                          );
-                        });
-                      })()}
-                    </ul>
-                  )}
+                <div className="text-xs font-semibold uppercase text-start px-2">
+                  Item Name
                 </div>
 
                 {/* Quantity */}
-                <input
-                  type="number"
-                  min={1}
-                  value={item.quantity}
-                  onChange={(e) => {
-                    const value = Number(e.target.value);
-                    setFormData((prev) => {
-                      const updatedItems = [...prev.items];
-                      updatedItems[index].quantity = value;
+                <div className="text-xs font-semibold uppercase text-end px-2">
+                  Qty
+                </div>
 
-                      const { totalQuantity, total } =
-                        recalculateTotals(updatedItems);
+                {/* Unit of Measure */}
+                <div className="text-xs font-semibold uppercase text-start px-2">
+                  UOM
+                </div>
 
-                      return {
-                        ...prev,
-                        items: updatedItems,
-                        totalQuantity,
-                        total,
-                      };
-                    });
-                  }}
-                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 focus:outline-none focus:ring-1 focus:ring-primary ${
-                    isZero
-                      ? "bg-green-50 text-green-700 cursor-not-allowed"
-                      : "bg-white"
-                  }`}
-                  disabled={isZero}
-                />
-
-                {/* Unit Type */}
-                <input
-                  type="text"
-                  value={item.unitType || ""}
-                  readOnly
-                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
-                    isZero ? "bg-green-50 text-green-700" : "bg-white"
-                  }`}
-                />
-
-                {/* Purchase Price */}
-                <input
-                  type="text"
-                  value={
-                    item.price !== undefined
-                      ? item.price.toLocaleString("en-PH", {
-                          style: "currency",
-                          currency: "PHP",
-                        })
-                      : ""
-                  }
-                  readOnly
-                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
-                    isZero ? "bg-green-50 text-green-700" : "bg-white"
-                  }`}
-                />
+                {/* Sales Price */}
+                <div className="text-xs font-semibold uppercase text-end px-2">
+                  Sales Price
+                </div>
 
                 {/* Amount */}
-                <input
-                  type="text"
-                  value={
-                    item.price && item.quantity
-                      ? (item.price * item.quantity).toLocaleString("en-PH", {
-                          style: "currency",
-                          currency: "PHP",
-                        })
-                      : ""
-                  }
-                  readOnly
-                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
-                    isZero ? "bg-green-50 text-green-700" : "bg-white"
-                  }`}
-                />
+                <div className="text-xs font-semibold uppercase text-end px-2">
+                  Amount
+                </div>
 
-                {/* Action Button */}
-                <div className="w-full h-full flex items-center justify-center border border-border border-l-0 border-t-0">
-                  {isZero ? (
-                    <div className="flex items-center gap-1">
-                      <Check className="w-4 h-4 text-green-600 animate-bounce" />
-                      <span className="text-xs font-semibold text-green-700">
-                        Posted
+                {/* Trash Icon Column */}
+                <div className="text-center"></div>
+              </div>
+
+              {isLoadingInventory ? (
+                <div className="flex items-center justify-center w-full py-6">
+                  <p className="text-muted-foreground text-sm">
+                    Loading inventory…
+                  </p>
+                </div>
+              ) : inventoryItems.length === 0 ? (
+                <div className="flex items-center justify-center w-full py-6">
+                  <p className="text-muted-foreground text-sm">
+                    No items available for this warehouse.
+                  </p>
+                </div>
+              ) : itemsData.length === 0 ? (
+                <div className="flex items-center justify-center w-full py-6">
+                  <p className="text-muted-foreground text-sm">
+                    No items selected yet.
+                  </p>
+                </div>
+              ) : (
+                <>
+                  {Array.isArray(itemsData) &&
+                    itemsData.map((item, index) => (
+                      <div
+                        key={index}
+                        className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
+                        {/* Item Code */}
+                        <input
+                          type="text"
+                          value={item.itemCode || ""}
+                          readOnly
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                        />
+
+                        {/* Item Name */}
+                        <div className="relative w-full">
+                          <input
+                            id={`item-name-${index}`}
+                            type="text"
+                            autoComplete="off"
+                            value={item.itemName || ""}
+                            onClick={() => setShowItemSuggestions(index)}
+                            onBlur={() =>
+                              setTimeout(
+                                () => setShowItemSuggestions(null),
+                                200
+                              )
+                            }
+                            onChange={(e) => {
+                              const value = e.target.value.toUpperCase().trim();
+
+                              setItemsData((prev) => {
+                                const updated = [...prev];
+                                updated[index] = {
+                                  ...updated[index],
+                                  itemName: value,
+                                };
+                                return updated;
+                              });
+
+                              setFormData((prev) => {
+                                const updatedItems = [...prev.items];
+                                updatedItems[index] = {
+                                  ...updatedItems[index],
+                                  itemName: value,
+                                };
+                                return { ...prev, items: updatedItems };
+                              });
+
+                              setShowItemSuggestions(index);
+                            }}
+                            placeholder="Search item name"
+                            className="text-sm uppercase w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8"
+                          />
+
+                          {/* Magnifying Glass Icon */}
+                          <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+                            <svg
+                              xmlns="http://www.w3.org/2000/svg"
+                              className="h-4 w-4 text-muted-foreground"
+                              fill="none"
+                              viewBox="0 0 24 24"
+                              stroke="currentColor"
+                              strokeWidth={2}>
+                              <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                              />
+                            </svg>
+                          </div>
+
+                          {/* Live Suggestions */}
+                          {showItemSuggestions === index && (
+                            <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                              {(() => {
+                                const input =
+                                  item.itemName?.toUpperCase().trim() || "";
+                                const filtered = inventoryItems.filter(
+                                  (option) =>
+                                    option.itemName
+                                      ?.toUpperCase()
+                                      .includes(input)
+                                );
+
+                                if (filtered.length === 0) {
+                                  return (
+                                    <li className="px-3 py-2 text-muted-foreground">
+                                      No matching items found
+                                    </li>
+                                  );
+                                }
+
+                                return filtered.map((option) => {
+                                  const normalized = option.itemName
+                                    ?.trim()
+                                    .toUpperCase();
+                                  return (
+                                    <li
+                                      key={option.itemCode || normalized}
+                                      className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                      onClick={() => {
+                                        const enriched = {
+                                          itemName: normalized,
+                                          itemCode: option.itemCode || "",
+                                          unitType: option.unitType || "",
+                                          price: option.salesPrice ?? 0,
+                                          quantity: 1,
+                                        };
+
+                                        setItemsData((prev) => {
+                                          const updated = [...prev];
+                                          updated[index] = {
+                                            ...updated[index],
+                                            ...enriched,
+                                          };
+                                          return updated;
+                                        });
+
+                                        setFormData((prev) => {
+                                          const updatedItems = [...prev.items];
+                                          updatedItems[index] = {
+                                            ...updatedItems[index],
+                                            ...enriched,
+                                          };
+                                          return {
+                                            ...prev,
+                                            items: updatedItems,
+                                          };
+                                        });
+
+                                        setShowItemSuggestions(null);
+                                      }}>
+                                      {normalized ||
+                                        option.itemCode ||
+                                        "Unnamed Item"}
+                                    </li>
+                                  );
+                                });
+                              })()}
+                            </ul>
+                          )}
+                        </div>
+
+                        {/* Quantity */}
+                        <input
+                          type="number"
+                          min={1}
+                          max={
+                            inventoryItems.find(
+                              (inv) => inv.itemCode === item.itemCode
+                            )?.quantity ?? 9999
+                          }
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const raw = Number(e.target.value);
+                            const maxQty =
+                              inventoryItems.find(
+                                (inv) => inv.itemCode === item.itemCode
+                              )?.quantity ?? 9999;
+
+                            const value = Math.min(Math.max(raw, 1), maxQty); // clamp between 1 and maxQty
+
+                            setItemsData((prev) => {
+                              const updated = [...prev];
+                              updated[index].quantity = value;
+                              return updated;
+                            });
+
+                            setFormData((prev) => {
+                              const updatedItems = [...prev.items];
+                              updatedItems[index] = {
+                                ...updatedItems[index],
+                                quantity: value,
+                              };
+                              return { ...prev, items: updatedItems };
+                            });
+                          }}
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary text-end"
+                        />
+
+                        {/* Unit Type */}
+                        <input
+                          type="text"
+                          value={item.unitType || ""}
+                          readOnly
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                        />
+                        {/* Price */}
+                        <input
+                          type="text"
+                          value={(() => {
+                            const key = item.itemName?.trim().toUpperCase();
+                            const price = salesPriceMap[key] ?? 0;
+                            return price > 0
+                              ? price.toLocaleString("en-PH", {
+                                  style: "currency",
+                                  currency: "PHP",
+                                })
+                              : "";
+                          })()}
+                          readOnly
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right text-sm"
+                          placeholder="₱0.00"
+                        />
+
+                        {/* Amount */}
+                        <input
+                          type="text"
+                          value={(() => {
+                            const key = item.itemName?.trim().toUpperCase();
+                            const price = salesPriceMap[key] ?? 0;
+                            const quantity = item.quantity ?? 0;
+                            const amount = price * quantity;
+                            return amount > 0
+                              ? amount.toLocaleString("en-PH", {
+                                  style: "currency",
+                                  currency: "PHP",
+                                })
+                              : "";
+                          })()}
+                          readOnly
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right text-sm"
+                          placeholder="₱0.00"
+                        />
+
+                        {/* Trash Button */}
+                        <Button
+                          variant="destructive"
+                          className="w-full h-[32px] px-1 text-xs border border-border bg-red-50 hover:bg-red-100 text-red-700 rounded transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus:ring-1 focus:ring-red-400 flex items-center justify-center"
+                          onClick={() => handleRemoveItem(index)}
+                          title="Remove item">
+                          <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
+                        </Button>
+                      </div>
+                    ))}
+                </>
+              )}
+
+              {/* Left: Add Item */}
+              <Button onClick={handleAddItem}>Add Item</Button>
+
+              <div className="flex flex-col w-full mt-8 gap-8">
+                {/* Header */}
+                <div className="flex items-center justify-between border-b border-border pb-3">
+                  <h3 className="text-lg font-semibold text-primary tracking-wide">
+                    Order Summary
+                  </h3>
+                </div>
+
+                {/* Metrics Row */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                  {[
+                    {
+                      label: "Total Quantity",
+                      value: formData.totalQuantity,
+                    },
+                    { label: "Total Weight", value: formattedWeight },
+                    { label: "Total CBM", value: formattedCBM },
+                  ].map(({ label, value }, i) => (
+                    <div
+                      key={i}
+                      className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm hover:shadow-md transition">
+                      <span className="text-[11px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
+                        {label}
+                      </span>
+                      <span className="text-base font-semibold text-foreground text-right">
+                        {value}
                       </span>
                     </div>
-                  ) : (
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => {
-                        setFormData((prev) => {
-                          const updatedItems = prev.items.filter(
-                            (_, i) => i !== index
-                          );
-                          const { totalQuantity, total } =
-                            recalculateTotals(updatedItems);
+                  ))}
+                </div>
 
-                          return {
-                            ...prev,
-                            items: updatedItems,
-                            totalQuantity,
-                            total,
-                          };
-                        });
-                      }}
-                      title="Remove item">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
+                {/* Financial Breakdown */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  {/* Left Column */}
+                  <div className="flex flex-col gap-4">
+                    {/* SubTotal */}
+                    <div className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm">
+                      <span className="text-[11px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
+                        SubTotal
+                      </span>
+                      <span className="text-base font-semibold text-foreground text-right">
+                        {formattedTotal}
+                      </span>
+                    </div>
+
+                    {/* Discounts */}
+                    <div className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm">
+                      <span className="text-[11px] font-medium text-muted-foreground mb-2 uppercase tracking-wide">
+                        Discounts
+                      </span>
+                      {Array.isArray(formData.discounts) &&
+                      formData.discounts.length > 0 ? (
+                        <div className="flex flex-col gap-2">
+                          {formData.discounts.map((discount, index) => {
+                            const value = parseFloat(discount);
+                            const formatted = isNaN(value)
+                              ? "Invalid"
+                              : `${value.toFixed(2)}%`;
+
+                            return (
+                              <div
+                                key={index}
+                                className="flex justify-between items-center bg-background px-3 py-2 rounded border border-border hover:bg-muted/50 transition">
+                                <span className="font-medium text-primary">
+                                  Discount {index + 1}
+                                </span>
+                                <span className="text-right">{formatted}</span>
+                              </div>
+                            );
+                          })}
+                        </div>
+                      ) : (
+                        <p className="italic text-muted-foreground">
+                          No discounts available
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Right Column */}
+                  <div className="flex flex-col gap-4">
+                    {/* Peso Discounts */}
+                    <div className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm">
+                      <span className="text-[11px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
+                        Peso Discounts
+                      </span>
+                      <span className="text-base font-semibold text-foreground text-right">
+                        {formattedPesoDiscount}
+                      </span>
+                    </div>
+
+                    {/* Total Amount */}
+                    <div className="flex flex-col bg-gradient-to-r from-primary/20 to-primary/10 px-5 py-4 rounded-lg border border-primary shadow-md">
+                      <span className="text-[11px] font-medium text-primary mb-1 uppercase tracking-wide">
+                        Total Amount
+                      </span>
+                      <span className="text-xl font-bold text-primary text-right">
+                        {formattedNetTotal}
+                      </span>
+                    </div>
+                  </div>
                 </div>
               </div>
-            );
-          })}
-
-          {/* Totals */}
-          <div className="flex w-full justify-end mt-4 gap-6">
-            {/* Total Quantity */}
-            <div className="flex items-center gap-2 min-w-[180px]">
-              <span className="text-sm font-medium">Total Qty:</span>
-              <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                {formData.totalQuantity ?? 0}
-              </span>
-            </div>
-
-            {/* Total Amount */}
-            <div className="flex items-center gap-2 min-w-[180px]">
-              <span className="text-sm font-medium">Total Amount:</span>
-              <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                {formData.total?.toLocaleString("en-PH", {
-                  style: "currency",
-                  currency: "PHP",
-                })}
-              </span>
-            </div>
-          </div>
-
-          {/* Footer Actions */}
+            </>
+          )}
           <DialogFooter className="pt-4 border-t">
-            <div className="flex w-full justify-between items-center">
-              {/* Left: Add Item */}
-              <Button onClick={handleAddItemEdit}>➕ Add Item</Button>
+            <div className="flex w-full justify-end items-center gap-2">
+              {/* Cancel Button */}
+              <Button
+                variant="ghost"
+                onClick={() => {
+                  setIsEditDialogOpen(false);
+                  resetForm();
+                }}>
+                Cancel
+              </Button>
 
-              {/* Right: Cancel & Update */}
-              <div className="flex gap-2">
+              {/* Save + Dropdown */}
+              <div className="flex items-center gap-2">
+                {/* Primary Save Button */}
                 <Button
-                  variant="ghost"
-                  onClick={() => {
-                    setIsEditDialogOpen(false);
-                    setEditingSO(null);
-                    resetForm();
-                  }}>
-                  Cancel
+                  onClick={handleUpdate}
+                  disabled={
+                    !formData.items.length ||
+                    formData.items.every((item) => !item.itemName?.trim())
+                  }
+                  className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
+                  aria-label="Save changes">
+                  💾 Save Changes
                 </Button>
 
-                <div className="flex items-center gap-2">
-                  {/* Primary Update Button */}
-                  <Button
-                    onClick={handleUpdate}
-                    disabled={
-                      !formData.items.length ||
-                      formData.items.every((item) => !item.itemName?.trim())
-                    }
-                    className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150"
-                    aria-label="Update">
-                    ✏️ Update
-                  </Button>
-                </div>
+                {/* Dropdown for More Actions */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger asChild>
+                    <Button
+                      className="bg-muted text-foreground hover:bg-muted/80 px-3 py-2 rounded-md shadow-sm transition-colors duration-150"
+                      aria-label="Open more edit options">
+                      ▾ More
+                    </Button>
+                  </DropdownMenuTrigger>
+
+                  <DropdownMenuContent
+                    align="end"
+                    sideOffset={8}
+                    className="w-[220px] rounded-md border border-border bg-white shadow-lg animate-in fade-in slide-in-from-top-2">
+                    <DropdownMenuLabel className="px-3 py-2 text-xs font-medium text-muted-foreground">
+                      Additional actions
+                    </DropdownMenuLabel>
+
+                    <DropdownMenuSeparator />
+
+                    {/* <DropdownMenuItem
+            onClick={handleSaveAndDuplicate}
+            disabled={
+              !formData.items.length ||
+              formData.items.every((item) => !item.itemName?.trim())
+            }
+            className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors"
+          >
+            📄 Save & Duplicate
+          </DropdownMenuItem> */}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
             </div>
           </DialogFooter>
-        </DialogPanel>
-      </Dialog>
-      {/* View Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-xl p-6 scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-transparent bg-white shadow-xl border border-border">
-          <DialogHeader>
-            <DialogTitle>SO Details</DialogTitle>
-          </DialogHeader>
-
-          {viewingSO && (
-            <div className="grid gap-6 py-4">
-              <Card className="p-6 rounded-xl shadow-sm border border-border">
-                <div className="grid grid-cols-2 gap-6 w-full">
-                  {/* SO Number */}
-                  <div className="flex flex-col gap-1">
-                    <label
-                      htmlFor="so-number"
-                      className="text-xs font-medium text-muted-foreground">
-                      SO Number
-                    </label>
-                    <input
-                      type="text"
-                      id="so-number"
-                      value={viewingSO.soNumber || "—"}
-                      readOnly
-                      disabled
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Customer */}
-                  <div className="flex flex-col gap-1">
-                    <label
-                      htmlFor="customer"
-                      className="text-xs font-medium text-muted-foreground">
-                      Customer
-                    </label>
-                    <input
-                      type="text"
-                      id="customer"
-                      value={viewingSO.customer || "—"}
-                      readOnly
-                      disabled
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Sales Person */}
-                  <div className="flex flex-col gap-1">
-                    <label
-                      htmlFor="sales-person"
-                      className="text-xs font-medium text-muted-foreground">
-                      Sales Person
-                    </label>
-                    <input
-                      type="text"
-                      id="sales-person"
-                      value={viewingSO.salesPerson || "—"}
-                      readOnly
-                      disabled
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Warehouse */}
-                  <div className="flex flex-col gap-1">
-                    <label
-                      htmlFor="warehouse"
-                      className="text-xs font-medium text-muted-foreground">
-                      Warehouse
-                    </label>
-                    <input
-                      type="text"
-                      id="warehouse"
-                      value={viewingSO.warehouse || "—"}
-                      readOnly
-                      disabled
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Status */}
-                  <div className="flex flex-col gap-1">
-                    <label
-                      htmlFor="status"
-                      className="text-xs font-medium text-muted-foreground">
-                      Status
-                    </label>
-                    <input
-                      type="text"
-                      id="status"
-                      value={viewingSO.status || "—"}
-                      readOnly
-                      disabled
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Notes */}
-                  <div className="flex flex-col gap-1">
-                    <label
-                      htmlFor="notes"
-                      className="text-xs font-medium text-muted-foreground">
-                      Notes
-                    </label>
-                    <input
-                      type="text"
-                      id="notes"
-                      value={viewingSO.notes || "—"}
-                      readOnly
-                      disabled
-                      title={viewingSO.notes}
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed truncate"
-                    />
-                  </div>
-                </div>
-
-                {/* Item Table Header */}
-                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 border-b py-3 mb-2 bg-primary text-primary-foreground rounded-t shadow-sm">
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Item Code
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Item Name
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    UOM
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Price
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Quantity
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Amount
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border"></div>
-                </div>
-
-                {/* Item Rows */}
-                {viewingSO.items?.map((item, index) => {
-                  const isZero = item.quantity === 0;
-                  return (
-                    <div
-                      key={index}
-                      className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] items-center text-sm py-2 px-1 rounded-md transition-all duration-150 ${
-                        isZero
-                          ? "bg-green-50 text-green-700 animate-fade-in"
-                          : "even:bg-muted/5 hover:ring-1 hover:ring-muted"
-                      }`}>
-                      <div className="text-center uppercase px-3 font-semibold">
-                        {item.itemCode || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </div>
-                      <div className="text-center uppercase px-3 font-semibold">
-                        {item.itemName || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </div>
-                      <div className="text-center uppercase px-3 font-semibold">
-                        {item.unitType || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </div>
-                      <div className="text-center uppercase px-3 font-semibold">
-                        {item.price !== undefined ? (
-                          item.price.toLocaleString("en-PH", {
-                            style: "currency",
-                            currency: "PHP",
-                          })
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </div>
-                      <div className="text-center uppercase px-3 font-semibold">
-                        {item.quantity ?? (
-                          <span className="text-muted-foreground">0</span>
-                        )}
-                      </div>
-                      <div className="text-center uppercase px-3 font-semibold">
-                        {(
-                          item.amount ||
-                          item.quantity * item.price ||
-                          0
-                        ).toLocaleString("en-PH", {
-                          style: "currency",
-                          currency: "PHP",
-                        })}
-                      </div>
-                    </div>
-                  );
-                })}
-
-                {/* Totals */}
-                <div className="flex w-full justify-end mt-4 gap-6">
-                  <div className="flex items-center gap-2 min-w-[180px]">
-                    <span className="text-sm font-medium">Total Qty:</span>
-                    <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                      {viewingSO.totalQuantity ?? 0}
-                    </span>
-                  </div>
-                  <div className="flex items-center gap-2 min-w-[180px]">
-                    <span className="text-sm font-medium">Total Amount:</span>
-                    <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                      {viewingSO.items
-                        ?.reduce(
-                          (sum, item) =>
-                            sum +
-                            (item.amount || item.quantity * item.price || 0),
-                          0
-                        )
-                        ?.toLocaleString("en-PH", {
-                          style: "currency",
-                          currency: "PHP",
-                        }) ?? "₱0.00"}
-                    </span>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          )}
-
-          <div className="flex justify-end mt-4">
-            <Button
-              variant="outline"
-              onClick={() => setIsViewDialogOpen(false)}>
-              Close
-            </Button>
-          </div>
         </DialogPanel>
       </Dialog>
     </div>

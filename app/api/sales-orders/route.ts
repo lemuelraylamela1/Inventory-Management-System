@@ -2,6 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import connectMongoDB from "@/libs/mongodb";
 import SalesOrderModel from "@/models/salesOrder";
 import InventoryMain from "@/models/inventoryMain";
+import {
+  computeTotalQuantity,
+  formatWeight,
+  formatCBM,
+  computeSubtotal,
+  computeNetTotal,
+  computePesoDiscount,
+} from "../../../libs/salesOrderMetrics";
 import type {
   SalesOrderItem,
   SalesOrder,
@@ -13,6 +21,8 @@ type SalesOrderInput = Omit<
 >;
 
 export async function POST(request: NextRequest) {
+  const body: SalesOrderInput = await request.json();
+
   const {
     customer,
     salesPerson,
@@ -23,11 +33,11 @@ export async function POST(request: NextRequest) {
     notes,
     status,
     items,
+    discounts = [],
     total,
-    totalQuantity,
     balance,
     creationDate,
-  }: SalesOrderInput = await request.json();
+  } = body;
 
   const invalidItem = items.find(
     (item: SalesOrderItem) =>
@@ -47,7 +57,10 @@ export async function POST(request: NextRequest) {
   await connectMongoDB();
 
   try {
-    const newOrder = await SalesOrderModel.create({
+    const enrichedOrder: Omit<
+      SalesOrder,
+      "_id" | "soNumber" | "createdAt" | "updatedAt"
+    > = {
       customer: customer.trim().toUpperCase(),
       salesPerson: salesPerson.trim().toUpperCase(),
       warehouse: warehouse.trim().toUpperCase(),
@@ -57,35 +70,19 @@ export async function POST(request: NextRequest) {
       notes: notes?.trim() || "",
       status,
       items,
+      discounts,
       total,
-      totalQuantity,
+      totalQuantity: computeTotalQuantity(items),
       balance,
       creationDate,
-    });
+      formattedWeight: formatWeight(items),
+      formattedCBM: formatCBM(items),
+      formattedTotal: computeSubtotal(items),
+      formattedNetTotal: computeNetTotal({ ...body, items, discounts }),
+      formattedPesoDiscount: computePesoDiscount(discounts),
+    };
 
-    const now = new Date();
-
-    // ✅ Deduct quantities from InventoryMain
-    // for (const item of items) {
-    //   await InventoryMain.findOneAndUpdate(
-    //     {
-    //       itemCode: item.itemCode?.trim().toUpperCase(),
-    //       warehouse: warehouse.trim().toUpperCase(),
-    //     },
-    //     {
-    //       $inc: { quantity: -Math.abs(item.quantity) },
-    //       $set: {
-    //         itemName: item.itemName?.trim().toUpperCase(),
-    //         unitType: item.unitType?.trim().toUpperCase(),
-    //         updatedAt: now,
-    //       },
-    //       $setOnInsert: {
-    //         warehouse: warehouse.trim().toUpperCase(),
-    //       },
-    //     },
-    //     { upsert: true }
-    //   );
-    // }
+    const newOrder = await SalesOrderModel.create(enrichedOrder);
 
     return NextResponse.json(
       { message: "Sales order created", order: newOrder },
