@@ -100,6 +100,8 @@ import {
   computeSubtotal,
 } from "@/libs/salesOrderMetrics";
 
+import { computeDiscountBreakdown } from "@/libs/discountUtils";
+
 import { useRouter } from "next/navigation";
 import { Checkbox } from "../ui/checkbox";
 import { toast } from "sonner";
@@ -192,6 +194,11 @@ export default function SalesOrder({ onSuccess }: Props) {
     Omit<SalesOrder, "_id" | "createdAt" | "updatedAt"> & {
       customerType?: string;
       customerTypeData?: CustomerType;
+      discountBreakdown: {
+        rate: number;
+        amount: number;
+        remaining: number;
+      }[];
     }
   >({
     soNumber: "",
@@ -214,6 +221,7 @@ export default function SalesOrder({ onSuccess }: Props) {
     formattedNetTotal: "0.00",
     formattedPesoDiscount: "0.00%",
     discounts: [],
+    discountBreakdown: [],
   });
 
   const [validationErrors, setValidationErrors] = useState<
@@ -241,6 +249,7 @@ export default function SalesOrder({ onSuccess }: Props) {
     formattedNetTotal: "",
     formattedPesoDiscount: "",
     discounts: "",
+    discountBreakdown: "",
   });
 
   useEffect(() => {
@@ -513,6 +522,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       formattedNetTotal: "",
       formattedPesoDiscount: "",
       discounts: "",
+      discountBreakdown: "",
     };
 
     // Required: customer
@@ -594,13 +604,135 @@ export default function SalesOrder({ onSuccess }: Props) {
     currency: "PHP",
   });
 
-  const handleCreate = async () => {
-    if (!validateForm()) return;
-
-    const normalizedItems = formData.items.map((item) => {
+  const prepareCreateForm = () => {
+    const normalizedItems = itemsData.map((item) => {
       const key = item.itemName?.trim().toUpperCase();
       const price = salesPriceMap[key] ?? 0;
       const quantity = Number(item.quantity) || 0;
+
+      return {
+        ...item,
+        itemName: key || "UNNAMED",
+        price,
+        amount: price * quantity,
+      };
+    });
+
+    const total = normalizedItems.reduce((sum, item) => sum + item.amount, 0);
+    const totalQuantity = normalizedItems.reduce(
+      (sum, item) => sum + item.quantity,
+      0
+    );
+
+    const customerName = formData.customer?.trim().toUpperCase();
+    const matchedCustomer = customers.find(
+      (c) => c.customerName?.trim().toUpperCase() === customerName
+    );
+    const customerGroup = matchedCustomer?.customerGroup?.trim().toUpperCase();
+    const matchedType = customerTypes.find(
+      (ct) => ct.groupName?.trim().toUpperCase() === customerGroup
+    );
+    const resolvedDiscounts = matchedType?.discounts ?? [];
+
+    const { breakdown, formattedNetTotal, formattedPesoDiscount } =
+      computeDiscountBreakdown(total, resolvedDiscounts);
+
+    setFormData((prev) => ({
+      ...prev,
+      items: normalizedItems,
+      total,
+      totalQuantity,
+      balance: total,
+      formattedTotal: total.toLocaleString("en-PH", {
+        style: "currency",
+        currency: "PHP",
+      }),
+      formattedNetTotal,
+      formattedPesoDiscount,
+      discounts: resolvedDiscounts,
+      discountBreakdown: breakdown,
+      customerType: matchedType?.groupName ?? "",
+      customerTypeData: matchedType,
+    }));
+
+    setIsCreateDialogOpen(true);
+  };
+
+  useEffect(() => {
+    const customerName = formData.customer?.trim().toUpperCase();
+    if (
+      !customerName ||
+      !Array.isArray(formData.items) ||
+      formData.items.length === 0 ||
+      customers.length === 0 ||
+      customerTypes.length === 0
+    ) {
+      console.log("⏳ Waiting for customer and items to hydrate...");
+      return;
+    }
+
+    const matchedCustomer = customers.find(
+      (c) => c.customerName?.trim().toUpperCase() === customerName
+    );
+    const customerGroup = matchedCustomer?.customerGroup?.trim().toUpperCase();
+    const matchedType = customerTypes.find(
+      (ct) => ct.groupName?.trim().toUpperCase() === customerGroup
+    );
+    const resolvedDiscounts = matchedType?.discounts ?? [];
+
+    const total = formData.items.reduce((sum, item) => {
+      const key = item.itemName?.trim().toUpperCase();
+      const price = salesPriceMap[key] ?? item.price ?? 0;
+      const quantity = Number(item.quantity) || 0;
+      return sum + price * quantity;
+    }, 0);
+
+    const { breakdown, formattedNetTotal, formattedPesoDiscount } =
+      computeDiscountBreakdown(total, resolvedDiscounts);
+
+    console.log("🧠 Real-time discount breakdown:", breakdown);
+
+    setFormData((prev) => ({
+      ...prev,
+      discounts: resolvedDiscounts,
+      discountBreakdown: breakdown,
+      formattedNetTotal,
+      formattedPesoDiscount,
+      formattedTotal: total.toLocaleString("en-PH", {
+        style: "currency",
+        currency: "PHP",
+      }),
+      total,
+      balance: total,
+      totalQuantity: formData.items.reduce(
+        (sum, item) => sum + (Number(item.quantity) || 0),
+        0
+      ),
+    }));
+  }, [
+    formData.customer,
+    formData.items,
+    customers,
+    customerTypes,
+    salesPriceMap,
+  ]);
+
+  const handleCreate = async () => {
+    if (!validateForm()) return;
+
+    console.log("🧠 Starting handleCreate...");
+    console.log("📦 Raw formData.items:", formData.items);
+    console.log("🧾 salesPriceMap:", salesPriceMap);
+
+    const normalizedItems = formData.items.map((item, index) => {
+      const key = item.itemName?.trim().toUpperCase();
+      const price = salesPriceMap[key] ?? 0;
+      const quantity = Number(item.quantity) || 0;
+      const amount = quantity * price;
+
+      console.log(
+        `🔧 [${index}] Item: ${key}, Qty: ${quantity}, Price: ${price}, Amount: ${amount}`
+      );
 
       return {
         itemName: key || "UNNAMED",
@@ -609,7 +741,7 @@ export default function SalesOrder({ onSuccess }: Props) {
         price,
         itemCode: item.itemCode?.trim().toUpperCase() || "",
         description: item.description?.trim() || "",
-        amount: quantity * price,
+        amount,
       };
     });
 
@@ -621,7 +753,27 @@ export default function SalesOrder({ onSuccess }: Props) {
       },
       { total: 0, totalQuantity: 0 }
     );
-    console.log(total, totalQuantity);
+
+    console.log("💰 Computed Total:", total);
+    console.log("📊 Computed Total Quantity:", totalQuantity);
+    console.log("🎯 Discounts from formData:", formData.discounts);
+
+    const {
+      breakdown: discountBreakdown,
+      formattedNetTotal,
+      formattedPesoDiscount,
+    } = computeDiscountBreakdown(total, formData.discounts ?? []);
+
+    console.log("📉 Discount Breakdown:", discountBreakdown);
+    console.log("✅ Formatted Net Total:", formattedNetTotal);
+    console.log("✅ Formatted Peso Discount:", formattedPesoDiscount);
+
+    setFormData((prev) => ({
+      ...prev,
+      discountBreakdown,
+      formattedNetTotal,
+      formattedPesoDiscount,
+    }));
 
     const payload = {
       soNumber: formData.soNumber.trim().toUpperCase(),
@@ -637,9 +789,12 @@ export default function SalesOrder({ onSuccess }: Props) {
       items: normalizedItems,
       total,
       totalQuantity,
+      discountBreakdown,
+      formattedNetTotal,
+      formattedPesoDiscount,
     };
 
-    console.log("Creating sales order:", payload);
+    console.log("📦 Final Payload:", payload);
 
     try {
       const res = await fetch("/api/sales-orders", {
@@ -651,10 +806,10 @@ export default function SalesOrder({ onSuccess }: Props) {
       });
 
       const result = await res.json();
-      console.log("Server response:", result);
+      console.log("📡 Server Response:", result);
 
       if (!res.ok) {
-        console.error("Create failed:", result.message || result);
+        console.error("❌ Create failed:", result.message || result);
         alert("Failed to create sales order. Please try again.");
         return;
       }
@@ -669,12 +824,82 @@ export default function SalesOrder({ onSuccess }: Props) {
         router.push("/");
       }, 300);
     } catch (error) {
-      console.error("Network or unexpected error:", error);
+      console.error("🔥 Network or unexpected error:", error);
       alert("Something went wrong. Please check your connection or try again.");
     }
-
-    // setIsCreateDialogOpen(false);
   };
+
+  useEffect(() => {
+    const customerName = formData.customer?.trim().toUpperCase();
+    if (
+      !customerName ||
+      !Array.isArray(itemsData) ||
+      customers.length === 0 ||
+      customerTypes.length === 0
+    )
+      return;
+
+    const matchedCustomer = customers.find(
+      (c) => c.customerName?.trim().toUpperCase() === customerName
+    );
+
+    const customerGroup = matchedCustomer?.customerGroup?.trim().toUpperCase();
+    const matchedType = customerTypes.find(
+      (ct) => ct.groupName?.trim().toUpperCase() === customerGroup
+    );
+
+    const resolvedDiscounts = matchedType?.discounts ?? [];
+
+    const { total } = itemsData.reduce(
+      (acc, item) => {
+        const quantity = Number(item.quantity) || 0;
+        const price = Number(item.price) || 0;
+        acc.total += quantity * price;
+        return acc;
+      },
+      { total: 0 }
+    );
+
+    const { breakdown, formattedNetTotal, formattedPesoDiscount } =
+      computeDiscountBreakdown(total, resolvedDiscounts);
+
+    setFormData((prev) => ({
+      ...prev,
+      customerType: matchedType?.groupName ?? "",
+      customerTypeData: matchedType,
+      discounts: resolvedDiscounts,
+      discountBreakdown: breakdown,
+      formattedNetTotal,
+      formattedPesoDiscount,
+    }));
+  }, [formData.customer, customers, customerTypes, itemsData]);
+
+  useEffect(() => {
+    const { total, totalQuantity } = itemsData.reduce(
+      (acc, item) => {
+        const quantity = Number(item.quantity) || 0;
+        const price = Number(item.price) || 0;
+        acc.total += quantity * price;
+        acc.totalQuantity += quantity;
+        return acc;
+      },
+      { total: 0, totalQuantity: 0 }
+    );
+
+    setFormData((prev) => ({
+      ...prev,
+      total,
+      totalQuantity,
+      balance: total,
+    }));
+  }, [itemsData]);
+
+  useEffect(() => {
+    setFormData((prev) => ({
+      ...prev,
+      items: itemsData,
+    }));
+  }, [itemsData]);
 
   const defaultValidationErrors: Record<
     keyof Omit<SalesOrder, "_id" | "createdAt" | "updatedAt" | "items">,
@@ -699,6 +924,7 @@ export default function SalesOrder({ onSuccess }: Props) {
     formattedNetTotal: "",
     formattedPesoDiscount: "",
     discounts: "",
+    discountBreakdown: "", // ✅ Required for type completeness
   };
 
   const allowedStatuses: SalesOrder["status"][] = [
@@ -746,7 +972,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       ? (normalizedStatus as SalesOrder["status"])
       : "PENDING";
 
-    // 🧠 Resolve discount from customerGroup → groupName → discounts[0]
+    // 🧠 Resolve discount from customerGroup → groupName → discounts[]
     const matchedCustomer = customers.find(
       (c) =>
         c.customerName?.trim().toUpperCase() ===
@@ -754,19 +980,19 @@ export default function SalesOrder({ onSuccess }: Props) {
     );
 
     const customerGroup = matchedCustomer?.customerGroup?.trim().toUpperCase();
-
     const matchedCustomerType = customerTypes.find(
       (ct) => ct.groupName?.trim().toUpperCase() === customerGroup
     );
 
     const resolvedDiscounts: string[] = matchedCustomerType?.discounts ?? [];
 
-    const discountRate = matchedCustomerType?.discounts?.[0]
-      ? parseFloat(matchedCustomerType.discounts[0]) / 100
-      : 0;
-
-    const formattedPesoDiscount = `${(discountRate * 100).toFixed(2)}%`;
-    const netTotal = totalAmount * (1 - discountRate);
+    // 🧠 Compute full breakdown
+    const {
+      breakdown: discountBreakdown,
+      netTotal,
+      formattedNetTotal,
+      formattedPesoDiscount,
+    } = computeDiscountBreakdown(totalAmount, resolvedDiscounts);
 
     const hydratedFormData: typeof formData = {
       soNumber: so.soNumber.trim().toUpperCase(),
@@ -790,12 +1016,12 @@ export default function SalesOrder({ onSuccess }: Props) {
         style: "currency",
         currency: "PHP",
       }),
-      formattedNetTotal: netTotal.toLocaleString("en-PH", {
-        style: "currency",
-        currency: "PHP",
-      }),
+      formattedNetTotal,
       formattedPesoDiscount,
       discounts: resolvedDiscounts,
+      discountBreakdown,
+      customerType: matchedCustomerType?.groupName ?? "",
+      customerTypeData: matchedCustomerType,
     };
 
     setFormData(hydratedFormData);
@@ -851,6 +1077,14 @@ export default function SalesOrder({ onSuccess }: Props) {
       ? (rawStatus as SalesOrder["status"])
       : "PENDING";
 
+    // 🧠 Compute discount breakdown
+    const {
+      breakdown: discountBreakdown,
+      netTotal,
+      formattedNetTotal,
+      formattedPesoDiscount,
+    } = computeDiscountBreakdown(totalAmount, formData.discounts ?? []);
+
     const payload: Partial<SalesOrder> = {
       soNumber: formData.soNumber.trim().toUpperCase(),
       customer: formData.customer.trim().toUpperCase(),
@@ -868,6 +1102,13 @@ export default function SalesOrder({ onSuccess }: Props) {
         typeof formData.balance === "number" && !isNaN(formData.balance)
           ? formData.balance
           : totalAmount,
+      formattedTotal: totalAmount.toLocaleString("en-PH", {
+        style: "currency",
+        currency: "PHP",
+      }),
+      formattedNetTotal,
+      formattedPesoDiscount,
+      discountBreakdown,
     };
 
     console.log("📦 Sending update payload:", payload);
@@ -921,6 +1162,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       formattedNetTotal: "0.00",
       formattedPesoDiscount: "0.00%",
       discounts: [],
+      discountBreakdown: [],
       customerType: "",
       customerTypeData: undefined,
     });
@@ -956,10 +1198,9 @@ export default function SalesOrder({ onSuccess }: Props) {
       toast.error(`Failed to delete SO #${soId}`);
     }
   };
-
-  const handleView = (so: SalesOrder) => {
-    setViewingSO(so);
-    setIsViewDialogOpen(true);
+  const handleView = async (soId: string) => {
+    await fetchSingleSO(soId); // hydrates formData and itemsData
+    setIsViewDialogOpen(true); // opens the dialog
   };
 
   const formatDate = (date: Date | string) => {
@@ -995,6 +1236,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       formattedNetTotal: "0.00",
       formattedPesoDiscount: "0.00%",
       discounts: [],
+      discountBreakdown: [], // ✅ Added
       customerType: "",
       customerTypeData: undefined,
     });
@@ -1019,6 +1261,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       formattedNetTotal: "",
       formattedPesoDiscount: "",
       discounts: "",
+      discountBreakdown: "", // ✅ Optional: only if you validate it
     });
   };
 
@@ -1164,19 +1407,32 @@ export default function SalesOrder({ onSuccess }: Props) {
       });
       if (!res.ok) throw new Error("Failed to fetch Sales Order");
 
-      const raw = await res.json();
+      const { order: raw } = await res.json(); // ✅ Correct
 
-      const normalizedItems = Array.isArray(raw.items)
-        ? raw.items.map(soId)
+      // 🧠 Normalize items
+      const normalizedItems: SalesOrderItem[] = Array.isArray(raw.items)
+        ? raw.items.map((item: SalesOrderItem) => ({
+            _id: item._id ?? crypto.randomUUID(),
+            itemCode: item.itemCode?.trim().toUpperCase() || "",
+            itemName: item.itemName?.trim().toUpperCase() || "UNNAMED",
+            unitType: item.unitType?.trim().toUpperCase() || "",
+            quantity: Math.max(Number(item.quantity) || 1, 1),
+            price: Number(item.price) || 0,
+            description: item.description?.trim() || "",
+            amount: (Number(item.quantity) || 1) * (Number(item.price) || 0),
+            salesPrice: item.salesPrice,
+            weight: item.weight ?? 0,
+            cbm: item.cbm ?? 0,
+          }))
         : [];
 
+      // 🧮 Compute totals
       const totalQuantity = normalizedItems.reduce(
-        (sum: number, item: SalesOrderItem) => sum + item.quantity,
+        (sum, item) => sum + item.quantity,
         0
       );
-
       const totalAmount = normalizedItems.reduce(
-        (sum: number, item: SalesOrderItem) => sum + item.amount,
+        (sum, item) => sum + item.amount,
         0
       );
 
@@ -1187,12 +1443,14 @@ export default function SalesOrder({ onSuccess }: Props) {
         currency: "PHP",
       });
 
-      const formattedNetTotal = computeNetTotal({
-        ...raw,
-        items: normalizedItems,
-      });
-      const formattedPesoDiscount = computePesoDiscount(raw.discounts ?? []);
+      // 🧠 Compute discount breakdown
+      const {
+        breakdown: discountBreakdown,
+        formattedNetTotal,
+        formattedPesoDiscount,
+      } = computeDiscountBreakdown(totalAmount, raw.discounts ?? []);
 
+      // 🧾 Hydrate SalesOrder
       const hydratedSO: SalesOrder = {
         _id: raw._id ? String(raw._id) : "",
         soNumber: raw.soNumber ?? "",
@@ -1209,13 +1467,14 @@ export default function SalesOrder({ onSuccess }: Props) {
         items: normalizedItems,
         total: totalAmount,
         totalQuantity,
-        balance: raw.balance ?? 0,
+        balance: raw.balance ?? totalAmount,
         formattedWeight,
         formattedCBM,
         formattedTotal,
         formattedNetTotal,
         formattedPesoDiscount,
         discounts: raw.discounts ?? [],
+        discountBreakdown,
       };
 
       setItemsData(normalizedItems);
@@ -1244,6 +1503,7 @@ export default function SalesOrder({ onSuccess }: Props) {
         formattedNetTotal: "0.00",
         formattedPesoDiscount: "0.00%",
         discounts: [],
+        discountBreakdown: [],
         customerType: "",
         customerTypeData: undefined,
       });
@@ -1336,20 +1596,6 @@ export default function SalesOrder({ onSuccess }: Props) {
     }));
   };
 
-  // const recalculateTotals = (items: SalesOrderItem[]) => {
-  //   const totalQuantity = items.reduce(
-  //     (sum, item) => sum + (item.quantity || 0),
-  //     0
-  //   );
-
-  //   const totalAmount = items.reduce(
-  //     (sum, item) => sum + (item.amount || item.quantity * item.price || 0),
-  //     0
-  //   );
-
-  //   return { totalQuantity, total: totalAmount };
-  // };
-
   const handleSave = async () => {
     if (!validateForm()) {
       return;
@@ -1366,7 +1612,7 @@ export default function SalesOrder({ onSuccess }: Props) {
     handleCreate();
     resetForm();
     handleRemoveAllItems();
-    setIsCreateDialogOpen(true);
+    prepareCreateForm();
   };
 
   const handleUpdateStatus = async (soId: string, status: Status) => {
@@ -2276,109 +2522,112 @@ export default function SalesOrder({ onSuccess }: Props) {
                     {/* Left: Add Item */}
                     <Button onClick={handleAddItem}>Add Item</Button>
 
-                    <div className="flex flex-col w-full mt-8 gap-8">
-                      {/* Header */}
-                      <div className="flex items-center justify-between border-b border-border pb-3">
-                        <h3 className="text-lg font-semibold text-primary tracking-wide">
-                          Order Summary
-                        </h3>
-                      </div>
+                    <div className="w-full mt-8 overflow-x-auto">
+                      <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 border-b pb-2">
+                        Order Summary
+                      </h3>
 
-                      {/* Metrics Row */}
-                      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                        {[
-                          {
-                            label: "Total Quantity",
-                            value: formData.totalQuantity,
-                          },
-                          { label: "Total Weight", value: formattedWeight },
-                          { label: "Total CBM", value: formattedCBM },
-                        ].map(({ label, value }, i) => (
-                          <div
-                            key={i}
-                            className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm hover:shadow-md transition">
-                            <span className="text-[11px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
-                              {label}
-                            </span>
-                            <span className="text-base font-semibold text-foreground text-right">
-                              {value}
-                            </span>
-                          </div>
-                        ))}
-                      </div>
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+                        {/* Placeholder for Column 1 */}
+                        <div className="hidden md:block" />
 
-                      {/* Financial Breakdown */}
-                      <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                        {/* Left Column */}
-                        <div className="flex flex-col gap-4">
-                          {/* SubTotal */}
-                          <div className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm">
-                            <span className="text-[11px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
-                              SubTotal
-                            </span>
-                            <span className="text-base font-semibold text-foreground text-right">
-                              {formattedTotal}
-                            </span>
-                          </div>
+                        {/* Placeholder for Column 2 */}
+                        <div className="hidden md:block" />
 
-                          {/* Discounts */}
-                          <div className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm">
-                            <span className="text-[11px] font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                              Discounts
-                            </span>
-                            {Array.isArray(formData.discounts) &&
-                            formData.discounts.length > 0 ? (
-                              <div className="flex flex-col gap-2">
-                                {formData.discounts.map((d, i) => {
-                                  const value = parseFloat(d);
-                                  const formatted = isNaN(value)
-                                    ? "Invalid"
-                                    : `${value.toFixed(2)}%`;
+                        {/* Third Column: Metrics */}
+                        <table className="w-full border border-border rounded-lg overflow-hidden text-sm">
+                          <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                            <tr>
+                              <th className="px-4 py-2 text-left">Metric</th>
+                              <th className="px-4 py-2 text-right">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-t">
+                              <td className="px-4 py-2">Total Quantity</td>
+                              <td className="px-4 py-2 text-right">
+                                {formData.totalQuantity}
+                              </td>
+                            </tr>
+                            <tr className="border-t">
+                              <td className="px-4 py-2">Total Weight</td>
+                              <td className="px-4 py-2 text-right">
+                                {formattedWeight}
+                              </td>
+                            </tr>
+                            <tr className="border-t">
+                              <td className="px-4 py-2">Total CBM</td>
+                              <td className="px-4 py-2 text-right">
+                                {formattedCBM}
+                              </td>
+                            </tr>
+                            <tr className="border-t">
+                              <td className="px-4 py-2">UOM</td>
+                              <td className="px-4 py-2 text-right">
+                                {Array.from(
+                                  new Set(
+                                    formData.items.map((item) =>
+                                      item.unitType?.trim().toUpperCase()
+                                    )
+                                  )
+                                )
+                                  .filter(Boolean)
+                                  .join(", ")}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
 
-                                  return (
-                                    <div
-                                      key={i}
-                                      className="flex justify-between items-center bg-background px-3 py-2 rounded border border-border hover:bg-muted/50 transition">
-                                      <span className="font-medium text-primary">
-                                        Discount {i + 1}
-                                      </span>
-                                      <span className="text-right">
-                                        {formatted}
-                                      </span>
-                                    </div>
-                                  );
-                                })}
-                              </div>
-                            ) : (
-                              <p className="italic text-muted-foreground">
-                                No discounts available
-                              </p>
-                            )}
-                          </div>
-                        </div>
+                        {/* Fourth Column: Financials */}
+                        <table className="w-full border border-border rounded-lg overflow-hidden text-sm">
+                          <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                            <tr>
+                              <th className="px-4 py-2 text-left">Breakdown</th>
+                              <th className="px-4 py-2 text-right">Amount</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr className="border-t">
+                              <td className="px-4 py-2">Gross Amount</td>
+                              <td className="px-4 py-2 text-right">
+                                {formattedTotal}
+                              </td>
+                            </tr>
+                            {/* First row: label + first discount */}
+                            <tr className="border-t bg-muted/10">
+                              <td className="px-4 py-2 font-medium text-muted-foreground">
+                                Discounts (%)
+                              </td>
+                              <td className="px-4 py-2 text-right text-foreground text-sm">
+                                {formData.discountBreakdown[0]?.rate.toFixed(2)}
+                                %
+                              </td>
+                            </tr>
 
-                        {/* Right Column */}
-                        <div className="flex flex-col gap-4">
-                          {/* Peso Discounts */}
-                          <div className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm">
-                            <span className="text-[11px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
-                              Peso Discounts
-                            </span>
-                            <span className="text-base font-semibold text-foreground text-right">
-                              {formattedPesoDiscount}
-                            </span>
-                          </div>
+                            {/* Remaining discount rows */}
+                            {formData.discountBreakdown
+                              .slice(1)
+                              .map((step, index) => (
+                                <tr
+                                  key={index}
+                                  className="border-t bg-muted/10">
+                                  <td className="px-4 py-2"></td>
+                                  <td className="px-4 py-2 text-right text-foreground text-sm">
+                                    {step.rate.toFixed(2)}%
+                                  </td>
+                                </tr>
+                              ))}
 
-                          {/* Total Amount */}
-                          <div className="flex flex-col bg-gradient-to-r from-primary/20 to-primary/10 px-5 py-4 rounded-lg border border-primary shadow-md">
-                            <span className="text-[11px] font-medium text-primary mb-1 uppercase tracking-wide">
-                              Total Amount
-                            </span>
-                            <span className="text-xl font-bold text-primary text-right">
-                              {formattedNetTotal}
-                            </span>
-                          </div>
-                        </div>
+                            <tr className="border-t">
+                              <td className="px-4 py-2 font-medium text-primary">
+                                Net Amount
+                              </td>
+                              <td className="px-4 py-2 text-right font-bold text-primary">
+                                {formattedNetTotal}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
                       </div>
                     </div>
                   </>
@@ -2593,7 +2842,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            onClick={() => handleView(so)}
+                            onClick={() => handleView(String(so._id))}
                             title="View Details">
                             <Eye className="w-4 h-4" />
                           </Button>
@@ -3450,108 +3699,94 @@ export default function SalesOrder({ onSuccess }: Props) {
               {/* Left: Add Item */}
               <Button onClick={handleAddItem}>Add Item</Button>
 
-              <div className="flex flex-col w-full mt-8 gap-8">
-                {/* Header */}
-                <div className="flex items-center justify-between border-b border-border pb-3">
-                  <h3 className="text-lg font-semibold text-primary tracking-wide">
-                    Order Summary
-                  </h3>
-                </div>
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-6 mt-6">
+                {/* Column 1: Spacer */}
+                <div className="hidden md:block" />
 
-                {/* Metrics Row */}
-                <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-                  {[
-                    {
-                      label: "Total Quantity",
-                      value: formData.totalQuantity,
-                    },
-                    { label: "Total Weight", value: formattedWeight },
-                    { label: "Total CBM", value: formattedCBM },
-                  ].map(({ label, value }, i) => (
-                    <div
-                      key={i}
-                      className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm hover:shadow-md transition">
-                      <span className="text-[11px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
-                        {label}
-                      </span>
-                      <span className="text-base font-semibold text-foreground text-right">
-                        {value}
-                      </span>
-                    </div>
-                  ))}
-                </div>
+                {/* Column 2: Spacer */}
+                <div className="hidden md:block" />
 
-                {/* Financial Breakdown */}
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                  {/* Left Column */}
-                  <div className="flex flex-col gap-4">
-                    {/* SubTotal */}
-                    <div className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm">
-                      <span className="text-[11px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
-                        SubTotal
-                      </span>
-                      <span className="text-base font-semibold text-foreground text-right">
-                        {formattedTotal}
-                      </span>
-                    </div>
+                {/* Column 3: Metrics */}
+                <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
+                  <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Metric</th>
+                      <th className="px-4 py-2 text-right">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-t">
+                      <td className="px-4 py-2">Total Quantity</td>
+                      <td className="px-4 py-2 text-right">
+                        {formData.totalQuantity}
+                      </td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="px-4 py-2">Total Weight</td>
+                      <td className="px-4 py-2 text-right">
+                        {formattedWeight}
+                      </td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="px-4 py-2">Total CBM</td>
+                      <td className="px-4 py-2 text-right">{formattedCBM}</td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="px-4 py-2">UOM</td>
+                      <td className="px-4 py-2 text-right">
+                        {Array.from(
+                          new Set(
+                            formData.items.map((item) =>
+                              item.unitType?.trim().toUpperCase()
+                            )
+                          )
+                        )
+                          .filter(Boolean)
+                          .join(", ")}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
 
-                    {/* Discounts */}
-                    <div className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm">
-                      <span className="text-[11px] font-medium text-muted-foreground mb-2 uppercase tracking-wide">
-                        Discounts
-                      </span>
-                      {Array.isArray(formData.discounts) &&
-                      formData.discounts.length > 0 ? (
-                        <div className="flex flex-col gap-2">
-                          {formData.discounts.map((discount, index) => {
-                            const value = parseFloat(discount);
-                            const formatted = isNaN(value)
-                              ? "Invalid"
-                              : `${value.toFixed(2)}%`;
-
-                            return (
-                              <div
-                                key={index}
-                                className="flex justify-between items-center bg-background px-3 py-2 rounded border border-border hover:bg-muted/50 transition">
-                                <span className="font-medium text-primary">
-                                  Discount {index + 1}
-                                </span>
-                                <span className="text-right">{formatted}</span>
-                              </div>
-                            );
-                          })}
-                        </div>
-                      ) : (
-                        <p className="italic text-muted-foreground">
-                          No discounts available
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  {/* Right Column */}
-                  <div className="flex flex-col gap-4">
-                    {/* Peso Discounts */}
-                    <div className="flex flex-col bg-card px-5 py-4 rounded-lg border border-border shadow-sm">
-                      <span className="text-[11px] font-medium text-muted-foreground mb-1 uppercase tracking-wide">
-                        Peso Discounts
-                      </span>
-                      <span className="text-base font-semibold text-foreground text-right">
-                        {formattedPesoDiscount}
-                      </span>
-                    </div>
-
-                    {/* Total Amount */}
-                    <div className="flex flex-col bg-gradient-to-r from-primary/20 to-primary/10 px-5 py-4 rounded-lg border border-primary shadow-md">
-                      <span className="text-[11px] font-medium text-primary mb-1 uppercase tracking-wide">
-                        Total Amount
-                      </span>
-                      <span className="text-xl font-bold text-primary text-right">
+                {/* Column 4: Financials */}
+                <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
+                  <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Breakdown</th>
+                      <th className="px-4 py-2 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-t">
+                      <td className="px-4 py-2">Gross Amount</td>
+                      <td className="px-4 py-2 text-right">{formattedTotal}</td>
+                    </tr>
+                    <tr className="border-t bg-muted/10">
+                      <td className="px-4 py-2 font-medium text-muted-foreground">
+                        Discounts (%)
+                      </td>
+                      <td className="px-4 py-2 text-right text-foreground text-sm">
+                        {formData.discountBreakdown[0]?.rate.toFixed(2)}%
+                      </td>
+                    </tr>
+                    {formData.discountBreakdown.slice(1).map((step, index) => (
+                      <tr key={index} className="border-t bg-muted/10">
+                        <td className="px-4 py-2"></td>
+                        <td className="px-4 py-2 text-right text-foreground text-sm">
+                          {step.rate.toFixed(2)}%
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-t">
+                      <td className="px-4 py-2 font-medium text-primary">
+                        Net Amount
+                      </td>
+                      <td className="px-4 py-2 text-right font-bold text-primary">
                         {formattedNetTotal}
-                      </span>
-                    </div>
-                  </div>
-                </div>
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
               </div>
             </>
           )}
@@ -3615,6 +3850,201 @@ export default function SalesOrder({ onSuccess }: Props) {
                 </DropdownMenu>
               </div>
             </div>
+          </DialogFooter>
+        </DialogPanel>
+      </Dialog>
+      {/* View Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogPanel className="w-full px-6 py-6">
+          {/* Hidden Dialog Title for accessibility */}
+          <DialogTitle className="sr-only">Sales Invoice</DialogTitle>
+
+          {/* Invoice Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
+            <div>
+              <h2 className="text-xl font-bold text-primary tracking-wide">
+                Sales Invoice
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Invoice No: {formData.soNumber}
+              </p>
+            </div>
+            <div className="text-sm text-right text-muted-foreground">
+              <p>Transaction Date: {formData.transactionDate}</p>
+              <p>Delivery Date: {formData.deliveryDate}</p>
+              <p>
+                Status:{" "}
+                <span className="font-semibold text-foreground">
+                  {formData.status}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* Customer & Warehouse Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="text-sm">
+              <h4 className="font-medium text-muted-foreground mb-1">
+                Customer
+              </h4>
+              <p className="text-foreground font-semibold">
+                {formData.customer}
+              </p>
+              <p className="text-muted-foreground">
+                Type: {formData.customerType}
+              </p>
+              <p className="text-muted-foreground">
+                Sales Person: {formData.salesPerson}
+              </p>
+            </div>
+            <div className="text-sm">
+              <h4 className="font-medium text-muted-foreground mb-1">
+                Warehouse
+              </h4>
+              <p className="text-foreground font-semibold">
+                {formData.warehouse}
+              </p>
+              <p className="text-muted-foreground">Shipping Address:</p>
+              <p className="text-muted-foreground">
+                {formData.shippingAddress}
+              </p>
+              <p className="text-muted-foreground">Notes:</p>
+              <p className="text-muted-foreground">{formData.notes}</p>
+            </div>
+          </div>
+
+          {/* Itemized Table */}
+          <div className="overflow-x-auto mb-6">
+            <table className="min-w-full text-sm border border-border rounded-md overflow-hidden">
+              <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                <tr>
+                  <th className="px-4 py-2 text-left">Item</th>
+                  <th className="px-4 py-2 text-right">Qty</th>
+                  <th className="px-4 py-2 text-left">UOM</th>
+                  <th className="px-4 py-2 text-right">Price</th>
+                  <th className="px-4 py-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {formData.items.map((item, index) => (
+                  <tr key={index} className="border-t">
+                    <td className="px-4 py-2">{item.itemName}</td>
+                    <td className="px-4 py-2 text-right">{item.quantity}</td>
+                    <td className="px-4 py-2">{item.unitType}</td>
+                    <td className="px-4 py-2 text-right">
+                      ₱
+                      {item.price.toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      ₱
+                      {item.amount.toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                      })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Summary Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+            {/* Metrics */}
+            <table className="w-full text-sm border border-border rounded-md bg-card shadow-sm">
+              <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                <tr>
+                  <th className="px-4 py-2 text-left">Metric</th>
+                  <th className="px-4 py-2 text-right">Value</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t">
+                  <td className="px-4 py-2">Total Quantity</td>
+                  <td className="px-4 py-2 text-right">
+                    {formData.totalQuantity}
+                  </td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-4 py-2">Total Weight</td>
+                  <td className="px-4 py-2 text-right">
+                    {formData.formattedWeight}
+                  </td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-4 py-2">Total CBM</td>
+                  <td className="px-4 py-2 text-right">
+                    {formData.formattedCBM}
+                  </td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-4 py-2">UOM</td>
+                  <td className="px-4 py-2 text-right">
+                    {Array.from(
+                      new Set(
+                        formData.items.map((i) =>
+                          i.unitType?.trim().toUpperCase()
+                        )
+                      )
+                    )
+                      .filter(Boolean)
+                      .join(", ")}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+
+            {/* Financials */}
+            <table className="w-full text-sm border border-border rounded-md bg-card shadow-sm">
+              <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                <tr>
+                  <th className="px-4 py-2 text-left">Breakdown</th>
+                  <th className="px-4 py-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                <tr className="border-t">
+                  <td className="px-4 py-2">Gross Amount</td>
+                  <td className="px-4 py-2 text-right">
+                    {formData.formattedTotal}
+                  </td>
+                </tr>
+                <tr className="border-t bg-muted/10">
+                  <td className="px-4 py-2 font-medium text-muted-foreground">
+                    Discounts (%)
+                  </td>
+                  <td className="px-4 py-2 text-right text-foreground text-sm">
+                    {formData.discountBreakdown.map((step, i) => (
+                      <div key={i}>{step.rate.toFixed(2)}%</div>
+                    ))}
+                  </td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-4 py-2">Peso Discount</td>
+                  <td className="px-4 py-2 text-right">
+                    {formData.formattedPesoDiscount}
+                  </td>
+                </tr>
+                <tr className="border-t">
+                  <td className="px-4 py-2 font-medium text-primary">
+                    Net Amount
+                  </td>
+                  <td className="px-4 py-2 text-right font-bold text-primary">
+                    {formData.formattedNetTotal}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+
+          {/* Footer with Close Button */}
+          <DialogFooter className="px-6 py-4 border-t border-border flex justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setIsViewDialogOpen(false)}>
+              Close
+            </Button>
           </DialogFooter>
         </DialogPanel>
       </Dialog>

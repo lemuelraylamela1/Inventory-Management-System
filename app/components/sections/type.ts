@@ -244,6 +244,13 @@ export type SalesOrderItem = {
   cbm?: number;
 };
 
+// 🔹 Discount deduction step
+export type DiscountStep = {
+  rate: number;
+  amount: number;
+  remaining: number;
+};
+
 // 🔹 Full SalesOrder document (from DB)
 export type SalesOrder = {
   _id: string | Types.ObjectId;
@@ -258,6 +265,7 @@ export type SalesOrder = {
   status: "PENDING" | "TO PREPARE" | "COMPLETED" | "CANCELLED";
   items: SalesOrderItem[];
   discounts?: string[];
+  discountBreakdown: DiscountStep[]; // ✅ Added field
   total: number;
   totalQuantity: number;
   balance: number;
@@ -276,3 +284,24 @@ export type SalesOrderInput = Omit<
   SalesOrder,
   "_id" | "soNumber" | "createdAt" | "updatedAt"
 >;
+
+export type SalesInvoice = {
+  _id: string;
+  invoiceNo: string; // e.g. "SI0000000001"
+  invoiceDate: string; // ISO format
+  customer: string; // uppercase name
+  customerRef?: string; // ObjectId reference
+  salesPerson: string;
+  salesOrder?: string; // ObjectId reference
+  amount: number;
+  balance: number;
+  status: "UNPAID" | "PARTIAL" | "PAID" | "VOID";
+  reference?: string;
+  TIN?: string;
+  terms?: string;
+  address?: string;
+  dueDate?: string; // ISO format
+  notes?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};

@@ -4,9 +4,8 @@ import {
   formatWeight,
   formatCBM,
   computeSubtotal,
-  computeNetTotal,
-  computePesoDiscount,
 } from "../libs/salesOrderMetrics";
+import { computeDiscountBreakdown } from "../libs/discountUtils";
 import type {
   SalesOrder,
   SalesOrderItem,
@@ -32,6 +31,11 @@ const ItemSchema = new Schema<SalesOrderItem>(
 // 🧾 Sales Order Document Type
 export interface SalesOrderDocument extends Omit<SalesOrder, "_id"> {
   _id: mongoose.Types.ObjectId;
+  discountBreakdown: {
+    rate: number;
+    amount: number;
+    remaining: number;
+  }[];
 }
 
 // 🧾 Sales Order Schema
@@ -64,6 +68,16 @@ const SalesOrderSchema = new Schema<SalesOrderDocument>(
       },
     },
     discounts: { type: [String], default: [] },
+    discountBreakdown: {
+      type: [
+        {
+          rate: { type: Number, required: true },
+          amount: { type: Number, required: true },
+          remaining: { type: Number, required: true },
+        },
+      ],
+      default: [],
+    },
     total: { type: Number, default: 0 },
     totalQuantity: { type: Number, default: 0 },
     balance: { type: Number, default: 0 },
@@ -109,8 +123,14 @@ SalesOrderSchema.pre("save", function (next) {
   so.formattedWeight = formatWeight(items);
   so.formattedCBM = formatCBM(items);
   so.formattedTotal = computeSubtotal(items);
-  so.formattedNetTotal = computeNetTotal(so);
-  so.formattedPesoDiscount = computePesoDiscount(discounts);
+
+  const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
+  const { breakdown, formattedNetTotal, formattedPesoDiscount } =
+    computeDiscountBreakdown(totalAmount, discounts);
+
+  so.discountBreakdown = breakdown;
+  so.formattedNetTotal = formattedNetTotal;
+  so.formattedPesoDiscount = formattedPesoDiscount;
 
   next();
 });
