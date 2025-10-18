@@ -286,7 +286,7 @@ export type SalesOrderInput = Omit<
 export type SalesInvoice = {
   _id: string;
   invoiceNo: string; // e.g. "SI0000000001"
-  invoiceDate: string; // ISO format
+  invoiceDate: Date;
   customer: string; // uppercase name
   customerRef?: string; // ObjectId reference
   salesPerson: string;
@@ -298,8 +298,18 @@ export type SalesInvoice = {
   TIN?: string;
   terms?: string;
   address?: string;
-  dueDate?: string; // ISO format
+  dueDate?: Date; // ISO format
   notes?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
+};
+
+export type SalesInvoiceItem = {
+  _id: string;
+  itemCode: string;
+  itemName: string;
+  unitType: string;
+  price: number;
+  quantity: number;
+  amount: number;
 };

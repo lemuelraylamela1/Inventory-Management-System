@@ -35,10 +35,11 @@ export async function POST(req: Request) {
       ? await SalesOrder.findById(salesOrder)
       : null;
 
-    const invoice = await SalesInvoice.create({
+    const normalizedInvoice = {
       invoiceDate,
       customer: customer?.trim().toUpperCase(),
       amount,
+      balance: amount, // ✅ Explicitly set balance for audit clarity
       status: status?.trim().toUpperCase() || "UNPAID",
       reference,
       salesOrder: salesOrderDoc?._id,
@@ -48,7 +49,9 @@ export async function POST(req: Request) {
       address: customerDoc.address,
       dueDate,
       notes,
-    });
+    };
+
+    const invoice = await SalesInvoice.create(normalizedInvoice);
 
     return NextResponse.json({ invoice }, { status: 201 });
   } catch (err) {
