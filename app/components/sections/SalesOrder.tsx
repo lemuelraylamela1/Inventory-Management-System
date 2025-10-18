@@ -11,6 +11,7 @@ import {
   FileText,
   Filter,
   CalendarDays,
+  Loader2,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import {
@@ -153,6 +154,7 @@ export default function SalesOrder({ onSuccess }: Props) {
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [activeSOId, setActiveSOId] = useState<string | null>(null);
+  const [isLoadingView, setIsLoadingView] = useState(false);
 
   const [editingSO, setEditingSO] = useState<SalesOrder | null>(null);
   const [viewingSO, setViewingSO] = useState<SalesOrder | null>(null);
@@ -1727,6 +1729,15 @@ export default function SalesOrder({ onSuccess }: Props) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
+  const handleOpenView = async (soId: string) => {
+    setIsLoadingView(true);
+    setIsViewDialogOpen(true); // open immediately to show spinner
+
+    await fetchSingleSO(soId); // hydrate formData
+
+    setIsLoadingView(false);
+  };
 
   return (
     <div className="space-y-6">
@@ -3809,203 +3820,218 @@ export default function SalesOrder({ onSuccess }: Props) {
           </DialogFooter>
         </DialogPanel>
       </Dialog>
-      {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        {formData.soNumber ? (
-          <DialogPanel className="w-full px-6 py-6">
-            {/* Hidden Dialog Title for accessibility */}
-            <DialogTitle className="sr-only">Sales Invoice</DialogTitle>
-
-            {/* Invoice Header */}
-            <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
-              <div>
-                <h2 className="text-xl font-bold text-primary tracking-wide">
-                  Sales Invoice
-                </h2>
-                <p className="text-sm text-muted-foreground">
-                  Invoice No: {formData.soNumber}
-                </p>
-              </div>
-              <div className="text-sm text-right text-muted-foreground">
-                <p>Transaction Date: {formData.transactionDate}</p>
-                <p>Delivery Date: {formData.deliveryDate}</p>
-                <p>
-                  Status:{" "}
-                  <span className="font-semibold text-foreground">
-                    {formData.status}
-                  </span>
-                </p>
-              </div>
+        <DialogPanel className="w-full px-6 py-6">
+          {isLoadingView ? (
+            <div className="flex items-center justify-center py-6">
+              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
+              <span className="ml-2 text-sm text-muted-foreground">
+                Loading sales order…
+              </span>
             </div>
+          ) : formData.soNumber ? (
+            <>
+              <DialogTitle className="sr-only">Sales Invoice</DialogTitle>
 
-            {/* Customer & Warehouse Info */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-              <div className="text-sm">
-                <h4 className="font-medium text-muted-foreground mb-1">
-                  Customer
-                </h4>
-                <p className="text-foreground font-semibold">
-                  {formData.customer}
-                </p>
-                <p className="text-muted-foreground">
-                  Type: {formData.customerType}
-                </p>
-                <p className="text-muted-foreground">
-                  Sales Person: {formData.salesPerson}
-                </p>
+              {/* Invoice Header */}
+              <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
+                <div>
+                  <h2 className="text-xl font-bold text-primary tracking-wide">
+                    Sales Order
+                  </h2>
+                  <p className="text-sm text-muted-foreground">
+                    Sales Order No: {formData.soNumber}
+                  </p>
+                </div>
+                <div className="text-sm text-right text-muted-foreground">
+                  <p>Transaction Date: {formData.transactionDate}</p>
+                  <p>Delivery Date: {formData.deliveryDate}</p>
+                  <p>
+                    Status:{" "}
+                    <span className="font-semibold text-foreground">
+                      {formData.status}
+                    </span>
+                  </p>
+                </div>
               </div>
-              <div className="text-sm">
-                <h4 className="font-medium text-muted-foreground mb-1">
-                  Warehouse
-                </h4>
-                <p className="text-foreground font-semibold">
-                  {formData.warehouse}
-                </p>
-                <p className="text-muted-foreground">Shipping Address:</p>
-                <p className="text-muted-foreground">
-                  {formData.shippingAddress}
-                </p>
-                <p className="text-muted-foreground">Notes:</p>
-                <p className="text-muted-foreground">{formData.notes}</p>
-              </div>
-            </div>
 
-            {/* Itemized Table */}
-            <div className="overflow-x-auto mb-6">
-              <table className="min-w-full text-sm border border-border rounded-md overflow-hidden">
-                <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Item</th>
-                    <th className="px-4 py-2 text-right">Qty</th>
-                    <th className="px-4 py-2 text-left">UOM</th>
-                    <th className="px-4 py-2 text-right">Price</th>
-                    <th className="px-4 py-2 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {formData.items.map((item, index) => (
-                    <tr key={index} className="border-t">
-                      <td className="px-4 py-2">{item.itemName}</td>
-                      <td className="px-4 py-2 text-right">{item.quantity}</td>
-                      <td className="px-4 py-2">{item.unitType}</td>
+              {/* Customer & Warehouse Info */}
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div className="text-sm">
+                  <h4 className="font-medium text-muted-foreground mb-1">
+                    Customer
+                  </h4>
+                  <p className="text-foreground font-semibold">
+                    {formData.customer}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Type: {formData.customerType}
+                  </p>
+                  <p className="text-muted-foreground">
+                    Sales Person: {formData.salesPerson}
+                  </p>
+                </div>
+                <div className="text-sm">
+                  <h4 className="font-medium text-muted-foreground mb-1">
+                    Warehouse
+                  </h4>
+                  <p className="text-foreground font-semibold">
+                    {formData.warehouse}
+                  </p>
+                  <p className="text-muted-foreground">Shipping Address:</p>
+                  <p className="text-muted-foreground">
+                    {formData.shippingAddress}
+                  </p>
+                  <p className="text-muted-foreground">Notes:</p>
+                  <p className="text-muted-foreground">{formData.notes}</p>
+                </div>
+              </div>
+
+              {/* Itemized Table */}
+              <div className="overflow-x-auto mb-6">
+                <table className="min-w-full text-sm border border-border rounded-md overflow-hidden">
+                  <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Item</th>
+                      <th className="px-4 py-2 text-right">Qty</th>
+                      <th className="px-4 py-2 text-left">UOM</th>
+                      <th className="px-4 py-2 text-right">Price</th>
+                      <th className="px-4 py-2 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {formData.items.map((item, index) => (
+                      <tr key={index} className="border-t">
+                        <td className="px-4 py-2">{item.itemName}</td>
+                        <td className="px-4 py-2 text-right">
+                          {item.quantity}
+                        </td>
+                        <td className="px-4 py-2">{item.unitType}</td>
+                        <td className="px-4 py-2 text-right">
+                          ₱
+                          {item.price.toLocaleString("en-PH", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          ₱
+                          {item.amount.toLocaleString("en-PH", {
+                            minimumFractionDigits: 2,
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary Section - 4 Column Grid with Spacers */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-6 mt-6">
+                <div className="hidden md:block" />
+                <div className="hidden md:block" />
+
+                {/* Metrics */}
+                <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
+                  <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Metric</th>
+                      <th className="px-4 py-2 text-right">Value</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-t">
+                      <td className="px-4 py-2">Total Quantity</td>
                       <td className="px-4 py-2 text-right">
-                        ₱
-                        {item.price.toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </td>
-                      <td className="px-4 py-2 text-right">
-                        ₱
-                        {item.amount.toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
+                        {formData.totalQuantity}
                       </td>
                     </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Summary Section */}
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-              {/* Metrics */}
-              <table className="w-full text-sm border border-border rounded-md bg-card shadow-sm">
-                <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Metric</th>
-                    <th className="px-4 py-2 text-right">Value</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-t">
-                    <td className="px-4 py-2">Total Quantity</td>
-                    <td className="px-4 py-2 text-right">
-                      {formData.totalQuantity}
-                    </td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="px-4 py-2">Total Weight</td>
-                    <td className="px-4 py-2 text-right">
-                      {formData.formattedWeight}
-                    </td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="px-4 py-2">Total CBM</td>
-                    <td className="px-4 py-2 text-right">
-                      {formData.formattedCBM}
-                    </td>
-                  </tr>
-                  <tr className="border-t">
-                    <td className="px-4 py-2">UOM</td>
-                    <td className="px-4 py-2 text-right">
-                      {Array.from(
-                        new Set(
-                          formData.items.map((i) =>
-                            i.unitType?.trim().toUpperCase()
+                    <tr className="border-t">
+                      <td className="px-4 py-2">Total Weight</td>
+                      <td className="px-4 py-2 text-right">
+                        {formData.formattedWeight}
+                      </td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="px-4 py-2">Total CBM</td>
+                      <td className="px-4 py-2 text-right">
+                        {formData.formattedCBM}
+                      </td>
+                    </tr>
+                    <tr className="border-t">
+                      <td className="px-4 py-2">UOM</td>
+                      <td className="px-4 py-2 text-right">
+                        {Array.from(
+                          new Set(
+                            formData.items.map((item) =>
+                              item.unitType?.trim().toUpperCase()
+                            )
                           )
                         )
-                      )
-                        .filter(Boolean)
-                        .join(", ")}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
+                          .filter(Boolean)
+                          .join(", ")}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
 
-              {/* Financials */}
-              <table className="w-full text-sm border border-border rounded-md bg-card shadow-sm">
-                <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                  <tr>
-                    <th className="px-4 py-2 text-left">Breakdown</th>
-                    <th className="px-4 py-2 text-right">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  <tr className="border-t">
-                    <td className="px-4 py-2">Gross Amount</td>
-                    <td className="px-4 py-2 text-right">
-                      {formData.formattedTotal}
-                    </td>
-                  </tr>
-                  <tr className="border-t bg-muted/10">
-                    <td className="px-4 py-2 font-medium text-muted-foreground">
-                      Discounts (%)
-                    </td>
-                    <td className="px-4 py-2 text-right text-foreground text-sm">
-                      {formData.discountBreakdown.map((step, i) => (
-                        <div key={i}>{step.rate.toFixed(2)}%</div>
-                      ))}
-                    </td>
-                  </tr>
+                {/* Financials */}
+                <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
+                  <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                    <tr>
+                      <th className="px-4 py-2 text-left">Breakdown</th>
+                      <th className="px-4 py-2 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    <tr className="border-t">
+                      <td className="px-4 py-2">Gross Amount</td>
+                      <td className="px-4 py-2 text-right">
+                        {formData.formattedTotal}
+                      </td>
+                    </tr>
+                    <tr className="border-t bg-muted/10">
+                      <td className="px-4 py-2 font-medium text-muted-foreground">
+                        Discounts (%)
+                      </td>
+                      <td className="px-4 py-2 text-right text-foreground text-sm">
+                        {formData.discountBreakdown[0]?.rate.toFixed(2)}%
+                      </td>
+                    </tr>
+                    {formData.discountBreakdown.slice(1).map((step, index) => (
+                      <tr key={index} className="border-t bg-muted/10">
+                        <td className="px-4 py-2"></td>
+                        <td className="px-4 py-2 text-right text-foreground text-sm">
+                          {step.rate.toFixed(2)}%
+                        </td>
+                      </tr>
+                    ))}
+                    <tr className="border-t">
+                      <td className="px-4 py-2 font-medium text-primary">
+                        Net Amount
+                      </td>
+                      <td className="px-4 py-2 text-right font-bold text-primary">
+                        {formData.formattedNetTotal}
+                      </td>
+                    </tr>
+                  </tbody>
+                </table>
+              </div>
 
-                  <tr className="border-t">
-                    <td className="px-4 py-2 font-medium text-primary">
-                      Net Amount
-                    </td>
-                    <td className="px-4 py-2 text-right font-bold text-primary">
-                      {formData.formattedNetTotal}
-                    </td>
-                  </tr>
-                </tbody>
-              </table>
-            </div>
-
-            {/* Footer with Close Button */}
-            <DialogFooter className="px-6 py-4 border-t border-border flex justify-end">
-              <Button
-                variant="outline"
-                onClick={() => setIsViewDialogOpen(false)}>
-                Close
-              </Button>
-            </DialogFooter>
-          </DialogPanel>
-        ) : (
-          <DialogPanel className="w-full px-6 py-6">
+              {/* Footer */}
+              <DialogFooter className="px-6 py-4 border-t border-border flex justify-end">
+                <Button
+                  variant="outline"
+                  onClick={() => setIsViewDialogOpen(false)}>
+                  Close
+                </Button>
+              </DialogFooter>
+            </>
+          ) : (
             <p className="text-sm text-muted-foreground">
-              ⏳ Loading sales order...
+              No sales order data found.
             </p>
-          </DialogPanel>
-        )}
+          )}
+        </DialogPanel>
       </Dialog>
     </div>
   );
