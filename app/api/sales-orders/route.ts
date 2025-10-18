@@ -1,15 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import connectMongoDB from "@/libs/mongodb";
 import SalesOrderModel from "@/models/salesOrder";
-import InventoryMain from "@/models/inventoryMain";
 import {
   computeTotalQuantity,
   formatWeight,
   formatCBM,
   computeSubtotal,
-  computeNetTotal,
-  computePesoDiscount,
 } from "../../../libs/salesOrderMetrics";
+import { computeDiscountBreakdown } from "@/libs/discountUtils";
 import type {
   SalesOrderItem,
   SalesOrder,
@@ -35,7 +33,6 @@ export async function POST(request: NextRequest) {
     items,
     discounts = [],
     total,
-    balance,
     creationDate,
   } = body;
 
@@ -57,6 +54,13 @@ export async function POST(request: NextRequest) {
   await connectMongoDB();
 
   try {
+    const totalQuantity = computeTotalQuantity(items);
+    const formattedWeight = formatWeight(items);
+    const formattedCBM = formatCBM(items);
+    const formattedTotal = computeSubtotal(items);
+    const { breakdown: discountBreakdown, formattedNetTotal } =
+      computeDiscountBreakdown(total, discounts);
+
     const enrichedOrder: Omit<
       SalesOrder,
       "_id" | "soNumber" | "createdAt" | "updatedAt"
@@ -72,14 +76,13 @@ export async function POST(request: NextRequest) {
       items,
       discounts,
       total,
-      totalQuantity: computeTotalQuantity(items),
-      balance,
+      totalQuantity,
       creationDate,
-      formattedWeight: formatWeight(items),
-      formattedCBM: formatCBM(items),
-      formattedTotal: computeSubtotal(items),
-      formattedNetTotal: computeNetTotal({ ...body, items, discounts }),
-      formattedPesoDiscount: computePesoDiscount(discounts),
+      formattedWeight,
+      formattedCBM,
+      formattedTotal,
+      formattedNetTotal,
+      discountBreakdown,
     };
 
     const newOrder = await SalesOrderModel.create(enrichedOrder);

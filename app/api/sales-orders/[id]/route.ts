@@ -7,30 +7,41 @@ import type {
   SalesOrderItem,
 } from "../../../components/sections/type";
 
+// ✅ GET /api/sales-orders/[id]
 export async function GET(
-  _: NextRequest,
-  { params }: { params: { id: string } }
+  request: NextRequest,
+  context: { params: { id: string } }
 ) {
   await connectMongoDB();
 
-  if (!Types.ObjectId.isValid(params.id)) {
+  const id = context.params.id?.trim();
+  if (!id || !Types.ObjectId.isValid(id)) {
     return NextResponse.json(
       { message: "Invalid sales order ID" },
       { status: 400 }
     );
   }
 
-  const order = await SalesOrderModel.findById(params.id);
-  if (!order) {
+  try {
+    const order = await SalesOrderModel.findById(id);
+    if (!order) {
+      return NextResponse.json(
+        { message: "Sales order not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json({ order }, { status: 200 });
+  } catch (error) {
+    console.error("❌ Error fetching sales order:", error);
     return NextResponse.json(
-      { message: "Sales order not found" },
-      { status: 404 }
+      { message: "Internal server error" },
+      { status: 500 }
     );
   }
-
-  return NextResponse.json({ order });
 }
 
+// ✅ PATCH /api/sales-orders/[id]
 export async function PATCH(
   request: NextRequest,
   { params }: { params: { id: string } }
@@ -68,7 +79,6 @@ export async function PATCH(
     items,
   } = payload;
 
-  // Normalize and validate items
   const normalizedItems: SalesOrderItem[] = Array.isArray(items)
     ? items
         .filter((item) => Number(item.quantity) > 0)
@@ -129,7 +139,6 @@ export async function PATCH(
       (sum, i) => sum + i.quantity,
       0
     );
-    updatePayload.balance = updatePayload.total;
   }
 
   try {
@@ -150,39 +159,6 @@ export async function PATCH(
     console.error("❌ Error updating sales order:", error);
     return NextResponse.json(
       { error: "Failed to update sales order" },
-      { status: 500 }
-    );
-  }
-}
-
-export async function DELETE(
-  _: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  await connectMongoDB();
-
-  if (!Types.ObjectId.isValid(params.id)) {
-    return NextResponse.json(
-      { message: "Invalid sales order ID" },
-      { status: 400 }
-    );
-  }
-
-  try {
-    const result = await SalesOrderModel.findByIdAndDelete(params.id);
-
-    if (!result) {
-      return NextResponse.json(
-        { message: "Sales order not found" },
-        { status: 404 }
-      );
-    }
-
-    return NextResponse.json({ message: "Sales order deleted" });
-  } catch (error) {
-    console.error("❌ Error deleting sales order:", error);
-    return NextResponse.json(
-      { message: "Failed to delete sales order" },
       { status: 500 }
     );
   }

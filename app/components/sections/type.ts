@@ -265,15 +265,13 @@ export type SalesOrder = {
   status: "PENDING" | "TO PREPARE" | "COMPLETED" | "CANCELLED";
   items: SalesOrderItem[];
   discounts?: string[];
-  discountBreakdown: DiscountStep[]; // ✅ Added field
+  discountBreakdown: DiscountStep[];
   total: number;
   totalQuantity: number;
-  balance: number;
   formattedWeight: string;
   formattedCBM: string;
   formattedTotal: string;
   formattedNetTotal: string;
-  formattedPesoDiscount: string;
   creationDate: string;
   createdAt?: string;
   updatedAt?: string;

@@ -80,12 +80,10 @@ const SalesOrderSchema = new Schema<SalesOrderDocument>(
     },
     total: { type: Number, default: 0 },
     totalQuantity: { type: Number, default: 0 },
-    balance: { type: Number, default: 0 },
     formattedWeight: { type: String, default: "0.00 kg" },
     formattedCBM: { type: String, default: "0.000 m³" },
     formattedTotal: { type: String, default: "0.00" },
     formattedNetTotal: { type: String, default: "0.00" },
-    formattedPesoDiscount: { type: String, default: "0.00%" },
     creationDate: { type: String, trim: true },
   },
   { timestamps: true }
@@ -125,12 +123,13 @@ SalesOrderSchema.pre("save", function (next) {
   so.formattedTotal = computeSubtotal(items);
 
   const totalAmount = items.reduce((sum, item) => sum + item.amount, 0);
-  const { breakdown, formattedNetTotal, formattedPesoDiscount } =
-    computeDiscountBreakdown(totalAmount, discounts);
+  const { breakdown, formattedNetTotal } = computeDiscountBreakdown(
+    totalAmount,
+    discounts
+  );
 
   so.discountBreakdown = breakdown;
   so.formattedNetTotal = formattedNetTotal;
-  so.formattedPesoDiscount = formattedPesoDiscount;
 
   next();
 });

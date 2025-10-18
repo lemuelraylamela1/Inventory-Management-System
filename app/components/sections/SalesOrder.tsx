@@ -152,6 +152,7 @@ export default function SalesOrder({ onSuccess }: Props) {
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [activeSOId, setActiveSOId] = useState<string | null>(null);
 
   const [editingSO, setEditingSO] = useState<SalesOrder | null>(null);
   const [viewingSO, setViewingSO] = useState<SalesOrder | null>(null);
@@ -213,13 +214,11 @@ export default function SalesOrder({ onSuccess }: Props) {
     items: [],
     total: 0,
     totalQuantity: 0,
-    balance: 0,
     creationDate: new Date().toISOString().split("T")[0],
     formattedWeight: "0.00 kg",
     formattedCBM: "0.000 m³",
     formattedTotal: "0.00",
     formattedNetTotal: "0.00",
-    formattedPesoDiscount: "0.00%",
     discounts: [],
     discountBreakdown: [],
   });
@@ -241,13 +240,11 @@ export default function SalesOrder({ onSuccess }: Props) {
     status: "",
     total: "",
     totalQuantity: "",
-    balance: "",
     creationDate: "",
     formattedWeight: "",
     formattedCBM: "",
     formattedTotal: "",
     formattedNetTotal: "",
-    formattedPesoDiscount: "",
     discounts: "",
     discountBreakdown: "",
   });
@@ -272,6 +269,30 @@ export default function SalesOrder({ onSuccess }: Props) {
     console.log("🧾 salesPriceMap built:", map);
     return map;
   }, [itemCatalog]);
+
+  const enrichedItems = formData.items.map((entry) => {
+    const itemName = entry.itemName?.trim().toUpperCase();
+    const catalogItem = itemCatalog.find(
+      (i) => i.itemName?.trim().toUpperCase() === itemName
+    );
+
+    const weight = catalogItem?.weight ?? 0;
+
+    const lengthCm = catalogItem?.length ?? 0;
+    const widthCm = catalogItem?.width ?? 0;
+    const heightCm = catalogItem?.height ?? 0;
+    const cbm =
+      (lengthCm / 100) *
+      (widthCm / 100) *
+      (heightCm / 100) *
+      (entry.quantity ?? 0);
+
+    return {
+      ...entry,
+      weight,
+      cbm: parseFloat(cbm.toFixed(5)),
+    };
+  });
 
   const totalWeight = useMemo(() => {
     if (!Array.isArray(formData.items)) return 0;
@@ -514,13 +535,11 @@ export default function SalesOrder({ onSuccess }: Props) {
       status: "",
       total: "",
       totalQuantity: "",
-      balance: "",
       creationDate: "",
       formattedWeight: "",
       formattedCBM: "",
       formattedTotal: "",
       formattedNetTotal: "",
-      formattedPesoDiscount: "",
       discounts: "",
       discountBreakdown: "",
     };
@@ -721,17 +740,29 @@ export default function SalesOrder({ onSuccess }: Props) {
     if (!validateForm()) return;
 
     console.log("🧠 Starting handleCreate...");
-    console.log("📦 Raw formData.items:", formData.items);
-    console.log("🧾 salesPriceMap:", salesPriceMap);
 
+    // 🔹 Normalize items with weight, CBM, and pricing
     const normalizedItems = formData.items.map((item, index) => {
       const key = item.itemName?.trim().toUpperCase();
       const price = salesPriceMap[key] ?? 0;
       const quantity = Number(item.quantity) || 0;
       const amount = quantity * price;
 
+      const catalogItem = itemCatalog.find(
+        (i) => i.itemName?.trim().toUpperCase() === key
+      );
+
+      const weight = catalogItem?.weight ?? 0;
+      const lengthCm = catalogItem?.length ?? 0;
+      const widthCm = catalogItem?.width ?? 0;
+      const heightCm = catalogItem?.height ?? 0;
+      const cbmPerUnit = (lengthCm / 100) * (widthCm / 100) * (heightCm / 100);
+      const cbm = cbmPerUnit * quantity;
+
       console.log(
-        `🔧 [${index}] Item: ${key}, Qty: ${quantity}, Price: ${price}, Amount: ${amount}`
+        `🔧 [${index}] ${key} → Qty:${quantity}, Price:${price}, Amount:${amount}, Weight:${weight}, CBM:${cbm.toFixed(
+          5
+        )}`
       );
 
       return {
@@ -742,9 +773,12 @@ export default function SalesOrder({ onSuccess }: Props) {
         itemCode: item.itemCode?.trim().toUpperCase() || "",
         description: item.description?.trim() || "",
         amount,
+        weight,
+        cbm: parseFloat(cbm.toFixed(5)),
       };
     });
 
+    // 🔹 Compute totals
     const { total, totalQuantity } = normalizedItems.reduce(
       (acc, item) => {
         acc.total += item.amount;
@@ -754,20 +788,38 @@ export default function SalesOrder({ onSuccess }: Props) {
       { total: 0, totalQuantity: 0 }
     );
 
-    console.log("💰 Computed Total:", total);
-    console.log("📊 Computed Total Quantity:", totalQuantity);
-    console.log("🎯 Discounts from formData:", formData.discounts);
+    console.log("💰 Total:", total);
+    console.log("📊 Quantity:", totalQuantity);
 
+    // 🔹 Resolve discounts via customerGroup → groupName
+    const selectedCustomer = customers.find(
+      (c) =>
+        c.customerName?.trim().toUpperCase() ===
+        formData.customer?.trim().toUpperCase()
+    );
+    const customerGroup = selectedCustomer?.customerGroup?.trim().toUpperCase();
+    const matchedType = customerTypes.find(
+      (type) => type.groupName?.trim().toUpperCase() === customerGroup
+    );
+    const finalDiscounts =
+      Array.isArray(formData.discounts) && formData.discounts.length > 0
+        ? formData.discounts
+        : matchedType?.discounts ?? [];
+
+    console.log("🎯 Final Discounts:", finalDiscounts);
+
+    // 🔹 Compute discount breakdown
     const {
       breakdown: discountBreakdown,
       formattedNetTotal,
       formattedPesoDiscount,
-    } = computeDiscountBreakdown(total, formData.discounts ?? []);
+    } = computeDiscountBreakdown(total, finalDiscounts);
 
-    console.log("📉 Discount Breakdown:", discountBreakdown);
-    console.log("✅ Formatted Net Total:", formattedNetTotal);
-    console.log("✅ Formatted Peso Discount:", formattedPesoDiscount);
+    console.log("📉 Breakdown:", discountBreakdown);
+    console.log("✅ Net Total:", formattedNetTotal);
+    console.log("✅ Peso Discount:", formattedPesoDiscount);
 
+    // 🔹 Update form state
     setFormData((prev) => ({
       ...prev,
       discountBreakdown,
@@ -775,6 +827,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       formattedPesoDiscount,
     }));
 
+    // 🔹 Prepare payload
     const payload = {
       soNumber: formData.soNumber.trim().toUpperCase(),
       customer: formData.customer.trim().toUpperCase(),
@@ -789,6 +842,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       items: normalizedItems,
       total,
       totalQuantity,
+      discounts: finalDiscounts,
       discountBreakdown,
       formattedNetTotal,
       formattedPesoDiscount,
@@ -796,12 +850,11 @@ export default function SalesOrder({ onSuccess }: Props) {
 
     console.log("📦 Final Payload:", payload);
 
+    // 🔹 Submit to backend
     try {
       const res = await fetch("/api/sales-orders", {
         method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-        },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
@@ -816,13 +869,9 @@ export default function SalesOrder({ onSuccess }: Props) {
 
       toast.success("Sales order created successfully!");
 
-      if (typeof onSuccess === "function") {
-        onSuccess();
-      }
+      if (typeof onSuccess === "function") onSuccess();
 
-      setTimeout(() => {
-        router.push("/");
-      }, 300);
+      setTimeout(() => router.push("/"), 300);
     } catch (error) {
       console.error("🔥 Network or unexpected error:", error);
       alert("Something went wrong. Please check your connection or try again.");
@@ -916,13 +965,11 @@ export default function SalesOrder({ onSuccess }: Props) {
     status: "",
     total: "",
     totalQuantity: "",
-    balance: "",
     creationDate: "",
     formattedWeight: "",
     formattedCBM: "",
     formattedTotal: "",
     formattedNetTotal: "",
-    formattedPesoDiscount: "",
     discounts: "",
     discountBreakdown: "", // ✅ Required for type completeness
   };
@@ -1009,7 +1056,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       items: editableItems,
       total: totalAmount,
       totalQuantity,
-      balance: typeof so.balance === "number" ? so.balance : totalAmount,
       formattedWeight: so.formattedWeight ?? "0.00 kg",
       formattedCBM: so.formattedCBM ?? "0.000 m³",
       formattedTotal: totalAmount.toLocaleString("en-PH", {
@@ -1017,7 +1063,6 @@ export default function SalesOrder({ onSuccess }: Props) {
         currency: "PHP",
       }),
       formattedNetTotal,
-      formattedPesoDiscount,
       discounts: resolvedDiscounts,
       discountBreakdown,
       customerType: matchedCustomerType?.groupName ?? "",
@@ -1098,16 +1143,11 @@ export default function SalesOrder({ onSuccess }: Props) {
       items: normalizedItems,
       total: totalAmount,
       totalQuantity,
-      balance:
-        typeof formData.balance === "number" && !isNaN(formData.balance)
-          ? formData.balance
-          : totalAmount,
       formattedTotal: totalAmount.toLocaleString("en-PH", {
         style: "currency",
         currency: "PHP",
       }),
       formattedNetTotal,
-      formattedPesoDiscount,
       discountBreakdown,
     };
 
@@ -1155,12 +1195,10 @@ export default function SalesOrder({ onSuccess }: Props) {
       items: [],
       total: 0,
       totalQuantity: 0,
-      balance: 0,
       formattedWeight: "0.00 kg",
       formattedCBM: "0.000 m³",
       formattedTotal: "0.00",
       formattedNetTotal: "0.00",
-      formattedPesoDiscount: "0.00%",
       discounts: [],
       discountBreakdown: [],
       customerType: "",
@@ -1198,10 +1236,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       toast.error(`Failed to delete SO #${soId}`);
     }
   };
-  const handleView = async (soId: string) => {
-    await fetchSingleSO(soId); // hydrates formData and itemsData
-    setIsViewDialogOpen(true); // opens the dialog
-  };
 
   const formatDate = (date: Date | string) => {
     const parsed = typeof date === "string" ? new Date(date) : date;
@@ -1229,12 +1263,10 @@ export default function SalesOrder({ onSuccess }: Props) {
       items: [],
       total: 0,
       totalQuantity: 0,
-      balance: 0,
       formattedWeight: "0.00 kg",
       formattedCBM: "0.000 m³",
       formattedTotal: "0.00",
       formattedNetTotal: "0.00",
-      formattedPesoDiscount: "0.00%",
       discounts: [],
       discountBreakdown: [], // ✅ Added
       customerType: "",
@@ -1254,12 +1286,10 @@ export default function SalesOrder({ onSuccess }: Props) {
       creationDate: "",
       total: "",
       totalQuantity: "",
-      balance: "",
       formattedWeight: "",
       formattedCBM: "",
       formattedTotal: "",
       formattedNetTotal: "",
-      formattedPesoDiscount: "",
       discounts: "",
       discountBreakdown: "", // ✅ Optional: only if you validate it
     });
@@ -1373,114 +1403,30 @@ export default function SalesOrder({ onSuccess }: Props) {
     }
   };
 
-  useEffect(() => {
-    fetchSalesOrders(); // initial fetch
-
-    const interval = setInterval(() => {
-      fetchSalesOrders();
-    }, 1000); // 1 second polling
-
-    return () => clearInterval(interval); // cleanup on unmount
-  }, []);
-
-  const params = useParams();
-  const soId = params?.id as string;
-
-  useEffect(() => {
-    if (soId) fetchSingleSO(soId);
-  }, [soId]);
-
-  // const normalizeSalesOrderItem = (item: SalesOrderItem): SalesOrderItem => ({
-  //   itemCode: item.itemCode?.trim().toUpperCase() || "",
-  //   itemName: item.itemName?.trim().toUpperCase() || "",
-  //   unitType: item.unitType?.trim().toUpperCase() || "",
-  //   quantity: Number(item.quantity) || 0,
-  //   price: Number(item.price) || 0,
-  //   description: item.description?.trim() || "",
-  //   amount: Number(item.quantity) * Number(item.price),
-  // });
-
   const fetchSingleSO = async (soId: string) => {
+    if (!soId || typeof soId !== "string") {
+      console.warn("⚠️ Invalid Sales Order ID:", soId);
+      return;
+    }
+
     try {
+      console.log(`📡 Fetching Sales Order: ${soId}`);
+
       const res = await fetch(`/api/sales-orders/${soId}`, {
         cache: "no-store",
       });
+
       if (!res.ok) throw new Error("Failed to fetch Sales Order");
 
-      const { order: raw } = await res.json(); // ✅ Correct
+      const { order } = await res.json();
 
-      // 🧠 Normalize items
-      const normalizedItems: SalesOrderItem[] = Array.isArray(raw.items)
-        ? raw.items.map((item: SalesOrderItem) => ({
-            _id: item._id ?? crypto.randomUUID(),
-            itemCode: item.itemCode?.trim().toUpperCase() || "",
-            itemName: item.itemName?.trim().toUpperCase() || "UNNAMED",
-            unitType: item.unitType?.trim().toUpperCase() || "",
-            quantity: Math.max(Number(item.quantity) || 1, 1),
-            price: Number(item.price) || 0,
-            description: item.description?.trim() || "",
-            amount: (Number(item.quantity) || 1) * (Number(item.price) || 0),
-            salesPrice: item.salesPrice,
-            weight: item.weight ?? 0,
-            cbm: item.cbm ?? 0,
-          }))
-        : [];
+      console.log("📥 Raw Sales Order from DB:", order);
 
-      // 🧮 Compute totals
-      const totalQuantity = normalizedItems.reduce(
-        (sum, item) => sum + item.quantity,
-        0
-      );
-      const totalAmount = normalizedItems.reduce(
-        (sum, item) => sum + item.amount,
-        0
-      );
-
-      const formattedWeight = formatWeight(normalizedItems);
-      const formattedCBM = formatCBM(normalizedItems);
-      const formattedTotal = totalAmount.toLocaleString("en-PH", {
-        style: "currency",
-        currency: "PHP",
-      });
-
-      // 🧠 Compute discount breakdown
-      const {
-        breakdown: discountBreakdown,
-        formattedNetTotal,
-        formattedPesoDiscount,
-      } = computeDiscountBreakdown(totalAmount, raw.discounts ?? []);
-
-      // 🧾 Hydrate SalesOrder
-      const hydratedSO: SalesOrder = {
-        _id: raw._id ? String(raw._id) : "",
-        soNumber: raw.soNumber ?? "",
-        customer: raw.customer ?? "",
-        salesPerson: raw.salesPerson ?? "",
-        warehouse: raw.warehouse ?? "",
-        transactionDate: raw.transactionDate ?? "",
-        deliveryDate: raw.deliveryDate ?? "",
-        shippingAddress: raw.shippingAddress?.trim() ?? "",
-        notes: raw.notes?.trim() ?? "",
-        status: raw.status ?? "PENDING",
-        creationDate:
-          raw.creationDate ?? new Date().toISOString().split("T")[0],
-        items: normalizedItems,
-        total: totalAmount,
-        totalQuantity,
-        balance: raw.balance ?? totalAmount,
-        formattedWeight,
-        formattedCBM,
-        formattedTotal,
-        formattedNetTotal,
-        formattedPesoDiscount,
-        discounts: raw.discounts ?? [],
-        discountBreakdown,
-      };
-
-      setItemsData(normalizedItems);
-      setFormData(hydratedSO);
+      setItemsData(order.items ?? []);
+      setFormData(order);
     } catch (error) {
       console.error("❌ Error loading Sales Order:", error);
+
       setItemsData([]);
       setFormData({
         soNumber: "",
@@ -1496,18 +1442,73 @@ export default function SalesOrder({ onSuccess }: Props) {
         items: [],
         total: 0,
         totalQuantity: 0,
-        balance: 0,
         formattedWeight: "0.00 kg",
         formattedCBM: "0.000 m³",
-        formattedTotal: "0.00",
-        formattedNetTotal: "0.00",
-        formattedPesoDiscount: "0.00%",
+        formattedTotal: "₱0.00",
+        formattedNetTotal: "₱0.00",
         discounts: [],
         discountBreakdown: [],
         customerType: "",
         customerTypeData: undefined,
       });
     }
+  };
+
+  useEffect(() => {
+    // 🔁 Poll all sales orders every second
+    const fetchAndPollSalesOrders = () => {
+      fetchSalesOrders(); // initial fetch
+
+      const interval = setInterval(() => {
+        fetchSalesOrders();
+      }, 1000);
+
+      return () => clearInterval(interval); // cleanup
+    };
+
+    const cleanup = fetchAndPollSalesOrders();
+    return cleanup;
+  }, []);
+
+  const params = useParams();
+  const soId = params?.id as string;
+
+  useEffect(() => {
+    if (soId) {
+      fetchSingleSO(soId);
+    }
+  }, [soId]);
+
+  // const isHydrationReady = useMemo(() => {
+  //   return (
+  //     itemCatalog.length > 0 && customers.length > 0 && customerTypes.length > 0
+  //   );
+  // }, [itemCatalog, customers, customerTypes]);
+
+  const handleView = async (soId: string) => {
+    if (!soId) return;
+
+    console.log(`🔍 Viewing Sales Order: ${soId}`);
+    await fetchSingleSO(soId); // wait for hydration
+    console.log("✅ Sales Order hydrated successfully");
+
+    // Only open dialog if formData is now populated
+    if (formData.soNumber) {
+      setIsViewDialogOpen(true);
+    } else {
+      console.warn("⚠️ formData not ready, skipping dialog open");
+    }
+  };
+
+  const handleRemoveAllItems = () => {
+    setItemsData([]);
+
+    setFormData((prev) => ({
+      ...prev,
+      items: [],
+      totalQuantity: 0,
+      total: 0,
+    }));
   };
 
   const handleAddItem = () => {
@@ -1527,51 +1528,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       ...prev,
       items: [...prev.items, newItem],
     }));
-  };
-
-  const handleRemoveAllItems = () => {
-    setItemsData([]);
-
-    setFormData((prev) => ({
-      ...prev,
-      items: [],
-      totalQuantity: 0,
-      total: 0,
-    }));
-  };
-
-  const handleAddItemEdit = () => {
-    const newItem: SalesOrderItem = {
-      _id: crypto.randomUUID(), // ensures uniqueness and satisfies required field
-      itemCode: "",
-      itemName: "",
-      description: "",
-      unitType: "",
-      price: 0,
-      quantity: 1,
-      amount: 0,
-    };
-
-    setFormData((prev) => {
-      const updatedItems = [...prev.items, newItem];
-
-      const totalQuantity = updatedItems.reduce(
-        (sum, item) => sum + (item.quantity || 0),
-        0
-      );
-
-      const total = updatedItems.reduce(
-        (sum, item) => sum + (item.amount || item.quantity * item.price),
-        0
-      );
-
-      return {
-        ...prev,
-        items: updatedItems,
-        totalQuantity,
-        total,
-      };
-    });
   };
 
   const handleRemoveItem = (index: number) => {
@@ -3855,198 +3811,201 @@ export default function SalesOrder({ onSuccess }: Props) {
       </Dialog>
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogPanel className="w-full px-6 py-6">
-          {/* Hidden Dialog Title for accessibility */}
-          <DialogTitle className="sr-only">Sales Invoice</DialogTitle>
+        {formData.soNumber ? (
+          <DialogPanel className="w-full px-6 py-6">
+            {/* Hidden Dialog Title for accessibility */}
+            <DialogTitle className="sr-only">Sales Invoice</DialogTitle>
 
-          {/* Invoice Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
-            <div>
-              <h2 className="text-xl font-bold text-primary tracking-wide">
-                Sales Invoice
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Invoice No: {formData.soNumber}
-              </p>
+            {/* Invoice Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
+              <div>
+                <h2 className="text-xl font-bold text-primary tracking-wide">
+                  Sales Invoice
+                </h2>
+                <p className="text-sm text-muted-foreground">
+                  Invoice No: {formData.soNumber}
+                </p>
+              </div>
+              <div className="text-sm text-right text-muted-foreground">
+                <p>Transaction Date: {formData.transactionDate}</p>
+                <p>Delivery Date: {formData.deliveryDate}</p>
+                <p>
+                  Status:{" "}
+                  <span className="font-semibold text-foreground">
+                    {formData.status}
+                  </span>
+                </p>
+              </div>
             </div>
-            <div className="text-sm text-right text-muted-foreground">
-              <p>Transaction Date: {formData.transactionDate}</p>
-              <p>Delivery Date: {formData.deliveryDate}</p>
-              <p>
-                Status:{" "}
-                <span className="font-semibold text-foreground">
-                  {formData.status}
-                </span>
-              </p>
-            </div>
-          </div>
 
-          {/* Customer & Warehouse Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div className="text-sm">
-              <h4 className="font-medium text-muted-foreground mb-1">
-                Customer
-              </h4>
-              <p className="text-foreground font-semibold">
-                {formData.customer}
-              </p>
-              <p className="text-muted-foreground">
-                Type: {formData.customerType}
-              </p>
-              <p className="text-muted-foreground">
-                Sales Person: {formData.salesPerson}
-              </p>
+            {/* Customer & Warehouse Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="text-sm">
+                <h4 className="font-medium text-muted-foreground mb-1">
+                  Customer
+                </h4>
+                <p className="text-foreground font-semibold">
+                  {formData.customer}
+                </p>
+                <p className="text-muted-foreground">
+                  Type: {formData.customerType}
+                </p>
+                <p className="text-muted-foreground">
+                  Sales Person: {formData.salesPerson}
+                </p>
+              </div>
+              <div className="text-sm">
+                <h4 className="font-medium text-muted-foreground mb-1">
+                  Warehouse
+                </h4>
+                <p className="text-foreground font-semibold">
+                  {formData.warehouse}
+                </p>
+                <p className="text-muted-foreground">Shipping Address:</p>
+                <p className="text-muted-foreground">
+                  {formData.shippingAddress}
+                </p>
+                <p className="text-muted-foreground">Notes:</p>
+                <p className="text-muted-foreground">{formData.notes}</p>
+              </div>
             </div>
-            <div className="text-sm">
-              <h4 className="font-medium text-muted-foreground mb-1">
-                Warehouse
-              </h4>
-              <p className="text-foreground font-semibold">
-                {formData.warehouse}
-              </p>
-              <p className="text-muted-foreground">Shipping Address:</p>
-              <p className="text-muted-foreground">
-                {formData.shippingAddress}
-              </p>
-              <p className="text-muted-foreground">Notes:</p>
-              <p className="text-muted-foreground">{formData.notes}</p>
-            </div>
-          </div>
 
-          {/* Itemized Table */}
-          <div className="overflow-x-auto mb-6">
-            <table className="min-w-full text-sm border border-border rounded-md overflow-hidden">
-              <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                <tr>
-                  <th className="px-4 py-2 text-left">Item</th>
-                  <th className="px-4 py-2 text-right">Qty</th>
-                  <th className="px-4 py-2 text-left">UOM</th>
-                  <th className="px-4 py-2 text-right">Price</th>
-                  <th className="px-4 py-2 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {formData.items.map((item, index) => (
-                  <tr key={index} className="border-t">
-                    <td className="px-4 py-2">{item.itemName}</td>
-                    <td className="px-4 py-2 text-right">{item.quantity}</td>
-                    <td className="px-4 py-2">{item.unitType}</td>
+            {/* Itemized Table */}
+            <div className="overflow-x-auto mb-6">
+              <table className="min-w-full text-sm border border-border rounded-md overflow-hidden">
+                <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Item</th>
+                    <th className="px-4 py-2 text-right">Qty</th>
+                    <th className="px-4 py-2 text-left">UOM</th>
+                    <th className="px-4 py-2 text-right">Price</th>
+                    <th className="px-4 py-2 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formData.items.map((item, index) => (
+                    <tr key={index} className="border-t">
+                      <td className="px-4 py-2">{item.itemName}</td>
+                      <td className="px-4 py-2 text-right">{item.quantity}</td>
+                      <td className="px-4 py-2">{item.unitType}</td>
+                      <td className="px-4 py-2 text-right">
+                        ₱
+                        {item.price.toLocaleString("en-PH", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        ₱
+                        {item.amount.toLocaleString("en-PH", {
+                          minimumFractionDigits: 2,
+                        })}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Summary Section */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Metrics */}
+              <table className="w-full text-sm border border-border rounded-md bg-card shadow-sm">
+                <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Metric</th>
+                    <th className="px-4 py-2 text-right">Value</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t">
+                    <td className="px-4 py-2">Total Quantity</td>
                     <td className="px-4 py-2 text-right">
-                      ₱
-                      {item.price.toLocaleString("en-PH", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      ₱
-                      {item.amount.toLocaleString("en-PH", {
-                        minimumFractionDigits: 2,
-                      })}
+                      {formData.totalQuantity}
                     </td>
                   </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Summary Section */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-            {/* Metrics */}
-            <table className="w-full text-sm border border-border rounded-md bg-card shadow-sm">
-              <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                <tr>
-                  <th className="px-4 py-2 text-left">Metric</th>
-                  <th className="px-4 py-2 text-right">Value</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-t">
-                  <td className="px-4 py-2">Total Quantity</td>
-                  <td className="px-4 py-2 text-right">
-                    {formData.totalQuantity}
-                  </td>
-                </tr>
-                <tr className="border-t">
-                  <td className="px-4 py-2">Total Weight</td>
-                  <td className="px-4 py-2 text-right">
-                    {formData.formattedWeight}
-                  </td>
-                </tr>
-                <tr className="border-t">
-                  <td className="px-4 py-2">Total CBM</td>
-                  <td className="px-4 py-2 text-right">
-                    {formData.formattedCBM}
-                  </td>
-                </tr>
-                <tr className="border-t">
-                  <td className="px-4 py-2">UOM</td>
-                  <td className="px-4 py-2 text-right">
-                    {Array.from(
-                      new Set(
-                        formData.items.map((i) =>
-                          i.unitType?.trim().toUpperCase()
+                  <tr className="border-t">
+                    <td className="px-4 py-2">Total Weight</td>
+                    <td className="px-4 py-2 text-right">
+                      {formData.formattedWeight}
+                    </td>
+                  </tr>
+                  <tr className="border-t">
+                    <td className="px-4 py-2">Total CBM</td>
+                    <td className="px-4 py-2 text-right">
+                      {formData.formattedCBM}
+                    </td>
+                  </tr>
+                  <tr className="border-t">
+                    <td className="px-4 py-2">UOM</td>
+                    <td className="px-4 py-2 text-right">
+                      {Array.from(
+                        new Set(
+                          formData.items.map((i) =>
+                            i.unitType?.trim().toUpperCase()
+                          )
                         )
                       )
-                    )
-                      .filter(Boolean)
-                      .join(", ")}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
+                        .filter(Boolean)
+                        .join(", ")}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
 
-            {/* Financials */}
-            <table className="w-full text-sm border border-border rounded-md bg-card shadow-sm">
-              <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                <tr>
-                  <th className="px-4 py-2 text-left">Breakdown</th>
-                  <th className="px-4 py-2 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                <tr className="border-t">
-                  <td className="px-4 py-2">Gross Amount</td>
-                  <td className="px-4 py-2 text-right">
-                    {formData.formattedTotal}
-                  </td>
-                </tr>
-                <tr className="border-t bg-muted/10">
-                  <td className="px-4 py-2 font-medium text-muted-foreground">
-                    Discounts (%)
-                  </td>
-                  <td className="px-4 py-2 text-right text-foreground text-sm">
-                    {formData.discountBreakdown.map((step, i) => (
-                      <div key={i}>{step.rate.toFixed(2)}%</div>
-                    ))}
-                  </td>
-                </tr>
-                <tr className="border-t">
-                  <td className="px-4 py-2">Peso Discount</td>
-                  <td className="px-4 py-2 text-right">
-                    {formData.formattedPesoDiscount}
-                  </td>
-                </tr>
-                <tr className="border-t">
-                  <td className="px-4 py-2 font-medium text-primary">
-                    Net Amount
-                  </td>
-                  <td className="px-4 py-2 text-right font-bold text-primary">
-                    {formData.formattedNetTotal}
-                  </td>
-                </tr>
-              </tbody>
-            </table>
-          </div>
+              {/* Financials */}
+              <table className="w-full text-sm border border-border rounded-md bg-card shadow-sm">
+                <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Breakdown</th>
+                    <th className="px-4 py-2 text-right">Amount</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-t">
+                    <td className="px-4 py-2">Gross Amount</td>
+                    <td className="px-4 py-2 text-right">
+                      {formData.formattedTotal}
+                    </td>
+                  </tr>
+                  <tr className="border-t bg-muted/10">
+                    <td className="px-4 py-2 font-medium text-muted-foreground">
+                      Discounts (%)
+                    </td>
+                    <td className="px-4 py-2 text-right text-foreground text-sm">
+                      {formData.discountBreakdown.map((step, i) => (
+                        <div key={i}>{step.rate.toFixed(2)}%</div>
+                      ))}
+                    </td>
+                  </tr>
 
-          {/* Footer with Close Button */}
-          <DialogFooter className="px-6 py-4 border-t border-border flex justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setIsViewDialogOpen(false)}>
-              Close
-            </Button>
-          </DialogFooter>
-        </DialogPanel>
+                  <tr className="border-t">
+                    <td className="px-4 py-2 font-medium text-primary">
+                      Net Amount
+                    </td>
+                    <td className="px-4 py-2 text-right font-bold text-primary">
+                      {formData.formattedNetTotal}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer with Close Button */}
+            <DialogFooter className="px-6 py-4 border-t border-border flex justify-end">
+              <Button
+                variant="outline"
+                onClick={() => setIsViewDialogOpen(false)}>
+                Close
+              </Button>
+            </DialogFooter>
+          </DialogPanel>
+        ) : (
+          <DialogPanel className="w-full px-6 py-6">
+            <p className="text-sm text-muted-foreground">
+              ⏳ Loading sales order...
+            </p>
+          </DialogPanel>
+        )}
       </Dialog>
     </div>
   );

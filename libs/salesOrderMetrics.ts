@@ -21,10 +21,11 @@ export const formatWeight = (items: SalesOrderItem[]): string => {
 
 // 📦 Total CBM (formatted)
 export const formatCBM = (items: SalesOrderItem[]): string => {
-  const totalCBM = items.reduce(
-    (sum: number, item) => sum + (item.cbm ?? 0),
-    0
-  );
+  const totalCBM = items.reduce((sum, item) => {
+    const cbmPerUnit = item.cbm ?? 0;
+    const quantity = item.quantity ?? 0;
+    return sum + cbmPerUnit * quantity;
+  }, 0);
   return `${totalCBM.toFixed(3)} m³`;
 };
 
@@ -48,38 +49,47 @@ export const computePesoDiscount = (discounts: string[] = []): string => {
 };
 
 // 🧾 Net Total (formatted)
-export const computeNetTotal = (so: SalesOrderInput): string => {
-  const subtotal = parseFloat(computeSubtotal(so.items ?? []));
-  const discountPercent = (so.discounts ?? [])
+export const computeNetTotal = ({
+  total,
+  discounts = [],
+}: {
+  total: number;
+  discounts?: string[];
+}): string => {
+  const discountPercent = discounts
     .map((d) => parseFloat(d))
     .filter((v) => !isNaN(v))
     .reduce((sum, v) => sum + v, 0);
 
-  const net = subtotal * (1 - discountPercent / 100);
+  const net = total * (1 - discountPercent / 100);
   return net.toFixed(2);
 };
 
 // 🧠 Inject all computed fields
 export const enrichSalesOrderInput = (so: SalesOrderInput): SalesOrderInput => {
+  const formattedTotal = computeSubtotal(so.items ?? []);
+  const total = parseFloat(formattedTotal);
+
   return {
     ...so,
     totalQuantity: computeTotalQuantity(so.items ?? []),
     formattedWeight: formatWeight(so.items ?? []),
     formattedCBM: formatCBM(so.items ?? []),
-    formattedTotal: computeSubtotal(so.items ?? []),
-    formattedNetTotal: computeNetTotal(so),
-    formattedPesoDiscount: computePesoDiscount(so.discounts ?? []),
+    formattedTotal,
+    formattedNetTotal: computeNetTotal({ total, discounts: so.discounts }),
   };
 };
 
 export const enrichSalesOrder = (so: SalesOrder): SalesOrder => {
+  const formattedTotal = computeSubtotal(so.items ?? []);
+  const total = parseFloat(formattedTotal);
+
   return {
     ...so,
     totalQuantity: computeTotalQuantity(so.items ?? []),
     formattedWeight: formatWeight(so.items ?? []),
     formattedCBM: formatCBM(so.items ?? []),
-    formattedTotal: computeSubtotal(so.items ?? []),
-    formattedNetTotal: computeNetTotal(so),
-    formattedPesoDiscount: computePesoDiscount(so.discounts ?? []),
+    formattedTotal,
+    formattedNetTotal: computeNetTotal({ total, discounts: so.discounts }),
   };
 };
