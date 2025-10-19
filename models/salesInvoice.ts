@@ -24,23 +24,33 @@ type SalesInvoiceDoc = HydratedDocument<{
   updatedAt: Date;
 }>;
 
+const SalesInvoiceItemSchema = new Schema(
+  {
+    itemCode: { type: String, trim: true, uppercase: true },
+    itemName: { type: String, trim: true, uppercase: true },
+    description: { type: String, trim: true },
+    quantity: { type: Number, min: 1 },
+    unitType: { type: String, trim: true, uppercase: true },
+    price: { type: Number, min: 0 },
+    amount: { type: Number, min: 0 },
+  },
+  { _id: false } // prevent auto-generating _id for each item
+);
+
 const SalesInvoiceSchema = new Schema(
   {
     // Core identifiers
     invoiceNo: {
       type: String,
-      required: true,
       unique: true,
     },
     invoiceDate: {
       type: Date,
-      required: true,
     },
 
     // Customer details
     customer: {
       type: String,
-      required: true,
       uppercase: true,
       trim: true,
     },
@@ -67,19 +77,22 @@ const SalesInvoiceSchema = new Schema(
 
     // Linked sales order
     salesOrder: {
-      type: Schema.Types.ObjectId,
-      ref: "SalesOrder",
+      type: String,
+      trim: true,
+    },
+
+    items: {
+      type: [SalesInvoiceItemSchema],
+      default: [],
     },
 
     // Financials
     amount: {
       type: Number,
-      required: true,
       min: 0,
     },
     balance: {
       type: Number,
-      required: true,
       min: 0,
     },
     status: {

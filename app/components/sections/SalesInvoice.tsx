@@ -12,7 +12,12 @@ import {
   CalendarDays,
 } from "lucide-react";
 
-import { SalesInvoice } from "../sections/type";
+import {
+  SalesInvoice,
+  Customer,
+  SalesOrder,
+  SalesOrderItem,
+} from "../sections/type";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Dialog, DialogPanel, DialogHeader, DialogTitle } from "../ui/dialog";
@@ -42,6 +47,10 @@ import {
 
 export default function SalesInvoicePage() {
   const [salesInvoices, setSalesInvoices] = useState<SalesInvoice[]>([]);
+  const [customers, setCustomers] = useState<Customer[]>([]);
+  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
+
+  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
   const [paginatedSalesInvoices, setPaginatedSalesInvoices] = useState<
     SalesInvoice[]
   >([]);
@@ -56,14 +65,65 @@ export default function SalesInvoicePage() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [formData, setFormData] = useState({
+  const [formData, setFormData] = useState<{
+    customer: string;
+    reference: string;
+    status: "UNPAID" | "PARTIAL" | "PAID" | "VOID";
+    invoiceDate: string;
+    dueDate: string;
+    notes: string;
+    salesPerson: string;
+    TIN: string;
+    terms: string;
+    address: string;
+    salesOrder: string;
+    salesOrderLabel: string;
+    soItems: SalesOrderItem[];
+  }>({
     customer: "",
-    amount: 0,
+    reference: "",
     status: "UNPAID",
     invoiceDate: new Date().toISOString().split("T")[0],
+    dueDate: "",
     notes: "",
+    salesPerson: "",
+    TIN: "",
+    terms: "",
+    address: "",
+    salesOrder: "",
+    salesOrderLabel: "",
+    soItems: [],
   });
+
   const [isCreating, setIsCreating] = useState(false);
+
+  const [salesOrderSuggestions, setSalesOrderSuggestions] = useState<
+    SalesOrder[]
+  >([]);
+
+  const [showSalesOrderSuggestions, setShowSalesOrderSuggestions] =
+    useState(false);
+
+  useEffect(() => {
+    const fetchSalesOrders = async () => {
+      const name = formData.customer?.trim().toUpperCase();
+      if (!name) return;
+
+      try {
+        const res = await fetch(
+          `/api/sales-orders/by-customer/${encodeURIComponent(name)}`
+        );
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const { orders } = await res.json();
+        setSalesOrderSuggestions(orders || []);
+      } catch (err) {
+        console.error("❌ Failed to fetch sales orders:", err);
+        setSalesOrderSuggestions([]);
+      }
+    };
+
+    fetchSalesOrders();
+  }, [formData.customer]);
 
   useEffect(() => {
     const fetchInvoices = async () => {
@@ -80,6 +140,22 @@ export default function SalesInvoicePage() {
     };
 
     fetchInvoices();
+  }, []);
+
+  useEffect(() => {
+    console.log("Fetching customers...");
+
+    fetch("/api/customers")
+      .then((res) => res.json())
+      .then((response) => {
+        console.log("Raw response:", response);
+
+        const data = Array.isArray(response?.items) ? response.items : [];
+
+        console.log("Parsed customers:", data);
+        setCustomers(data);
+      })
+      .catch((err) => console.error("Failed to fetch customers", err));
   }, []);
 
   const filteredSalesInvoices = useMemo(() => {
@@ -150,11 +226,23 @@ export default function SalesInvoicePage() {
     try {
       const payload = {
         customer: formData.customer.trim().toUpperCase(),
-        amount: Number(formData.amount),
+        reference: formData.reference || "",
         status: formData.status || "UNPAID",
         invoiceDate: new Date(formData.invoiceDate).toISOString(),
         notes: formData.notes?.trim() || "",
+        salesOrder: formData.salesOrderLabel || "", // ✅ send SO number
+        items: formData.soItems.map((item) => ({
+          itemCode: item.itemCode?.trim().toUpperCase() || "",
+          itemName: item.itemName?.trim().toUpperCase() || "",
+          description: item.description?.trim() || "",
+          quantity: Math.max(Number(item.quantity) || 1, 1),
+          unitType: item.unitType?.trim().toUpperCase() || "",
+          price: Number(item.price) || 0,
+          amount: Number(item.quantity) * Number(item.price),
+        })),
       };
+
+      console.log("📦 Creating Sales Invoice with payload:", payload);
 
       const res = await fetch("/api/sales-invoices", {
         method: "POST",
@@ -164,15 +252,26 @@ export default function SalesInvoicePage() {
 
       const data = await res.json();
 
+      console.log("📨 Server response:", data);
+
       if (res.ok) {
+        console.log("✅ Invoice created:", data.invoice);
         setSalesInvoices((prev) => [data.invoice, ...prev]);
         setIsCreateDialogOpen(false);
         setFormData({
           customer: "",
-          amount: 0,
+          reference: "",
           status: "UNPAID",
           invoiceDate: new Date().toISOString().split("T")[0],
+          dueDate: "",
           notes: "",
+          salesPerson: "",
+          TIN: "",
+          terms: "",
+          address: "",
+          salesOrder: "",
+          salesOrderLabel: "",
+          soItems: [],
         });
       } else {
         console.error("❌ Create failed:", data.error);
@@ -347,117 +446,388 @@ export default function SalesInvoicePage() {
         </CardContent>
       </Card>
 
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog
+        open={isCreateDialogOpen}
+        onOpenChange={(open) => {
+          setIsCreateDialogOpen(open);
+          if (!open) {
+            setFormData({
+              customer: "",
+              reference: "",
+              status: "UNPAID",
+              invoiceDate: new Date().toISOString().split("T")[0],
+              dueDate: "",
+              notes: "",
+              salesPerson: "",
+              TIN: "",
+              terms: "",
+              address: "",
+              salesOrder: "",
+              salesOrderLabel: "",
+              soItems: [],
+            });
+          }
+        }}>
         <DialogPanel className="max-w-xl w-full p-6 space-y-4">
-          <DialogHeader>
-            <DialogTitle>Create Invoice</DialogTitle>
+          <DialogHeader className="border-b pb-4">
+            <DialogTitle className="text-xl font-semibold tracking-tight">
+              Create Sales Invoice
+            </DialogTitle>
           </DialogHeader>
 
           <Card className="shadow-none border-none">
-            <CardHeader>
-              <CardDescription className="text-sm text-muted-foreground">
-                Fill out invoice details
-              </CardDescription>
-            </CardHeader>
-
-            <CardContent className="space-y-4">
+            <div className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label
-                    htmlFor="customer"
-                    className="text-sm text-muted-foreground">
-                    Customer
-                  </label>
+                  <Label htmlFor="create-invoice-no"> Invoice No.</Label>
                   <Input
-                    id="customer"
-                    value={formData.customer}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        customer: e.target.value.toUpperCase().trim(),
-                      })
-                    }
-                    placeholder="Customer name"
+                    id="create-si-number"
+                    value={"Auto-generated"}
+                    readOnly
+                    disabled
+                    placeholder="Auto-generated"
+                    className="text-sm uppercase bg-muted cursor-not-allowed"
                   />
                 </div>
 
                 <div>
-                  <label
-                    htmlFor="amount"
-                    className="text-sm text-muted-foreground">
-                    Amount
-                  </label>
-                  <Input
-                    id="amount"
-                    type="number"
-                    value={formData.amount}
-                    onChange={(e) =>
-                      setFormData({
-                        ...formData,
-                        amount: Number(e.target.value),
-                      })
-                    }
-                    placeholder="0.00"
-                  />
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="status"
-                    className="text-sm text-muted-foreground">
-                    Status
-                  </label>
-                  <select
-                    id="status"
-                    className="w-full border rounded-md px-3 py-2 text-sm"
-                    value={formData.status}
-                    onChange={(e) =>
-                      setFormData({ ...formData, status: e.target.value })
-                    }>
-                    <option value="UNPAID">UNPAID</option>
-                    <option value="PARTIAL">PARTIAL</option>
-                    <option value="PAID">PAID</option>
-                    <option value="VOID">VOID</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label
-                    htmlFor="invoiceDate"
-                    className="text-sm text-muted-foreground">
-                    Invoice Date
-                  </label>
+                  <Label htmlFor="create-invoice-date"> Invoice Date</Label>
                   <Input
                     id="invoiceDate"
+                    type="text"
+                    value={new Date(formData.invoiceDate).toLocaleDateString(
+                      "en-PH",
+                      {
+                        month: "short",
+                        day: "2-digit",
+                        year: "numeric",
+                      }
+                    )}
+                    readOnly
+                    className="bg-muted cursor-not-allowed"
+                  />
+                </div>
+
+                <div className="flex flex-col flex-1 min-w-[240px]">
+                  <Label htmlFor="create-customer-name">Customer Name</Label>
+                  <div className="relative">
+                    <Input
+                      id="create-customer-name"
+                      type="text"
+                      autoComplete="off"
+                      value={formData.customer || ""}
+                      onClick={() => setShowCustomerSuggestions(true)}
+                      onChange={(e) => {
+                        const value = e.target.value.toUpperCase();
+                        setFormData((prev) => ({
+                          ...prev,
+                          customer: value,
+                          salesPerson: "",
+                          TIN: "",
+                          terms: "",
+                          address: "",
+                        }));
+                        setShowCustomerSuggestions(true);
+                      }}
+                      onBlur={() =>
+                        setTimeout(() => setShowCustomerSuggestions(false), 200)
+                      }
+                      placeholder="Search customer name"
+                      className="text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                    />
+
+                    {showCustomerSuggestions && (
+                      <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                        {(() => {
+                          const input =
+                            formData.customer?.trim().toUpperCase() || "";
+                          const filtered = customers.filter((customer) => {
+                            const label =
+                              customer.customerName?.trim().toUpperCase() || "";
+                            return input === "" || label.includes(input);
+                          });
+
+                          return filtered.length > 0 ? (
+                            filtered.map((customer) => {
+                              const label =
+                                customer.customerName?.trim() ||
+                                "Unnamed Customer";
+                              const value = label.toUpperCase();
+
+                              return (
+                                <li
+                                  key={customer._id || value}
+                                  className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                  onClick={async () => {
+                                    const customerName =
+                                      customer.customerName
+                                        ?.trim()
+                                        .toUpperCase() || "";
+                                    const salesPerson =
+                                      customer.salesAgent?.trim() || "";
+                                    const customerGroup =
+                                      customer.customerGroup
+                                        ?.trim()
+                                        .toUpperCase() || "";
+
+                                    try {
+                                      const res = await fetch(
+                                        `/api/customer-types/by-group/${customerGroup}`
+                                      );
+                                      if (!res.ok)
+                                        throw new Error(`HTTP ${res.status}`);
+
+                                      const text = await res.text();
+                                      if (!text)
+                                        throw new Error("Empty response body");
+
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        customer: customerName,
+                                        salesPerson,
+                                        TIN: customer.TIN || "",
+                                        terms: customer.terms || "",
+                                        address: customer.address || "",
+                                      }));
+                                    } catch (err) {
+                                      console.error(
+                                        `❌ Failed to fetch customer type ${customerGroup}`,
+                                        err
+                                      );
+                                    }
+
+                                    setShowCustomerSuggestions(false);
+                                  }}>
+                                  {label}
+                                </li>
+                              );
+                            })
+                          ) : (
+                            <li className="px-3 py-2 text-muted-foreground">
+                              No matching customer found
+                            </li>
+                          );
+                        })()}
+                      </ul>
+                    )}
+                  </div>
+                </div>
+
+                <div>
+                  <Label htmlFor="due-date">Due Date</Label>
+                  <Input
+                    id="due-date"
                     type="date"
-                    value={formData.invoiceDate}
+                    value={formData.dueDate || ""}
+                    onChange={(e) =>
+                      setFormData((prev) => ({
+                        ...prev,
+                        dueDate: e.target.value,
+                      }))
+                    }
+                    className="text-sm"
+                  />
+                </div>
+
+                {formData.customer && (
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <Label htmlFor="sales-agent">Sales Agent</Label>
+                      <Input
+                        id="sales-agent"
+                        value={formData.salesPerson || ""}
+                        readOnly
+                        disabled
+                        className="bg-muted cursor-not-allowed text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="tin">TIN</Label>
+                      <Input
+                        id="tin"
+                        value={formData.TIN || ""}
+                        readOnly
+                        disabled
+                        className="bg-muted cursor-not-allowed text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="terms">Terms</Label>
+                      <Input
+                        id="terms"
+                        value={formData.terms || ""}
+                        readOnly
+                        disabled
+                        className="bg-muted cursor-not-allowed text-sm"
+                      />
+                    </div>
+
+                    <div>
+                      <Label htmlFor="address">Address</Label>
+                      <Input
+                        id="address"
+                        value={formData.address || ""}
+                        readOnly
+                        disabled
+                        className="bg-muted cursor-not-allowed text-sm"
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div>
+                  <Label htmlFor="create-reference">Reference</Label>
+                  <Input
+                    id="reference"
+                    value={formData.reference}
                     onChange={(e) =>
                       setFormData({
                         ...formData,
-                        invoiceDate: new Date(e.target.value)
-                          .toISOString()
-                          .split("T")[0],
+                        reference: e.target.value.trim(),
                       })
                     }
                   />
                 </div>
+
+                <div>
+                  <Label htmlFor="create-notes">Notes</Label>
+                  <Input
+                    id="notes"
+                    value={formData.notes}
+                    onChange={(e) =>
+                      setFormData({ ...formData, notes: e.target.value.trim() })
+                    }
+                    placeholder="Optional notes"
+                  />
+                </div>
+
+                <div className="col-span-2">
+                  <Label htmlFor="sales-order-select">Sales Order</Label>
+                  <div className="relative">
+                    <Input
+                      id="sales-order-select"
+                      type="text"
+                      value={formData.salesOrderLabel}
+                      disabled={!formData.customer}
+                      placeholder={
+                        formData.customer
+                          ? "Type or select matching sales order"
+                          : "Select customer first"
+                      }
+                      className={`text-sm w-full ${
+                        formData.customer
+                          ? "bg-white"
+                          : "bg-muted cursor-not-allowed"
+                      }`}
+                      onChange={(e) => {
+                        const input = e.target.value;
+                        setFormData((prev) => ({
+                          ...prev,
+                          salesOrderLabel: input,
+                          salesOrder: "", // clear selected ID when typing
+                          soItems: [],
+                        }));
+                        setShowSalesOrderSuggestions(true);
+                      }}
+                      onFocus={() => {
+                        if (formData.customer)
+                          setShowSalesOrderSuggestions(true);
+                      }}
+                    />
+
+                    {formData.customer &&
+                      showSalesOrderSuggestions &&
+                      salesOrderSuggestions.length > 0 && (
+                        <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                          {salesOrderSuggestions
+                            .filter((so) =>
+                              so.soNumber
+                                .toLowerCase()
+                                .includes(
+                                  formData.salesOrderLabel.toLowerCase()
+                                )
+                            )
+                            .map((so) => (
+                              <li
+                                key={
+                                  typeof so._id === "string"
+                                    ? so._id
+                                    : so._id.toString()
+                                }
+                                className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                onClick={async () => {
+                                  const soId =
+                                    typeof so._id === "string"
+                                      ? so._id
+                                      : so._id.toString();
+
+                                  setFormData((prev) => ({
+                                    ...prev,
+                                    salesOrder: soId,
+                                    salesOrderLabel: so.soNumber,
+                                  }));
+                                  setShowSalesOrderSuggestions(false);
+
+                                  try {
+                                    const res = await fetch(
+                                      `/api/sales-orders/${soId}`
+                                    );
+                                    if (!res.ok)
+                                      throw new Error(`HTTP ${res.status}`);
+                                    const { order } = await res.json();
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      soItems: order?.items || [],
+                                    }));
+                                  } catch (err) {
+                                    console.error(
+                                      "❌ Failed to fetch SO details:",
+                                      err
+                                    );
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      soItems: [],
+                                    }));
+                                  }
+                                }}>
+                                {so.soNumber}
+                              </li>
+                            ))}
+                        </ul>
+                      )}
+                  </div>
+                </div>
               </div>
 
-              <div>
-                <label
-                  htmlFor="notes"
-                  className="text-sm text-muted-foreground">
-                  Notes
-                </label>
-                <Input
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value.trim() })
-                  }
-                  placeholder="Optional notes"
-                />
-              </div>
+              {formData.soItems?.length > 0 && (
+                <div className="mt-4">
+                  <h3 className="text-sm font-semibold mb-2">
+                    Sales Order Items
+                  </h3>
+                  <div className="grid grid-cols-6 gap-2 text-xs font-medium text-muted-foreground mb-1">
+                    <div>Item Name</div>
+                    <div>Description</div>
+                    <div>Qty</div>
+                    <div>Unit</div>
+                    <div>Price</div>
+                    <div>Amount</div>
+                  </div>
+                  {formData.soItems.map((item, idx) => (
+                    <div
+                      key={idx}
+                      className="grid grid-cols-6 gap-2 text-sm py-1 border-b border-border">
+                      <div>{item.itemName}</div>
+                      <div>{item.description || "—"}</div>
+                      <div>{item.quantity}</div>
+                      <div>{item.unitType}</div>
+                      <div>₱{item.price.toFixed(2)}</div>
+                      <div>₱{item.amount.toFixed(2)}</div>
+                    </div>
+                  ))}
+                </div>
+              )}
 
               <div className="flex justify-end">
                 <Button onClick={handleCreate} disabled={isCreating}>
@@ -467,7 +837,7 @@ export default function SalesInvoicePage() {
                   Create Invoice
                 </Button>
               </div>
-            </CardContent>
+            </div>
           </Card>
         </DialogPanel>
       </Dialog>
