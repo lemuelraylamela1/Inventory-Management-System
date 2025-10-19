@@ -6,7 +6,7 @@ import { generateSalesInvoiceNo } from "@/libs/generateSalesInvoiceNo";
 // Define a backend-safe type with Date fields
 type SalesInvoiceDoc = HydratedDocument<{
   invoiceNo: string;
-  invoiceDate: Date;
+  invoiceDate: string;
   customer: string;
   customerRef?: mongoose.Types.ObjectId;
   salesPerson?: string;
@@ -45,7 +45,8 @@ const SalesInvoiceSchema = new Schema(
       unique: true,
     },
     invoiceDate: {
-      type: Date,
+      type: String,
+      trim: true,
     },
 
     // Customer details

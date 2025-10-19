@@ -55,7 +55,12 @@ export async function POST(req: Request) {
 
     const normalizedInvoice = {
       invoiceNo,
-      invoiceDate,
+      invoiceDate: new Date(invoiceDate).toLocaleDateString("en-PH", {
+        year: "numeric",
+        month: "short",
+        day: "numeric",
+      }),
+
       customer: customer?.trim().toUpperCase(),
       amount,
       balance: amount,

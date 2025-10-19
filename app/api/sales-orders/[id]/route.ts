@@ -10,12 +10,14 @@ import type {
 // ✅ GET /api/sales-orders/[id]
 export async function GET(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id?: string }> }
 ) {
   await connectMongoDB();
 
-  const id = context.params.id?.trim();
-  if (!id || !Types.ObjectId.isValid(id)) {
+  const { id } = await context.params; // ✅ await the params
+  const trimmedId = id?.trim();
+
+  if (!trimmedId || !Types.ObjectId.isValid(trimmedId)) {
     return NextResponse.json(
       { message: "Invalid sales order ID" },
       { status: 400 }
@@ -23,7 +25,7 @@ export async function GET(
   }
 
   try {
-    const order = await SalesOrderModel.findById(id);
+    const order = await SalesOrderModel.findById(trimmedId);
     if (!order) {
       return NextResponse.json(
         { message: "Sales order not found" },

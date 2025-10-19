@@ -1,12 +1,23 @@
 import { NextResponse } from "next/server";
+import mongoose from "mongoose";
 import connectMongoDB from "@/libs/mongodb";
 import { SalesInvoice } from "@/models/salesInvoice";
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(
+  _: Request,
+  context: { params: Promise<{ id?: string }> }
+) {
   await connectMongoDB();
 
+  const { id } = await context.params;
+  const trimmedId = id?.trim();
+
+  if (!trimmedId || !mongoose.Types.ObjectId.isValid(trimmedId)) {
+    return NextResponse.json({ error: "Invalid invoice ID" }, { status: 400 });
+  }
+
   try {
-    const invoice = await SalesInvoice.findById(params.id);
+    const invoice = await SalesInvoice.findById(trimmedId);
     if (!invoice) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
@@ -23,13 +34,20 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id?: string }> }
 ) {
   await connectMongoDB();
   const updates = await req.json();
 
+  const { id } = await context.params;
+  const trimmedId = id?.trim();
+
+  if (!trimmedId || !mongoose.Types.ObjectId.isValid(trimmedId)) {
+    return NextResponse.json({ error: "Invalid invoice ID" }, { status: 400 });
+  }
+
   try {
-    const invoice = await SalesInvoice.findByIdAndUpdate(params.id, updates, {
+    const invoice = await SalesInvoice.findByIdAndUpdate(trimmedId, updates, {
       new: true,
       runValidators: true,
     });
@@ -50,12 +68,20 @@ export async function PATCH(
 
 export async function DELETE(
   _: Request,
-  { params }: { params: { id: string } }
+  context: { params: Promise<{ id?: string }> }
 ) {
   await connectMongoDB();
 
+  const { id } = await context.params;
+  const trimmedId = id?.trim();
+
+  if (!trimmedId || !mongoose.Types.ObjectId.isValid(trimmedId)) {
+    return NextResponse.json({ error: "Invalid invoice ID" }, { status: 400 });
+  }
+
   try {
-    const deleted = await SalesInvoice.findByIdAndDelete(params.id);
+    const deleted = await SalesInvoice.findByIdAndDelete(trimmedId);
+
     if (!deleted) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }

@@ -2940,7 +2940,7 @@ export default function SalesOrder({ onSuccess }: Props) {
             {/* Rows per page selector */}
             <div className="flex items-center gap-2">
               <span className="text-sm text-gray-600">
-                Purchase orders per page:
+                Sales orders per page:
               </span>
               <Select
                 value={String(rowsPerPage)}
