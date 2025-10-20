@@ -3857,33 +3857,66 @@ export default function SalesOrder({ onSuccess }: Props) {
 
               {/* Customer & Warehouse Info */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="text-sm">
+                {/* Customer Info */}
+                <div className="text-sm space-y-1">
                   <h4 className="font-medium text-muted-foreground mb-1">
                     Customer
                   </h4>
-                  <p className="text-foreground font-semibold">
-                    {formData.customer}
+                  <p>
+                    <span className="font-medium text-muted-foreground">
+                      Name:
+                    </span>{" "}
+                    <span className="text-foreground font-semibold">
+                      {formData.customer}
+                    </span>
                   </p>
-                  <p className="text-muted-foreground">
-                    Type: {formData.customerType}
+                  <p>
+                    <span className="font-medium text-muted-foreground">
+                      Customer Type:
+                    </span>{" "}
+                    <span className="text-foreground">
+                      {formData.customerType || "—"}
+                    </span>
                   </p>
-                  <p className="text-muted-foreground">
-                    Sales Person: {formData.salesPerson}
+                  <p>
+                    <span className="font-medium text-muted-foreground">
+                      Sales Person:
+                    </span>{" "}
+                    <span className="text-foreground">
+                      {formData.salesPerson || "—"}
+                    </span>
                   </p>
                 </div>
-                <div className="text-sm">
+
+                {/* Warehouse Info */}
+                <div className="text-sm space-y-1">
                   <h4 className="font-medium text-muted-foreground mb-1">
                     Warehouse
                   </h4>
-                  <p className="text-foreground font-semibold">
-                    {formData.warehouse}
+                  <p>
+                    <span className="font-medium text-muted-foreground">
+                      Name:
+                    </span>{" "}
+                    <span className="text-foreground font-semibold">
+                      {formData.warehouse}
+                    </span>
                   </p>
-                  <p className="text-muted-foreground">Shipping Address:</p>
-                  <p className="text-muted-foreground">
-                    {formData.shippingAddress}
+                  <p>
+                    <span className="font-medium text-muted-foreground">
+                      Shipping Address:
+                    </span>{" "}
+                    <span className="text-foreground">
+                      {formData.shippingAddress || "—"}
+                    </span>
                   </p>
-                  <p className="text-muted-foreground">Notes:</p>
-                  <p className="text-muted-foreground">{formData.notes}</p>
+                  <p>
+                    <span className="font-medium text-muted-foreground">
+                      Notes:
+                    </span>{" "}
+                    <span className="text-foreground">
+                      {formData.notes || "—"}
+                    </span>
+                  </p>
                 </div>
               </div>
 

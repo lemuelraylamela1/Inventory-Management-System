@@ -302,12 +302,14 @@ export type SalesInvoice = {
   notes?: string;
   createdAt?: Date;
   updatedAt?: Date;
+  items: SalesInvoiceItem[];
 };
 
 export type SalesInvoiceItem = {
   _id: string;
   itemCode: string;
   itemName: string;
+  description: string;
   unitType: string;
   price: number;
   quantity: number;

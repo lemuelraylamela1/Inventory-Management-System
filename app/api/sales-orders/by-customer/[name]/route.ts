@@ -5,18 +5,29 @@ import SalesOrder from "@/models/salesOrder";
 
 export async function GET(
   req: Request,
-  { params }: { params: { name: string } }
+  context: { params: { name?: string } }
 ) {
   await connectMongoDB();
-  const name = decodeURIComponent(params.name.trim().toUpperCase());
+
+  const rawName = context.params?.name;
+  if (!rawName || rawName.trim().length < 1) {
+    return NextResponse.json(
+      { error: "Invalid customer name" },
+      { status: 400 }
+    );
+  }
+
+  const name = decodeURIComponent(rawName.trim().toUpperCase());
+  console.log(`🔍 Fetching sales orders for customer: ${name}`);
 
   try {
-    const orders = await SalesOrder.find({
-      customer: name,
-    }).select(
-      "soNumber reference formattedTotal formattedNetTotal status createdAt"
-    );
+    const orders = await SalesOrder.find({ customer: name })
+      .select(
+        "soNumber reference formattedTotal formattedNetTotal status createdAt"
+      )
+      .sort({ createdAt: -1 });
 
+    console.log(`📦 Found ${orders.length} orders`);
     return NextResponse.json({ orders });
   } catch (err) {
     console.error("❌ Failed to fetch sales orders:", err);
