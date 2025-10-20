@@ -58,10 +58,8 @@ function handleServerError(context: string, error: unknown) {
 }
 
 // ─── PUT: Update Purchase Receipt ─────────────────────────────────────────────
-export async function PUT(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PUT(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const { id } = params;
     if (!id || typeof id !== "string") {
@@ -134,10 +132,8 @@ export async function PUT(
 }
 
 // ─── DELETE: Remove Purchase Receipt ──────────────────────────────────────────
-export async function DELETE(
-  _: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const { id } = params;
     if (!id || typeof id !== "string") {

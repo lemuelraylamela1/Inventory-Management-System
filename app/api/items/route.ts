@@ -106,15 +106,13 @@ export async function GET() {
 }
 
 type Params = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
-export async function DELETE(
-  request: NextRequest,
-  { params }: Params
-): Promise<NextResponse> {
+export async function DELETE(request: NextRequest, props: Params): Promise<NextResponse> {
+  const params = await props.params;
   const { id } = params;
 
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {

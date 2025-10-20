@@ -3,9 +3,9 @@ import mongoose from "mongoose";
 import Supplier from "@/models/supplier";
 
 type Params = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 interface SupplierPayload {
@@ -47,10 +47,8 @@ const normalizeUpdate = (
   }),
 });
 
-export async function PUT(
-  req: NextRequest,
-  { params }: Params
-): Promise<NextResponse> {
+export async function PUT(req: NextRequest, props: Params): Promise<NextResponse> {
+  const params = await props.params;
   const { id } = params;
 
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
@@ -98,10 +96,8 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  _: NextRequest,
-  { params }: Params
-): Promise<NextResponse> {
+export async function DELETE(_: NextRequest, props: Params): Promise<NextResponse> {
+  const params = await props.params;
   const { id } = params;
 
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {

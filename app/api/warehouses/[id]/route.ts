@@ -48,9 +48,9 @@ import Warehouse from "../../../../models/warehouse";
 import { NextResponse, NextRequest } from "next/server";
 
 interface Params {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 interface WarehousePayload {
@@ -59,7 +59,8 @@ interface WarehousePayload {
   warehouse_location: string;
 }
 
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function PUT(request: NextRequest, props: Params) {
+  const params = await props.params;
   const { id } = params;
   const body: WarehousePayload = await request.json();
 
@@ -74,7 +75,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
   return NextResponse.json({ message: "Warehouse updated" }, { status: 200 });
 }
 
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, props: Params) {
+  const params = await props.params;
   const { id } = params;
 
   try {
@@ -91,7 +93,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function GET(request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, props: Params) {
+  const params = await props.params;
   const { id } = params;
 
   await connectMongoDB();

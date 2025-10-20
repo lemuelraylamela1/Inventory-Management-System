@@ -1,4 +1,4 @@
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import {
@@ -16,7 +16,14 @@ import {
   CardTitle,
   CardDescription,
 } from "../ui/card";
-import { Search, Download, Package } from "lucide-react";
+import {
+  Search,
+  Download,
+  Package,
+  BarChart,
+  Building2,
+  Loader2,
+} from "lucide-react";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
 
@@ -27,6 +34,8 @@ export default function InventorySummary() {
   const [itemCatalog, setItemCatalog] = useState<ItemType[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
+  const [isLoading, setIsLoading] = useState(true);
+  const isFirstFetch = useRef(true);
 
   // ✅ Grouped totals by warehouse
   const warehouseItemSummary = useMemo(() => {
@@ -96,6 +105,8 @@ export default function InventorySummary() {
   // ✅ Fetch inventory and enrich with category
   useEffect(() => {
     const fetchInventoryMain = async () => {
+      if (isFirstFetch.current) setIsLoading(true);
+
       try {
         const res = await fetch("/api/inventory-main", { cache: "no-store" });
         if (!res.ok) throw new Error("Failed to fetch inventory-main");
@@ -106,15 +117,20 @@ export default function InventorySummary() {
               const key = item.itemName.trim().toUpperCase();
               return {
                 ...item,
-                category: categoryMap[key] ?? "UNCATEGORIZED",
+                category: categoryMap[key] ?? "",
               };
             })
           : [];
 
         setInventoryItems(data);
       } catch (err) {
-        console.error("Failed to fetch inventory_main", err);
+        console.error("❌ Failed to fetch inventory_main", err);
         setInventoryItems([]);
+      } finally {
+        if (isFirstFetch.current) {
+          setIsLoading(false);
+          isFirstFetch.current = false;
+        }
       }
     };
 
@@ -224,71 +240,80 @@ export default function InventorySummary() {
               title: "Total Items",
               value: summaryStats.uniqueItems,
               subtitle: "Unique items in inventory",
+              icon: Package,
             },
             {
               title: "Total Quantity",
               value: summaryStats.totalQuantity.toLocaleString(),
               subtitle: "Units in stock",
+              icon: BarChart,
             },
             {
               title: "Warehouses",
               value: summaryStats.warehouseCount,
               subtitle: "Storage locations",
+              icon: Building2,
             },
-          ].map((stat, i) => (
-            <Card
-              key={i}
-              className="hover:shadow-md transition-shadow bg-muted/50 backdrop-blur-sm">
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm">{stat.title}</CardTitle>
-                <Package className="h-4 w-4 text-muted-foreground" />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-bold">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">{stat.subtitle}</p>
-              </CardContent>
-            </Card>
-          ))}
+          ].map((stat, i) => {
+            const Icon = stat.icon;
+            return (
+              <Card
+                key={i}
+                className="bg-background shadow-sm hover:shadow-md transition-shadow border border-muted">
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm">{stat.title}</CardTitle>
+                  <Icon className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{stat.value}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {stat.subtitle}
+                  </p>
+                </CardContent>
+              </Card>
+            );
+          })}
         </div>
 
-        <Card className="border-dashed border">
-          <CardContent className="pt-6">
-            <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
-              <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  placeholder="Search by item name or warehouse..."
-                  value={searchTerm}
-                  onChange={(e) => setSearchTerm(e.target.value)}
-                  className="pl-10"
-                />
-              </div>
-              <div className="flex gap-2">
-                <select
-                  value={selectedWarehouse}
-                  onChange={(e) => setSelectedWarehouse(e.target.value)}
-                  className="h-10 rounded-md border border-input bg-input-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
-                  <option value="all">All Warehouses</option>
-                  {warehouses.map((warehouse) => (
-                    <option key={warehouse} value={warehouse}>
-                      {warehouse}
-                    </option>
-                  ))}
-                </select>
-                <Button onClick={handleExportCSV} variant="outline">
-                  <Download className="mr-2 h-4 w-4" />
-                  Export CSV
-                </Button>
-              </div>
+        <fieldset className="border rounded-md p-4 bg-muted/30">
+          <legend className="text-sm font-medium text-muted-foreground px-2">
+            Filter Options
+          </legend>
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                placeholder="Search by item name or warehouse..."
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-10"
+              />
             </div>
-          </CardContent>
-        </Card>
+            <div className="flex gap-2">
+              <select
+                value={selectedWarehouse}
+                onChange={(e) => setSelectedWarehouse(e.target.value)}
+                className="h-10 rounded-md border border-input bg-input-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                <option value="all">All Warehouses</option>
+                {warehouses.map((warehouse) => (
+                  <option key={warehouse} value={warehouse}>
+                    {warehouse}
+                  </option>
+                ))}
+              </select>
+              <Button onClick={handleExportCSV} variant="outline">
+                <Download className="mr-2 h-4 w-4" />
+                Export CSV
+              </Button>
+            </div>
+          </div>
+        </fieldset>
 
         <Card>
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <Table>
-                <TableHeader>
+                <TableHeader className="sticky top-0 bg-background z-10 border-b">
                   <TableRow>
                     <TableHead>Item Name</TableHead>
                     <TableHead>Category</TableHead>
@@ -297,7 +322,20 @@ export default function InventorySummary() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {filteredData.length === 0 ? (
+                  {isLoading ? (
+                    <TableRow>
+                      <TableCell
+                        colSpan={4}
+                        className="py-6 text-center text-muted-foreground">
+                        <div className="inline-flex items-center justify-center gap-2">
+                          <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                          <span className="text-sm font-medium tracking-wide">
+                            Loading inventory data…
+                          </span>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  ) : filteredData.length === 0 ? (
                     <TableRow>
                       <TableCell
                         colSpan={4}
@@ -308,7 +346,8 @@ export default function InventorySummary() {
                   ) : (
                     filteredData.map((item, index) => (
                       <TableRow
-                        key={`${item.itemCode}-${item.warehouse}-${index}`}>
+                        key={`${item.itemCode}-${item.warehouse}-${index}`}
+                        className={index % 2 === 0 ? "bg-muted/20" : ""}>
                         <TableCell>{item.itemName}</TableCell>
                         <TableCell>{item.category}</TableCell>
                         <TableCell>{item.warehouse}</TableCell>
@@ -325,23 +364,19 @@ export default function InventorySummary() {
         </Card>
 
         {filteredData.length > 0 && (
-          <Card>
+          <Card className="bg-muted/50 border border-dashed">
             <CardContent className="pt-6">
-              <div className="flex justify-between items-center">
-                <p className="text-sm text-muted-foreground">
-                  Showing {filteredData.length}{" "}
+              <div className="flex justify-between items-center text-sm text-muted-foreground">
+                <span>
+                  Showing <strong>{filteredData.length}</strong>{" "}
                   {filteredData.length === 1 ? "entry" : "entries"}
-                </p>
-                <div className="text-right">
-                  <p className="text-sm">
-                    <span className="text-muted-foreground">
-                      Total Quantity:{" "}
-                    </span>
-                    <span className="font-semibold">
-                      {summaryStats.totalQuantity.toLocaleString()} units
-                    </span>
-                  </p>
-                </div>
+                </span>
+                <span>
+                  Total Quantity:{" "}
+                  <strong>
+                    {summaryStats.totalQuantity.toLocaleString()} units
+                  </strong>
+                </span>
               </div>
             </CardContent>
           </Card>
@@ -367,7 +402,6 @@ export default function InventorySummary() {
             <CardDescription>Item breakdown by warehouse</CardDescription>
           </CardHeader>
           <CardContent className="overflow-x-auto space-y-8">
-            {/* Grand total across all warehouses */}
             <div className="text-right text-sm font-medium text-muted-foreground">
               Total Quantity of All Items:{" "}
               <span className="font-bold">
@@ -379,56 +413,58 @@ export default function InventorySummary() {
               </span>
             </div>
 
-            {/* Per-warehouse tables with subtotals */}
-            {Object.entries(warehouseItemSummary).map(([warehouse, items]) => {
-              const warehouseTotal = items.reduce(
-                (sum, item) => sum + item.quantity,
-                0
-              );
-
-              return (
-                <div key={warehouse}>
-                  <h4 className="text-sm font-semibold text-muted-foreground mb-2">
-                    {warehouse}
-                  </h4>
-                  <Table>
-                    <TableHeader>
-                      <TableRow>
-                        <TableHead className="w-1/4">Item Name</TableHead>
-                        <TableHead className="w-1/4">Category</TableHead>
-                        <TableHead className="w-1/4 text-right">
-                          Quantity
-                        </TableHead>
-                      </TableRow>
-                    </TableHeader>
-                    <TableBody>
-                      {items.map((item, index) => (
-                        <TableRow
-                          key={`${warehouse}-${item.itemName}-${index}`}>
-                          <TableCell className="w-1/4">
-                            {item.itemName}
+            {Object.entries(warehouseItemSummary).map(
+              ([warehouse, items], idx) => {
+                const warehouseTotal = items.reduce(
+                  (sum, item) => sum + item.quantity,
+                  0
+                );
+                return (
+                  <div key={warehouse}>
+                    {idx > 0 && <hr className="my-6 border-muted" />}
+                    <h4 className="text-sm font-semibold text-muted-foreground mb-2">
+                      {warehouse}
+                    </h4>
+                    <Table aria-label={`Inventory for ${warehouse}`}>
+                      <TableHeader>
+                        <TableRow>
+                          <TableHead className="w-1/4">Item Name</TableHead>
+                          <TableHead className="w-1/4">Category</TableHead>
+                          <TableHead className="w-1/4 text-right">
+                            Quantity
+                          </TableHead>
+                        </TableRow>
+                      </TableHeader>
+                      <TableBody>
+                        {items.map((item, index) => (
+                          <TableRow
+                            key={`${warehouse}-${item.itemName}-${index}`}
+                            className={index % 2 === 0 ? "bg-muted/20" : ""}>
+                            <TableCell className="w-1/4">
+                              {item.itemName}
+                            </TableCell>
+                            <TableCell className="w-1/4">
+                              {item.category}
+                            </TableCell>
+                            <TableCell className="w-1/4 text-right">
+                              {item.quantity.toLocaleString()} units
+                            </TableCell>
+                          </TableRow>
+                        ))}
+                        <TableRow className="bg-muted/40 font-semibold">
+                          <TableCell colSpan={2}>
+                            Subtotal for {warehouse}
                           </TableCell>
-                          <TableCell className="w-1/4">
-                            {item.category}
-                          </TableCell>
-                          <TableCell className="w-1/4 text-right">
-                            {item.quantity.toLocaleString()} units
+                          <TableCell className="text-right" colSpan={2}>
+                            {warehouseTotal.toLocaleString()} units
                           </TableCell>
                         </TableRow>
-                      ))}
-                      <TableRow className="bg-muted/40 font-semibold">
-                        <TableCell colSpan={2}>
-                          Subtotal for {warehouse}
-                        </TableCell>
-                        <TableCell className="text-right" colSpan={2}>
-                          {warehouseTotal.toLocaleString()} units
-                        </TableCell>
-                      </TableRow>
-                    </TableBody>
-                  </Table>
-                </div>
-              );
-            })}
+                      </TableBody>
+                    </Table>
+                  </div>
+                );
+              }
+            )}
           </CardContent>
         </Card>
       </TabsContent>

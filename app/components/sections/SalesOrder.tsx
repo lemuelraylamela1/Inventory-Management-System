@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 
 import { Button } from "../ui/button";
@@ -172,6 +172,7 @@ export default function SalesOrder({ onSuccess }: Props) {
   const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
   const [showWarehouseSuggestions, setShowWarehouseSuggestions] =
     useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
   const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
   const [customers, setCustomers] = useState<Customer[]>([]);
@@ -1382,28 +1383,36 @@ export default function SalesOrder({ onSuccess }: Props) {
     }
   };
 
-  const fetchSalesOrders = async () => {
-    try {
-      const res = await fetch("/api/sales-orders", {
-        cache: "no-store",
-      });
+  const isFirstFetch = useRef(true);
 
-      console.log("📡 Fetch status:", res.status);
+  useEffect(() => {
+    const fetchSalesOrders = async () => {
+      if (isFirstFetch.current) {
+        setIsLoading(true);
+      }
 
-      if (!res.ok) throw new Error("Failed to fetch sales orders");
+      try {
+        const res = await fetch("/api/sales-orders", { cache: "no-store" });
+        const data = await res.json();
+        const parsed = Array.isArray(data.salesOrders) ? data.salesOrders : [];
+        setSalesOrders(parsed);
+      } catch (err) {
+        console.error("❌ Failed to fetch sales orders:", err);
+        setSalesOrders([]);
+      } finally {
+        if (isFirstFetch.current) {
+          setIsLoading(false);
+          isFirstFetch.current = false;
+        }
+      }
+    };
 
-      const raw = await res.json();
-      console.log("🧾 Raw response data:", raw);
+    fetchSalesOrders(); // initial fetch
 
-      const parsed = Array.isArray(raw.salesOrders) ? raw.salesOrders : [];
-      console.log("✅ Parsed salesOrders:", parsed);
+    const intervalId = setInterval(fetchSalesOrders, 1000); // silent refetch
 
-      setSalesOrders(parsed);
-    } catch (error) {
-      console.error("❌ Error loading sales orders:", error);
-      setSalesOrders([]);
-    }
-  };
+    return () => clearInterval(intervalId);
+  }, []);
 
   const fetchSingleSO = async (soId: string) => {
     if (!soId || typeof soId !== "string") {
@@ -1456,21 +1465,21 @@ export default function SalesOrder({ onSuccess }: Props) {
     }
   };
 
-  useEffect(() => {
-    // 🔁 Poll all sales orders every second
-    const fetchAndPollSalesOrders = () => {
-      fetchSalesOrders(); // initial fetch
+  // useEffect(() => {
+  //   // 🔁 Poll all sales orders every second
+  //   const fetchAndPollSalesOrders = () => {
+  //     fetchSalesOrders(); // initial fetch
 
-      const interval = setInterval(() => {
-        fetchSalesOrders();
-      }, 1000);
+  //     const interval = setInterval(() => {
+  //       fetchSalesOrders();
+  //     }, 1000);
 
-      return () => clearInterval(interval); // cleanup
-    };
+  //     return () => clearInterval(interval); // cleanup
+  //   };
 
-    const cleanup = fetchAndPollSalesOrders();
-    return cleanup;
-  }, []);
+  //   const cleanup = fetchAndPollSalesOrders();
+  //   return cleanup;
+  // }, []);
 
   const params = useParams();
   const soId = params?.id as string;
@@ -2757,7 +2766,20 @@ export default function SalesOrder({ onSuccess }: Props) {
               </TableHeader>
 
               <TableBody>
-                {paginatedSalesOrders.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={7}
+                      className="py-6 text-center text-muted-foreground">
+                      <div className="inline-flex items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium tracking-wide">
+                          Loading invoices, please wait…
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedSalesOrders.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={10}

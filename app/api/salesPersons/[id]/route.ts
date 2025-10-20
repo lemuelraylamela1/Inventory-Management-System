@@ -3,9 +3,9 @@ import SalesPerson from "../../../../models/salesPerson";
 import { NextResponse, NextRequest } from "next/server";
 
 interface Params {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 }
 
 interface SalesPersonPayload {
@@ -15,7 +15,8 @@ interface SalesPersonPayload {
   status: string;
 }
 
-export async function PUT(request: NextRequest, { params }: Params) {
+export async function PUT(request: NextRequest, props: Params) {
+  const params = await props.params;
   const { id } = params;
   const body: SalesPersonPayload = await request.json();
 
@@ -28,7 +29,8 @@ export async function PUT(request: NextRequest, { params }: Params) {
   return NextResponse.json({ message: "SalesPerson updated" }, { status: 200 });
 }
 
-export async function DELETE(request: NextRequest, { params }: Params) {
+export async function DELETE(request: NextRequest, props: Params) {
+  const params = await props.params;
   const { id } = params;
 
   try {
@@ -48,7 +50,8 @@ export async function DELETE(request: NextRequest, { params }: Params) {
   }
 }
 
-export async function GET(request: NextRequest, { params }: Params) {
+export async function GET(request: NextRequest, props: Params) {
+  const params = await props.params;
   const { id } = params;
 
   await connectMongoDB();

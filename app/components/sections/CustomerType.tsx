@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Eye } from "lucide-react";
+import { Eye, Loader2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -73,6 +73,8 @@ export default function CustomerType({ onSuccess }: Props) {
     useState<CustomerType | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
+  const isFirstFetch = useRef(true);
 
   const router = useRouter();
 
@@ -395,13 +397,13 @@ export default function CustomerType({ onSuccess }: Props) {
   };
 
   const fetchCustomerTypes = async () => {
+    if (isFirstFetch.current) setIsLoading(true);
+
     try {
       const res = await fetch("/api/customer-types", {
         method: "GET",
-        headers: {
-          Accept: "application/json",
-        },
-        cache: "no-store", // 👈 ensures fresh data
+        headers: { Accept: "application/json" },
+        cache: "no-store",
       });
 
       if (!res.ok) {
@@ -410,7 +412,6 @@ export default function CustomerType({ onSuccess }: Props) {
       }
 
       const data = await res.json();
-
       const customerTypes = Array.isArray(data?.items)
         ? data.items
         : Array.isArray(data)
@@ -419,8 +420,13 @@ export default function CustomerType({ onSuccess }: Props) {
 
       setCustomerTypes(customerTypes);
     } catch (error) {
-      console.error("Error loading customer types:", error);
+      console.error("❌ Error loading customer types:", error);
       setCustomerTypes([]);
+    } finally {
+      if (isFirstFetch.current) {
+        setIsLoading(false);
+        isFirstFetch.current = false;
+      }
     }
   };
 
@@ -712,7 +718,20 @@ export default function CustomerType({ onSuccess }: Props) {
               </TableHeader>
 
               <TableBody>
-                {paginatedCustomerTypes.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={10}
+                      className="h-48 px-4 text-muted-foreground">
+                      <div className="flex h-full items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium tracking-wide">
+                          Loading customer types…
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedCustomerTypes.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={10}

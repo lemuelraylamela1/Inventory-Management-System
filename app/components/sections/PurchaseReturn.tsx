@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 
 import { Button } from "../ui/button";
@@ -11,6 +11,7 @@ import {
   FileText,
   Filter,
   CalendarDays,
+  Loader2,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import {
@@ -94,6 +95,9 @@ export default function PurchaseReturn({ onSuccess }: Props) {
   const [purchaseReturns, setPurchaseReturns] = useState<PurchaseReturnType[]>(
     []
   );
+  const [isLoading, setIsLoading] = useState(true);
+  const isFirstFetch = useRef(true);
+
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
@@ -783,11 +787,10 @@ export default function PurchaseReturn({ onSuccess }: Props) {
   };
 
   const fetchPurchaseReturns = async () => {
-    try {
-      const res = await fetch("/api/purchase-returns", {
-        cache: "no-store",
-      });
+    if (isFirstFetch.current) setIsLoading(true);
 
+    try {
+      const res = await fetch("/api/purchase-returns", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch purchase returns");
 
       const data = await res.json();
@@ -795,8 +798,13 @@ export default function PurchaseReturn({ onSuccess }: Props) {
 
       setPurchaseReturns(Array.isArray(purchaseReturns) ? purchaseReturns : []);
     } catch (error) {
-      console.error("Error loading purchase returns:", error);
+      console.error("❌ Error loading purchase returns:", error);
       setPurchaseReturns([]);
+    } finally {
+      if (isFirstFetch.current) {
+        setIsLoading(false);
+        isFirstFetch.current = false;
+      }
     }
   };
 
@@ -1829,7 +1837,20 @@ export default function PurchaseReturn({ onSuccess }: Props) {
               </TableHeader>
 
               <TableBody>
-                {paginatedPurchaseReturns.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={10}
+                      className="h-48 px-4 text-muted-foreground">
+                      <div className="flex h-full items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium tracking-wide">
+                          Loading purchase returns…
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedPurchaseReturns.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={10}

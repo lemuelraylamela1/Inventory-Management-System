@@ -691,9 +691,15 @@ export default function SalesInvoicePage({
               <TableBody>
                 {isLoading ? (
                   <TableRow>
-                    <TableCell colSpan={7} className="text-center py-6">
-                      <Loader2 className="w-5 h-5 animate-spin inline-block mr-2" />
-                      Loading invoices...
+                    <TableCell
+                      colSpan={7}
+                      className="py-6 text-center text-muted-foreground">
+                      <div className="inline-flex items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium tracking-wide">
+                          Loading invoices, please wait…
+                        </span>
+                      </div>
                     </TableCell>
                   </TableRow>
                 ) : paginatedSalesInvoices.length === 0 ? (

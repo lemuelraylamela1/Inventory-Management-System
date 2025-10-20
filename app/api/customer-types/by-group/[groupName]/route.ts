@@ -4,15 +4,13 @@ import connectMongoDB from "../../../../../libs/mongodb";
 import CustomerType from "../../../../../models/customerType";
 
 type Params = {
-  params: {
+  params: Promise<{
     groupName: string;
-  };
+  }>;
 };
 
-export async function GET(
-  _: Request,
-  { params }: Params
-): Promise<NextResponse> {
+export async function GET(_: Request, props: Params): Promise<NextResponse> {
+  const params = await props.params;
   await connectMongoDB();
 
   const rawGroupName = params.groupName;

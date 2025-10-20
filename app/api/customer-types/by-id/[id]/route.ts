@@ -4,15 +4,13 @@ import { NextRequest } from "next/server";
 import mongoose from "mongoose";
 
 type Params = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
-export async function PUT(
-  req: NextRequest,
-  { params }: Params
-): Promise<NextResponse> {
+export async function PUT(req: NextRequest, props: Params): Promise<NextResponse> {
+  const params = await props.params;
   const { id } = params;
 
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
@@ -65,10 +63,8 @@ export async function PUT(
   }
 }
 
-export async function DELETE(
-  _: NextRequest,
-  { params }: Params
-): Promise<NextResponse> {
+export async function DELETE(_: NextRequest, props: Params): Promise<NextResponse> {
+  const params = await props.params;
   const { id } = params;
 
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {

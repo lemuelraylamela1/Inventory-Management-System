@@ -24,7 +24,7 @@ export function ConfirmDeleteButton({
 }: ConfirmDeleteButtonProps) {
   const handleDelete = async () => {
     try {
-      await fetch(`http://localhost:3000/api/warehouses/${warehouse._id}`, {
+      await fetch(`api/warehouses/${warehouse._id}`, {
         method: "DELETE",
       });
       fetchWarehouse();

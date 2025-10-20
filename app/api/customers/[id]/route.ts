@@ -3,16 +3,14 @@ import mongoose from "mongoose";
 import { Customer } from "@/models/customer";
 
 type Params = {
-  params: {
+  params: Promise<{
     id: string;
-  };
+  }>;
 };
 
 // ✅ PUT: Update a customer
-export async function PUT(
-  req: NextRequest,
-  { params }: Params
-): Promise<NextResponse> {
+export async function PUT(req: NextRequest, props: Params): Promise<NextResponse> {
+  const params = await props.params;
   const { id } = params;
 
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
@@ -94,10 +92,8 @@ export async function PUT(
 }
 
 // ✅ DELETE: Remove a customer
-export async function DELETE(
-  _: NextRequest,
-  { params }: Params
-): Promise<NextResponse> {
+export async function DELETE(_: NextRequest, props: Params): Promise<NextResponse> {
+  const params = await props.params;
   const { id } = params;
 
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {

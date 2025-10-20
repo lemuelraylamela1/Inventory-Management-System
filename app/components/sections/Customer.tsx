@@ -1,9 +1,9 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
-import { Eye } from "lucide-react";
+import { Eye, Loader2 } from "lucide-react";
 import {
   Table,
   TableBody,
@@ -76,6 +76,8 @@ export default function Customer({ onSuccess }: Props) {
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [salesPersons, setSalesPersons] = useState<SalesPersonType[]>([]);
   const [customerTypes, setCustomerTypes] = useState<CustomerType[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const isFirstFetch = useRef(true);
 
   const getDisplayName = (person: SalesPersonType): string =>
     [person.firstName, person.lastName].filter(Boolean).join(" ") || "Unnamed";
@@ -538,11 +540,10 @@ export default function Customer({ onSuccess }: Props) {
   };
 
   const fetchCustomers = async () => {
-    try {
-      const res = await fetch("/api/customers", {
-        cache: "no-store",
-      });
+    if (isFirstFetch.current) setIsLoading(true);
 
+    try {
+      const res = await fetch("/api/customers", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch customers");
 
       const data = await res.json();
@@ -550,8 +551,13 @@ export default function Customer({ onSuccess }: Props) {
 
       setCustomers(Array.isArray(customers) ? customers : []);
     } catch (error) {
-      console.error("Error loading customers:", error);
+      console.error("❌ Error loading customers:", error);
       setCustomers([]);
+    } finally {
+      if (isFirstFetch.current) {
+        setIsLoading(false);
+        isFirstFetch.current = false;
+      }
     }
   };
 
@@ -1029,7 +1035,20 @@ export default function Customer({ onSuccess }: Props) {
               </TableHeader>
 
               <TableBody>
-                {paginatedCustomers.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={10}
+                      className="h-48 px-4 text-muted-foreground">
+                      <div className="flex h-full items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium tracking-wide">
+                          Loading customers…
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedCustomers.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={10}

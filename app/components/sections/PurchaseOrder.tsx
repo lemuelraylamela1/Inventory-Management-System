@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 
 import { Button } from "../ui/button";
@@ -11,6 +11,7 @@ import {
   FileText,
   Filter,
   CalendarDays,
+  Loader2,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import {
@@ -115,6 +116,10 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   const [supplierFilter, setSupplierFilter] = useState("all");
   const [statusFilter, setStatusFilter] = useState("all");
   const [filteredPOs, setFilteredPOs] = useState<PurchaseOrderType[]>([]);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const isFirstFetch = useRef(true);
+
   const [showSupplierSuggestions, setShowSupplierSuggestions] = useState(false);
   const [showWarehouseSuggestions, setShowWarehouseSuggestions] =
     useState(false);
@@ -750,11 +755,10 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   };
 
   const fetchPurchaseOrders = async () => {
-    try {
-      const res = await fetch("/api/purchase-orders", {
-        cache: "no-store",
-      });
+    if (isFirstFetch.current) setIsLoading(true);
 
+    try {
+      const res = await fetch("/api/purchase-orders", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch purchase orders");
 
       const data = await res.json();
@@ -762,8 +766,13 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
       setPurchaseOrders(Array.isArray(purchaseOrders) ? purchaseOrders : []);
     } catch (error) {
-      console.error("Error loading purchase orders:", error);
+      console.error("❌ Error loading purchase orders:", error);
       setPurchaseOrders([]);
+    } finally {
+      if (isFirstFetch.current) {
+        setIsLoading(false);
+        isFirstFetch.current = false;
+      }
     }
   };
 
@@ -1834,11 +1843,24 @@ export default function PurchaseOrder({ onSuccess }: Props) {
               </TableHeader>
 
               <TableBody>
-                {paginatedPurchaseOrders.length === 0 ? (
+                {isLoading ? (
                   <TableRow>
                     <TableCell
-                      colSpan={10}
-                      className="text-center py-8 text-muted-foreground">
+                      colSpan={12}
+                      className="h-48 px-4 text-muted-foreground">
+                      <div className="flex h-full items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium tracking-wide">
+                          Loading purchase orders…
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : purchaseOrders.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="text-center text-muted-foreground">
                       No purchase orders found
                     </TableCell>
                   </TableRow>

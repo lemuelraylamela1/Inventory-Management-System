@@ -81,7 +81,7 @@ export default function AddNew({
 
     try {
       // 🔍 Check for duplicates before submitting
-      const checkRes = await fetch("http://localhost:3000/api/warehouses");
+      const checkRes = await fetch("api/warehouses");
       const { warehouses } = await checkRes.json();
 
       if (!Array.isArray(warehouses)) {

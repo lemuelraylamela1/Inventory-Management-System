@@ -5,11 +5,11 @@ import SalesOrder from "@/models/salesOrder";
 
 export async function GET(
   req: Request,
-  context: { params: { name?: string } }
+  context: { params: Promise<{ name?: string }> }
 ) {
   await connectMongoDB();
 
-  const rawName = context.params?.name;
+  const rawName = (await context.params)?.name;
   if (!rawName || rawName.trim().length < 1) {
     return NextResponse.json(
       { error: "Invalid customer name" },

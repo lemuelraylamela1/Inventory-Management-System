@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Eye } from "lucide-react";
@@ -49,7 +49,7 @@ import {
   CardTitle,
 } from "../ui/card";
 import { Textarea } from "../ui/textarea";
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
 import Image from "next/image";
 import { ItemType } from "./type";
 import { useRouter } from "next/navigation";
@@ -78,6 +78,9 @@ export default function ItemMaster({ onSuccess }: Props) {
   const [viewingItem, setViewingItem] = useState<ItemType | null>(null);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
+  const isFirstFetch = useRef(true);
+
   // const [isDragging, setIsDragging] = useState(false);
   // const [isUploading, setIsUploading] = useState(false);
   // const [selectedFile, setSelectedFile] = useState<File | null>(null);
@@ -324,7 +327,7 @@ export default function ItemMaster({ onSuccess }: Props) {
     console.log("Creating item:", payload);
 
     try {
-      const res = await fetch("http://localhost:3000/api/items", {
+      const res = await fetch("api/items", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -515,7 +518,7 @@ export default function ItemMaster({ onSuccess }: Props) {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`http://localhost:3000/api/items/${id}`, {
+      const res = await fetch(`api/items/${id}`, {
         method: "DELETE",
       });
 
@@ -659,8 +662,10 @@ export default function ItemMaster({ onSuccess }: Props) {
   };
 
   const fetchItems = async () => {
+    if (isFirstFetch.current) setIsLoading(true);
+
     try {
-      const res = await fetch("http://localhost:3000/api/items", {
+      const res = await fetch("api/items", {
         cache: "no-store",
       });
       if (!res.ok) throw new Error("Failed to fetch items");
@@ -669,8 +674,13 @@ export default function ItemMaster({ onSuccess }: Props) {
       const items = Array.isArray(data) ? data : data.items;
       setItems(Array.isArray(items) ? items : []);
     } catch (error) {
-      console.error("Error loading items:", error);
+      console.error("❌ Error loading items:", error);
       setItems([]);
+    } finally {
+      if (isFirstFetch.current) {
+        setIsLoading(false);
+        isFirstFetch.current = false;
+      }
     }
   };
 
@@ -1352,7 +1362,20 @@ export default function ItemMaster({ onSuccess }: Props) {
               </TableHeader>
 
               <TableBody>
-                {paginatedItems.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={13}
+                      className="h-48 px-4 text-muted-foreground">
+                      <div className="flex h-full items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium tracking-wide">
+                          Loading items…
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedItems.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={13}

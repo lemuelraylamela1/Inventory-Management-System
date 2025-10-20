@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Eye } from "lucide-react";
@@ -48,7 +48,7 @@ import {
   CardTitle,
 } from "../ui/card";
 
-import { Plus, Search, Edit, Trash2 } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Loader2 } from "lucide-react";
 
 import type { SupplierType } from "./type";
 import { useRouter } from "next/navigation";
@@ -64,6 +64,10 @@ export default function Supplier({ onSuccess }: Props) {
   const [suppliers, setSuppliers] = useState<SupplierType[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
+
+  const [isLoading, setIsLoading] = useState(true);
+  const isFirstFetch = useRef(true);
+
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
@@ -436,11 +440,10 @@ export default function Supplier({ onSuccess }: Props) {
   };
 
   const fetchSuppliers = async () => {
-    try {
-      const res = await fetch("/api/suppliers", {
-        cache: "no-store",
-      });
+    if (isFirstFetch.current) setIsLoading(true);
 
+    try {
+      const res = await fetch("/api/suppliers", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch suppliers");
 
       const data = await res.json();
@@ -448,8 +451,13 @@ export default function Supplier({ onSuccess }: Props) {
 
       setSuppliers(Array.isArray(suppliers) ? suppliers : []);
     } catch (error) {
-      console.error("Error loading suppliers:", error);
+      console.error("❌ Error loading suppliers:", error);
       setSuppliers([]);
+    } finally {
+      if (isFirstFetch.current) {
+        setIsLoading(false);
+        isFirstFetch.current = false;
+      }
     }
   };
 
@@ -768,7 +776,20 @@ export default function Supplier({ onSuccess }: Props) {
               </TableHeader>
 
               <TableBody>
-                {paginatedSuppliers.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={10}
+                      className="h-48 px-4 text-muted-foreground">
+                      <div className="flex h-full items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium tracking-wide">
+                          Loading suppliers…
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedSuppliers.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={10}

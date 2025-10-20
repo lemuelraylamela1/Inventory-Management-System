@@ -1,10 +1,11 @@
 "use client";
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 
 import AddNew from "./WarehouseSub/AddNew";
 import EditWarehouseDialog from "./WarehouseSub/EditWarehouseDialog";
 import type { WarehouseType } from "./type";
 import { ConfirmDeleteButton } from "./WarehouseSub/ConfirmDeleteButton";
+import { Checkbox } from "../ui/checkbox";
 
 import {
   Card,
@@ -31,7 +32,7 @@ import {
   SelectValue,
 } from "../ui/select";
 import { Button } from "../ui/button";
-import { Plus, Search, Edit } from "lucide-react";
+import { Plus, Search, Edit, Loader2 } from "lucide-react";
 
 export default function WarehouseList() {
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -39,6 +40,8 @@ export default function WarehouseList() {
   const [searchTerm, setSearchTerm] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [isLoading, setIsLoading] = useState(true);
+  const isFirstFetch = useRef(true);
 
   const [selectedWarehouses, setSelectedWarehouses] = useState<WarehouseType[]>(
     []
@@ -49,18 +52,26 @@ export default function WarehouseList() {
   const [isEditWarehouseOpen, setIsEditWarehouseOpen] = useState(false);
 
   const fetchWarehouse = async () => {
+    if (isFirstFetch.current) setIsLoading(true);
+
     try {
-      const res = await fetch("http://localhost:3000/api/warehouses", {
-        cache: "no-store",
-      });
-      if (!res.ok) throw new Error("Failed to fetch items");
+      const res = await fetch("/api/warehouses", { cache: "no-store" });
+      // const res = await fetch("http://localhost:3000/api/warehouses", {
+      //   cache: "no-store",
+      // });
+      if (!res.ok) throw new Error("Failed to fetch warehouses");
 
       const data = await res.json();
       const warehouse = Array.isArray(data) ? data : data.warehouses;
       setWarehouse(Array.isArray(warehouse) ? warehouse : []);
     } catch (error) {
-      console.error("Error loading warehouse:", error);
+      console.error("❌ Error loading warehouses:", error);
       setWarehouse([]);
+    } finally {
+      if (isFirstFetch.current) {
+        setIsLoading(false);
+        isFirstFetch.current = false;
+      }
     }
   };
 
@@ -221,31 +232,43 @@ export default function WarehouseList() {
               </TableHeader>
 
               <TableBody>
-                {paginatedItems.length > 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="h-48 px-4 text-muted-foreground">
+                      <div className="flex h-full items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium tracking-wide">
+                          Loading warehouses…
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedItems.length > 0 ? (
                   paginatedItems.map((warehouse: WarehouseType) => (
                     <TableRow key={warehouse._id}>
                       <TableCell>
-                        <input
-                          type="checkbox"
+                        <Checkbox
                           checked={selectedWarehouses.some(
                             (i) => i._id === warehouse._id
                           )}
-                          onChange={(e) => {
-                            if (e.target.checked) {
-                              setSelectedWarehouses([
-                                ...selectedWarehouses,
-                                warehouse,
-                              ]);
+                          onCheckedChange={(checked: boolean) => {
+                            if (checked) {
+                              setSelectedWarehouses((prev) =>
+                                prev.some((p) => p._id === warehouse._id)
+                                  ? prev
+                                  : [...prev, warehouse]
+                              );
                             } else {
-                              setSelectedWarehouses(
-                                selectedWarehouses.filter(
-                                  (i) => i._id !== warehouse._id
-                                )
+                              setSelectedWarehouses((prev) =>
+                                prev.filter((i) => i._id !== warehouse._id)
                               );
                             }
                           }}
-                          className="mr-2 accent-black"
+                          className="mr-2"
                         />
+
                         {new Date(warehouse.createdDT).toLocaleDateString(
                           "en-US",
                           {

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useMemo, useEffect } from "react";
+import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
 
 import { Button } from "../ui/button";
@@ -10,6 +10,7 @@ import {
   MoreVertical,
   FileText,
   Filter,
+  Loader2,
   CalendarDays,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
@@ -105,6 +106,8 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
+  const [isLoading, setIsLoading] = useState(true);
+  const isFirstFetch = useRef(true);
 
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -791,23 +794,28 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
   };
 
   const fetchPurchaseReceipts = async () => {
-    try {
-      const res = await fetch("/api/purchase-receipts", {
-        cache: "no-store",
-      });
+    if (isFirstFetch.current) setIsLoading(true);
 
+    try {
+      const res = await fetch("/api/purchase-receipts", { cache: "no-store" });
       if (!res.ok) throw new Error("Failed to fetch purchase receipts");
 
       const data = await res.json();
       const purchaseReceipts = Array.isArray(data) ? data : [];
+
       console.log("Fetched receipts:", purchaseReceipts);
 
       setPurchaseReceipts(
         Array.isArray(purchaseReceipts) ? purchaseReceipts : []
       );
     } catch (error) {
-      console.error("Error loading purchase receipts:", error);
+      console.error("❌ Error loading purchase receipts:", error);
       setPurchaseReceipts([]);
+    } finally {
+      if (isFirstFetch.current) {
+        setIsLoading(false);
+        isFirstFetch.current = false;
+      }
     }
   };
 
@@ -1865,7 +1873,20 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
               </TableHeader>
 
               <TableBody>
-                {paginatedPurchaseReceipts.length === 0 ? (
+                {isLoading ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={10}
+                      className="h-48 px-4 text-muted-foreground">
+                      <div className="flex h-full items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium tracking-wide">
+                          Loading purchase receipts…
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedPurchaseReceipts.length === 0 ? (
                   <TableRow>
                     <TableCell
                       colSpan={10}

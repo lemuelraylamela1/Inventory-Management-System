@@ -1,5 +1,5 @@
 "use client";
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
@@ -54,7 +54,7 @@ import {
   CardTitle,
   CardDescription,
 } from "../ui/card";
-import { Plus, Search, Edit, Trash2, Eye } from "lucide-react";
+import { Plus, Search, Edit, Trash2, Eye, Loader2 } from "lucide-react";
 import type { SalesPersonType } from "./type";
 import ViewSalesPerson from "./SalesPersonSub/ViewSalesPerson";
 
@@ -68,6 +68,8 @@ export default function SalesPerson() {
   const [selectedSalesPersons, setselectedSalesPersons] = useState<
     SalesPersonType[]
   >([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const isFirstFetch = useRef(true);
 
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -112,18 +114,25 @@ export default function SalesPerson() {
   };
 
   const fetchSalesPerson = async () => {
+    if (isFirstFetch.current) setIsLoading(true);
+
     try {
-      const res = await fetch("http://localhost:3000/api/salesPersons", {
+      const res = await fetch("api/salesPersons", {
         cache: "no-store",
       });
-      if (!res.ok) throw new Error("Failed to fetch items");
+      if (!res.ok) throw new Error("Failed to fetch sales persons");
 
       const data = await res.json();
       const salesPerson = Array.isArray(data) ? data : data.salesPersons;
       setSalesPerson(Array.isArray(salesPerson) ? salesPerson : []);
     } catch (error) {
-      console.error("Error loading salesPerson:", error);
+      console.error("❌ Error loading sales persons:", error);
       setSalesPerson([]);
+    } finally {
+      if (isFirstFetch.current) {
+        setIsLoading(false);
+        isFirstFetch.current = false;
+      }
     }
   };
 
@@ -727,11 +736,24 @@ export default function SalesPerson() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {paginatedItems.length === 0 ? (
+                {isLoading ? (
                   <TableRow>
                     <TableCell
                       colSpan={6}
-                      className="text-center text-gray-500">
+                      className="h-48 px-4 text-muted-foreground">
+                      <div className="flex h-full items-center justify-center gap-2">
+                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                        <span className="text-sm font-medium tracking-wide">
+                          Loading salespersons…
+                        </span>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : paginatedItems.length === 0 ? (
+                  <TableRow>
+                    <TableCell
+                      colSpan={6}
+                      className="text-center py-8 text-muted-foreground">
                       No salespersons found.
                     </TableCell>
                   </TableRow>

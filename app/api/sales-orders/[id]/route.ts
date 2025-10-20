@@ -44,10 +44,8 @@ export async function GET(
 }
 
 // ✅ PATCH /api/sales-orders/[id]
-export async function PATCH(
-  request: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await connectMongoDB();
 
   const id = params.id?.trim();

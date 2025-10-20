@@ -14,10 +14,8 @@ type InventoryPatchPayload = Partial<{
   updatedAt: Date;
 }>;
 
-export async function PATCH(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     const body: InventoryPatchPayload = await request.json();
     const now = new Date();
