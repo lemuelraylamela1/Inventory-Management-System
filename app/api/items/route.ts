@@ -111,9 +111,11 @@ type Params = {
   }>;
 };
 
-export async function DELETE(request: NextRequest, props: Params): Promise<NextResponse> {
-  const params = await props.params;
-  const { id } = params;
+export async function DELETE(
+  request: NextRequest,
+  context: { params: { id: string } }
+): Promise<NextResponse> {
+  const { id } = context.params;
 
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
     console.warn("Invalid or missing _id:", id);

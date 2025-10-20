@@ -46,6 +46,7 @@ export type SalesPersonType = {
   status: string;
   createdAt?: Date;
   updatedAt?: Date;
+  salesPersonName?: string;
 };
 
 export type CustomerType = {

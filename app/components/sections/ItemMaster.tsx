@@ -518,9 +518,7 @@ export default function ItemMaster({ onSuccess }: Props) {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`api/items/${id}`, {
-        method: "DELETE",
-      });
+      const res = await fetch(`/api/items/${id}`, { method: "DELETE" });
 
       if (!res.ok) throw new Error("Failed to delete item");
 

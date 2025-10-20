@@ -4,6 +4,7 @@ import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { toast } from "sonner";
+import { Checkbox } from "../ui/checkbox";
 import {
   Table,
   TableBody,
@@ -235,7 +236,7 @@ export default function SalesPerson() {
     };
 
     try {
-      const res = await fetch("http://localhost:3000/api/salesPersons", {
+      const res = await fetch("api/salesPersons", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
@@ -326,16 +327,13 @@ export default function SalesPerson() {
     };
 
     try {
-      const res = await fetch(
-        `http://localhost:3000/api/salesPersons/${updatedSalesPerson._id}`,
-        {
-          method: "PUT",
-          headers: {
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify(updatedSalesPerson),
-        }
-      );
+      const res = await fetch(`api/salesPersons/${updatedSalesPerson._id}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(updatedSalesPerson),
+      });
 
       if (!res.ok) throw new Error("Failed to update sales person");
 
@@ -364,7 +362,7 @@ export default function SalesPerson() {
 
   const handleDelete = async (id: string) => {
     try {
-      const res = await fetch(`http://localhost:3000/api/salesPersons/${id}`, {
+      const res = await fetch(`api/salesPersons/${id}`, {
         method: "DELETE",
       });
 
@@ -664,12 +662,9 @@ export default function SalesPerson() {
                       try {
                         await Promise.all(
                           selectedSalesPersons.map((salesPerson) =>
-                            fetch(
-                              `http://localhost:3000/api/salesPersons/${salesPerson._id}`,
-                              {
-                                method: "DELETE",
-                              }
-                            )
+                            fetch(`api/salesPersons/${salesPerson._id}`, {
+                              method: "DELETE",
+                            })
                           )
                         );
                         setselectedSalesPersons([]);
@@ -769,33 +764,27 @@ export default function SalesPerson() {
                           : ""
                       }>
                       <TableCell>
-                        {selectAll && (
-                          <input
-                            type="checkbox"
-                            checked={selectedSalesPersons.some(
-                              (i) => i._id === salesPerson._id
-                            )}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              if (checked) {
-                                setselectedSalesPersons((prev) => {
-                                  if (
-                                    prev.some((p) => p._id === salesPerson._id)
-                                  )
-                                    return prev;
-                                  return [...prev, salesPerson];
-                                });
-                              } else {
-                                setselectedSalesPersons((prev) =>
-                                  prev.filter((i) => i._id !== salesPerson._id)
-                                );
-                              }
-                            }}
-                            className="accent-black mr-2"
-                          />
-                        )}
+                        <Checkbox
+                          checked={selectedSalesPersons.some(
+                            (i) => i._id === salesPerson._id
+                          )}
+                          onCheckedChange={(checked: boolean) => {
+                            if (checked) {
+                              setselectedSalesPersons((prev) =>
+                                prev.some((p) => p._id === salesPerson._id)
+                                  ? prev
+                                  : [...prev, salesPerson]
+                              );
+                            } else {
+                              setselectedSalesPersons((prev) =>
+                                prev.filter((i) => i._id !== salesPerson._id)
+                              );
+                            }
+                          }}
+                          className="mr-2"
+                        />
                         {new Date(salesPerson.createdDT).toLocaleDateString(
-                          "en-US",
+                          "en-PH",
                           {
                             year: "numeric",
                             month: "long",
@@ -806,7 +795,7 @@ export default function SalesPerson() {
 
                       <TableCell>{salesPerson.salesPersonCode}</TableCell>
                       <TableCell>
-                        {salesPerson.firstName || salesPerson.lastName || "—"}
+                        {salesPerson.salesPersonName || "—"}
                       </TableCell>
                       <TableCell>{salesPerson.emailAddress}</TableCell>
                       <TableCell>

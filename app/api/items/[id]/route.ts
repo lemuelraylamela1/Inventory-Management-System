@@ -1,6 +1,7 @@
 import connectMongoDB from "@/libs/mongodb";
 import Item from "@/models/item";
 import { NextResponse, NextRequest } from "next/server";
+import mongoose from "mongoose";
 
 interface ItemPayload {
   itemCode: string;
@@ -112,7 +113,10 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function PUT(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+export async function PUT(
+  request: NextRequest,
+  props: { params: Promise<{ id: string }> }
+) {
   const params = await props.params;
   const { id } = params;
   const body = await request.json();
@@ -154,23 +158,32 @@ export async function GET() {
   }
 }
 
-type Params = {
-  params: Promise<{
-    id: string;
-  }>;
-};
+export async function DELETE(
+  request: NextRequest,
+  context: { params: { id: string } }
+): Promise<NextResponse> {
+  const { id } = context.params;
 
-export async function DELETE(request: NextRequest, props: Params) {
-  const params = await props.params;
-  const { id } = params;
+  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+    console.warn("Invalid or missing _id:", id);
+    return NextResponse.json(
+      { message: "Invalid or missing _id" },
+      { status: 400 }
+    );
+  }
+
+  await connectMongoDB();
 
   try {
-    await connectMongoDB();
-    await Item.findByIdAndDelete(id);
+    const deleted = await Item.findByIdAndDelete(id);
+
+    if (!deleted) {
+      return NextResponse.json({ message: "Item not found" }, { status: 404 });
+    }
 
     return NextResponse.json({ message: "Item deleted" }, { status: 200 });
   } catch (error) {
-    console.error("Delete failed:", error);
+    console.error("❌ Delete failed:", error);
     return NextResponse.json(
       { error: "Failed to delete item" },
       { status: 500 }

@@ -2770,8 +2770,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                   <TableRow>
                     <TableCell
                       colSpan={7}
-                      className="py-6 text-center text-muted-foreground">
-                      <div className="inline-flex items-center justify-center gap-2">
+                      className="h-48 px-4 text-muted-foreground">
+                      <div className="flex h-full items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-primary" />
                         <span className="text-sm font-medium tracking-wide">
                           Loading invoices, please wait…
@@ -2780,6 +2780,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                     </TableCell>
                   </TableRow>
                 ) : paginatedSalesOrders.length === 0 ? (
+                  // your empty state
+
                   <TableRow>
                     <TableCell
                       colSpan={10}

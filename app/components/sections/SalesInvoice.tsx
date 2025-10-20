@@ -693,8 +693,8 @@ export default function SalesInvoicePage({
                   <TableRow>
                     <TableCell
                       colSpan={7}
-                      className="py-6 text-center text-muted-foreground">
-                      <div className="inline-flex items-center justify-center gap-2">
+                      className="h-48 px-4 text-muted-foreground">
+                      <div className="flex h-full items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-primary" />
                         <span className="text-sm font-medium tracking-wide">
                           Loading invoices, please wait…
@@ -703,6 +703,8 @@ export default function SalesInvoicePage({
                     </TableCell>
                   </TableRow>
                 ) : paginatedSalesInvoices.length === 0 ? (
+                  // your empty state
+
                   <TableRow>
                     <TableCell
                       colSpan={7}
@@ -1239,7 +1241,7 @@ export default function SalesInvoicePage({
                           ₱{item.price.toFixed(2)}
                         </div>
                         <div className="px-2 text-end">
-                          ₱{item.price.toFixed(2)}
+                          {/* ₱{item.price.toFixed(2)} */}₱0.00
                         </div>{" "}
                         {/* Replace with actual tax if available */}
                         <div className="px-2 text-end">
@@ -1298,7 +1300,11 @@ export default function SalesInvoicePage({
                     status: value as "UNPAID" | "PARTIAL" | "PAID" | "VOID",
                   })
                 }>
-                <SelectTrigger />
+                <SelectTrigger className="w-full">
+                  {formData.status || (
+                    <span className="text-muted-foreground">Select status</span>
+                  )}
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="UNPAID">UNPAID</SelectItem>
                   <SelectItem value="PARTIAL">PARTIAL</SelectItem>
@@ -1344,6 +1350,7 @@ export default function SalesInvoicePage({
                   <th className="px-4 py-2 text-right">Qty</th>
                   <th className="px-4 py-2 text-left">UOM</th>
                   <th className="px-4 py-2 text-right">Price</th>
+                  <th className="px-4 py-2 text-right">Tax</th>
                   <th className="px-4 py-2 text-right">Amount</th>
                 </tr>
               </thead>
@@ -1358,6 +1365,12 @@ export default function SalesInvoicePage({
                       {item.price.toLocaleString("en-PH", {
                         minimumFractionDigits: 2,
                       })}
+                    </td>
+                    <td className="px-4 py-2 text-right">
+                      ₱0.00
+                      {/* {item.amount.toLocaleString("en-PH", {
+                        minimumFractionDigits: 2,
+                      })} */}
                     </td>
                     <td className="px-4 py-2 text-right">
                       ₱
