@@ -2333,7 +2333,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                                       (option) =>
                                         option.itemName
                                           ?.toUpperCase()
-                                          .includes(input)
+                                          .includes(input) &&
+                                        Number(option.quantity) > 0
                                     );
 
                                     if (filtered.length === 0) {
@@ -2406,7 +2407,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                                   (inv) => inv.itemCode === item.itemCode
                                 )?.quantity ?? 9999
                               }
-                              value={item.quantity}
+                              value={item.itemName ? item.quantity : 0}
+                              disabled={!item.itemName}
                               onChange={(e) => {
                                 const raw = Number(e.target.value);
                                 const maxQty =
@@ -2434,7 +2436,11 @@ export default function SalesOrder({ onSuccess }: Props) {
                                   return { ...prev, items: updatedItems };
                                 });
                               }}
-                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary text-end"
+                              className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 text-end bg-white focus:outline-none focus:ring-1 focus:ring-primary ${
+                                !item.itemName
+                                  ? "bg-muted text-muted-foreground cursor-not-allowed"
+                                  : ""
+                              }`}
                             />
 
                             {/* Unit Type */}
@@ -2522,7 +2528,11 @@ export default function SalesOrder({ onSuccess }: Props) {
                             <tr className="border-t">
                               <td className="px-4 py-2">Total Quantity</td>
                               <td className="px-4 py-2 text-right">
-                                {formData.totalQuantity}
+                                {formData.items.reduce(
+                                  (sum, item) =>
+                                    sum + Number(item.quantity || 0),
+                                  0
+                                )}
                               </td>
                             </tr>
                             <tr className="border-t">

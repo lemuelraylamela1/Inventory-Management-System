@@ -383,6 +383,24 @@ export default function SalesInvoicePage({
     setIsCreating(true);
 
     try {
+      const items = formData.soItems.map((item) => {
+        const key = item.itemName?.trim().toUpperCase();
+        return {
+          itemCode: item.itemCode?.trim().toUpperCase() || "",
+          itemName: key,
+          description: item.description?.trim() || descriptionMap[key] || "—",
+          quantity: Math.max(Number(item.quantity) || 1, 1),
+          unitType: item.unitType?.trim().toUpperCase() || "",
+          price: Number(item.price) || 0,
+          amount: Number(item.quantity) * Number(item.price),
+        };
+      });
+
+      const totalAmount = items.reduce(
+        (sum, item) => sum + (item.amount || 0),
+        0
+      );
+
       const payload = {
         customer: formData.customer.trim().toUpperCase(),
         reference: formData.reference || "",
@@ -401,21 +419,12 @@ export default function SalesInvoicePage({
         salesPerson: formData.salesPerson?.trim() || "",
         notes: formData.notes?.trim() || "",
         salesOrder: formData.salesOrderLabel || "",
-        items: formData.soItems.map((item) => {
-          const key = item.itemName?.trim().toUpperCase();
-          return {
-            itemCode: item.itemCode?.trim().toUpperCase() || "",
-            itemName: key,
-            description: item.description?.trim() || descriptionMap[key] || "—",
-            quantity: Math.max(Number(item.quantity) || 1, 1),
-            unitType: item.unitType?.trim().toUpperCase() || "",
-            price: Number(item.price) || 0,
-            amount: Number(item.quantity) * Number(item.price),
-          };
-        }),
+        items,
+        amount: Math.max(totalAmount, 0), // ✅ Inject total amount
       };
 
       console.log("📦 Creating Sales Invoice with payload:", payload);
+      console.log("🧮 Computed total amount:", totalAmount);
 
       const res = await fetch("/api/sales-invoices", {
         method: "POST",
@@ -460,108 +469,108 @@ export default function SalesInvoicePage({
     }
   };
 
-  const handleEdit = (invoice: SalesInvoice) => {
-    const hydratedItems = invoice.items.map((item) => ({
-      ...item,
-      description:
-        item.description?.trim() ||
-        descriptionMap[item.itemName?.trim().toUpperCase()] ||
-        "—",
-    }));
+  // const handleEdit = (invoice: SalesInvoice) => {
+  //   const hydratedItems = invoice.items.map((item) => ({
+  //     ...item,
+  //     description:
+  //       item.description?.trim() ||
+  //       descriptionMap[item.itemName?.trim().toUpperCase()] ||
+  //       "—",
+  //   }));
 
-    setFormData({
-      customer: invoice.customer || "",
-      reference: invoice.reference || "",
-      status: invoice.status || "UNPAID",
-      invoiceDate: invoice.invoiceDate
-        ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
-        : new Date().toISOString().split("T")[0],
-      dueDate: invoice.dueDate
-        ? new Date(invoice.dueDate).toISOString().split("T")[0]
-        : "",
-      salesPerson: invoice.salesPerson || "",
-      notes: invoice.notes || "",
-      salesOrder: invoice.salesOrder || "",
-      salesOrderLabel: invoice.salesOrder || "",
-      soItems: hydratedItems,
-      TIN: invoice.TIN || "",
-      terms: invoice.terms || "",
-      address: invoice.address || "",
-    });
+  //   setFormData({
+  //     customer: invoice.customer || "",
+  //     reference: invoice.reference || "",
+  //     status: invoice.status || "UNPAID",
+  //     invoiceDate: invoice.invoiceDate
+  //       ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
+  //       : new Date().toISOString().split("T")[0],
+  //     dueDate: invoice.dueDate
+  //       ? new Date(invoice.dueDate).toISOString().split("T")[0]
+  //       : "",
+  //     salesPerson: invoice.salesPerson || "",
+  //     notes: invoice.notes || "",
+  //     salesOrder: invoice.salesOrder || "",
+  //     salesOrderLabel: invoice.salesOrder || "",
+  //     soItems: hydratedItems,
+  //     TIN: invoice.TIN || "",
+  //     terms: invoice.terms || "",
+  //     address: invoice.address || "",
+  //   });
 
-    setSelectedInvoice(invoice);
-    setIsEditDialogOpen(true);
-  };
+  //   setSelectedInvoice(invoice);
+  //   setIsEditDialogOpen(true);
+  // };
 
-  const handleUpdate = async () => {
-    if (!selectedInvoice?._id) return;
+  // const handleUpdate = async () => {
+  //   if (!selectedInvoice?._id) return;
 
-    setIsUpdating(true);
+  //   setIsUpdating(true);
 
-    try {
-      const payload = {
-        customer: formData.customer.trim().toUpperCase(),
-        reference: formData.reference || "",
-        status: formData.status || "UNPAID",
-        invoiceDate: new Date(formData.invoiceDate).toLocaleDateString(
-          "en-PH",
-          {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          }
-        ),
-        dueDate: formData.dueDate
-          ? new Date(formData.dueDate).toISOString()
-          : null,
-        salesPerson: formData.salesPerson?.trim() || "",
-        notes: formData.notes?.trim() || "",
-        salesOrder: formData.salesOrderLabel || "",
-        items: formData.soItems.map((item) => {
-          const key = item.itemName?.trim().toUpperCase();
-          return {
-            itemCode: item.itemCode?.trim().toUpperCase() || "",
-            itemName: key,
-            description: item.description?.trim() || descriptionMap[key] || "—",
-            quantity: Math.max(Number(item.quantity) || 1, 1),
-            unitType: item.unitType?.trim().toUpperCase() || "",
-            price: Number(item.price) || 0,
-            amount: Number(item.quantity) * Number(item.price),
-          };
-        }),
-      };
+  //   try {
+  //     const payload = {
+  //       customer: formData.customer.trim().toUpperCase(),
+  //       reference: formData.reference || "",
+  //       status: formData.status || "UNPAID",
+  //       invoiceDate: new Date(formData.invoiceDate).toLocaleDateString(
+  //         "en-PH",
+  //         {
+  //           year: "numeric",
+  //           month: "short",
+  //           day: "numeric",
+  //         }
+  //       ),
+  //       dueDate: formData.dueDate
+  //         ? new Date(formData.dueDate).toISOString()
+  //         : null,
+  //       salesPerson: formData.salesPerson?.trim() || "",
+  //       notes: formData.notes?.trim() || "",
+  //       salesOrder: formData.salesOrderLabel || "",
+  //       items: formData.soItems.map((item) => {
+  //         const key = item.itemName?.trim().toUpperCase();
+  //         return {
+  //           itemCode: item.itemCode?.trim().toUpperCase() || "",
+  //           itemName: key,
+  //           description: item.description?.trim() || descriptionMap[key] || "—",
+  //           quantity: Math.max(Number(item.quantity) || 1, 1),
+  //           unitType: item.unitType?.trim().toUpperCase() || "",
+  //           price: Number(item.price) || 0,
+  //           amount: Number(item.quantity) * Number(item.price),
+  //         };
+  //       }),
+  //     };
 
-      console.log("🔄 Updating Sales Invoice with payload:", payload);
+  //     console.log("🔄 Updating Sales Invoice with payload:", payload);
 
-      const res = await fetch(`/api/sales-invoices/${selectedInvoice._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
+  //     const res = await fetch(`/api/sales-invoices/${selectedInvoice._id}`, {
+  //       method: "PATCH",
+  //       headers: { "Content-Type": "application/json" },
+  //       body: JSON.stringify(payload),
+  //     });
 
-      const data = await res.json();
+  //     const data = await res.json();
 
-      console.log("📨 Server response:", data);
+  //     console.log("📨 Server response:", data);
 
-      if (res.ok) {
-        console.log("✅ Invoice updated:", data.invoice);
-        setSalesInvoices((prev) =>
-          prev.map((inv) => (inv._id === data.invoice._id ? data.invoice : inv))
-        );
-        setIsEditDialogOpen(false);
-        setSelectedInvoice(null);
-        toast.success(
-          `Invoice #${data.invoice.invoiceNo} updated successfully`
-        );
-      } else {
-        console.error("❌ Update failed:", data.error);
-      }
-    } catch (err) {
-      console.error("❌ Update error:", err);
-    } finally {
-      setIsUpdating(false);
-    }
-  };
+  //     if (res.ok) {
+  //       console.log("✅ Invoice updated:", data.invoice);
+  //       setSalesInvoices((prev) =>
+  //         prev.map((inv) => (inv._id === data.invoice._id ? data.invoice : inv))
+  //       );
+  //       setIsEditDialogOpen(false);
+  //       setSelectedInvoice(null);
+  //       toast.success(
+  //         `Invoice #${data.invoice.invoiceNo} updated successfully`
+  //       );
+  //     } else {
+  //       console.error("❌ Update failed:", data.error);
+  //     }
+  //   } catch (err) {
+  //     console.error("❌ Update error:", err);
+  //   } finally {
+  //     setIsUpdating(false);
+  //   }
+  // };
 
   return (
     <div className="space-y-6">
@@ -741,14 +750,14 @@ export default function SalesInvoicePage({
                           onClick={() => handleView(inv)}>
                           <Eye className="w-4 h-4" />
                         </Button>
-                        <Button
+                        {/* <Button
                           size="icon"
                           variant="ghost"
                           onClick={() => handleEdit(inv)}
                           title={`Edit invoice ${inv.invoiceNo}`}
                           aria-label={`Edit invoice ${inv.invoiceNo}`}>
                           <Edit />
-                        </Button>
+                        </Button> */}
 
                         <AlertDialog>
                           <AlertDialogTrigger asChild>
@@ -1265,138 +1274,7 @@ export default function SalesInvoicePage({
           </Card>
         </DialogPanel>
       </Dialog>
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogPanel className="w-full px-6 py-6">
-          <DialogTitle className="text-lg font-semibold text-primary mb-4">
-            Edit Sales Invoice
-          </DialogTitle>
 
-          {/* Form Fields */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6 text-sm">
-            <div className="space-y-2">
-              <Label>Customer</Label>
-              <Input value={formData.customer} disabled />
-              <Label>Sales Person</Label>
-              <Input
-                value={formData.salesPerson}
-                onChange={(e) =>
-                  setFormData({ ...formData, salesPerson: e.target.value })
-                }
-              />
-              <Label>Reference</Label>
-              <Input
-                value={formData.reference}
-                onChange={(e) =>
-                  setFormData({ ...formData, reference: e.target.value })
-                }
-              />
-              <Label>Status</Label>
-              <Select
-                value={formData.status}
-                onValueChange={(value) =>
-                  setFormData({
-                    ...formData,
-                    status: value as "UNPAID" | "PARTIAL" | "PAID" | "VOID",
-                  })
-                }>
-                <SelectTrigger className="w-full">
-                  {formData.status || (
-                    <span className="text-muted-foreground">Select status</span>
-                  )}
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="UNPAID">UNPAID</SelectItem>
-                  <SelectItem value="PARTIAL">PARTIAL</SelectItem>
-                  <SelectItem value="PAID">PAID</SelectItem>
-                  <SelectItem value="VOID">VOID</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <div className="space-y-2">
-              <Label>Invoice Date</Label>
-              <Input
-                type="date"
-                value={formData.invoiceDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, invoiceDate: e.target.value })
-                }
-              />
-              <Label>Due Date</Label>
-              <Input
-                type="date"
-                value={formData.dueDate}
-                onChange={(e) =>
-                  setFormData({ ...formData, dueDate: e.target.value })
-                }
-              />
-              <Label>Notes</Label>
-              <Textarea
-                value={formData.notes}
-                onChange={(e) =>
-                  setFormData({ ...formData, notes: e.target.value })
-                }
-              />
-            </div>
-          </div>
-
-          {/* Item Table */}
-          <div className="overflow-x-auto mb-6">
-            <table className="min-w-full text-sm border border-border rounded-md overflow-hidden">
-              <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                <tr>
-                  <th className="px-4 py-2 text-left">Item</th>
-                  <th className="px-4 py-2 text-right">Qty</th>
-                  <th className="px-4 py-2 text-left">UOM</th>
-                  <th className="px-4 py-2 text-right">Price</th>
-                  <th className="px-4 py-2 text-right">Tax</th>
-                  <th className="px-4 py-2 text-right">Amount</th>
-                </tr>
-              </thead>
-              <tbody>
-                {formData.soItems.map((item, index) => (
-                  <tr key={index} className="border-t">
-                    <td className="px-4 py-2">{item.itemName}</td>
-                    <td className="px-4 py-2 text-right">{item.quantity}</td>
-                    <td className="px-4 py-2">{item.unitType}</td>
-                    <td className="px-4 py-2 text-right">
-                      ₱
-                      {item.price.toLocaleString("en-PH", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      ₱0.00
-                      {/* {item.amount.toLocaleString("en-PH", {
-                        minimumFractionDigits: 2,
-                      })} */}
-                    </td>
-                    <td className="px-4 py-2 text-right">
-                      ₱
-                      {item.amount.toLocaleString("en-PH", {
-                        minimumFractionDigits: 2,
-                      })}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-
-          {/* Footer */}
-          <DialogFooter className="px-6 py-4 border-t border-border flex justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setIsEditDialogOpen(false)}>
-              Cancel
-            </Button>
-            <Button onClick={handleUpdate} disabled={isUpdating}>
-              {isUpdating ? "Updating…" : "Update Invoice"}
-            </Button>
-          </DialogFooter>
-        </DialogPanel>
-      </Dialog>
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogPanel className="w-full px-6 py-6">

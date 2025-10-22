@@ -160,9 +160,9 @@ export async function GET() {
 
 export async function DELETE(
   request: NextRequest,
-  context: { params: { id: string } }
+  context: { params: Promise<{ id: string }> }
 ): Promise<NextResponse> {
-  const { id } = context.params;
+  const { id } = (await context.params);
 
   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
     console.warn("Invalid or missing _id:", id);

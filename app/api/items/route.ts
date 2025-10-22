@@ -105,32 +105,32 @@ export async function GET() {
   return NextResponse.json({ items });
 }
 
-type Params = {
-  params: Promise<{
-    id: string;
-  }>;
-};
+// type Params = {
+//   params: Promise<{
+//     id: string;
+//   }>;
+// };
 
-export async function DELETE(
-  request: NextRequest,
-  context: { params: { id: string } }
-): Promise<NextResponse> {
-  const { id } = context.params;
+// export async function DELETE(
+//   request: NextRequest,
+//   context: { params: { id: string } }
+// ): Promise<NextResponse> {
+//   const { id } = context.params;
 
-  if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-    console.warn("Invalid or missing _id:", id);
-    return NextResponse.json(
-      { message: "Invalid or missing _id" },
-      { status: 400 }
-    );
-  }
+//   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
+//     console.warn("Invalid or missing _id:", id);
+//     return NextResponse.json(
+//       { message: "Invalid or missing _id" },
+//       { status: 400 }
+//     );
+//   }
 
-  await connectMongoDB();
-  const deleted = await Item.findByIdAndDelete(id);
+//   await connectMongoDB();
+//   const deleted = await Item.findByIdAndDelete(id);
 
-  if (!deleted) {
-    return NextResponse.json({ message: "Item not found" }, { status: 404 });
-  }
+//   if (!deleted) {
+//     return NextResponse.json({ message: "Item not found" }, { status: 404 });
+//   }
 
-  return NextResponse.json({ message: "Item deleted" }, { status: 200 });
-}
+//   return NextResponse.json({ message: "Item deleted" }, { status: 200 });
+// }

@@ -4,6 +4,9 @@ import { SalesInvoice } from "@/models/salesInvoice";
 import { Customer } from "@/models/customer";
 import SalesOrder from "@/models/salesOrder";
 import { generateSalesInvoiceNo } from "@/libs/generateSalesInvoiceNo";
+import InventoryMain from "@/models/inventoryMain";
+import Inventory from "@/models/inventory";
+import { InventoryItem } from "../../components/sections/type";
 
 export async function POST(req: Request) {
   await connectMongoDB();
@@ -19,10 +22,11 @@ export async function POST(req: Request) {
     salesOrder,
     dueDate,
     notes,
-    items, // ✅ include items from frontend
+    items,
   } = body;
 
   try {
+    // 🧾 Validate customer
     const customerDoc = await Customer.findOne({
       customerName: customer?.trim().toUpperCase(),
     });
@@ -34,12 +38,15 @@ export async function POST(req: Request) {
       );
     }
 
+    // 🔗 Resolve sales order
     const salesOrderDoc = salesOrder
       ? await SalesOrder.findOne({ soNumber: salesOrder })
       : null;
 
-    const invoiceNo = await generateSalesInvoiceNo(); // ✅ Generate invoice number
+    // 🔢 Generate invoice number
+    const invoiceNo = await generateSalesInvoiceNo();
 
+    // 📦 Normalize items
     const normalizedItems = Array.isArray(items)
       ? items
           .filter((item) => Number(item.quantity) > 0)
@@ -54,6 +61,7 @@ export async function POST(req: Request) {
           }))
       : [];
 
+    // 🧮 Construct invoice payload
     const normalizedInvoice = {
       invoiceNo,
       invoiceDate: new Date(invoiceDate).toLocaleDateString("en-PH", {
@@ -61,7 +69,6 @@ export async function POST(req: Request) {
         month: "short",
         day: "numeric",
       }),
-
       customer: customer?.trim().toUpperCase(),
       amount,
       balance: amount,
@@ -74,10 +81,100 @@ export async function POST(req: Request) {
       address: customerDoc.address,
       dueDate,
       notes,
-      items: normalizedItems, // ✅ embed normalized items
+      items: normalizedItems,
     };
 
+    // 🧾 Create invoice
     const invoice = await SalesInvoice.create(normalizedInvoice);
+
+    // 📉 Deduct quantities from InventoryMain
+    const warehouse = salesOrderDoc?.warehouse?.trim().toUpperCase();
+    if (!warehouse) {
+      console.warn(
+        `⚠️ No warehouse found in sales order ${salesOrderDoc?.soNumber}`
+      );
+    } else {
+      for (const item of normalizedItems) {
+        try {
+          await InventoryMain.updateOne(
+            {
+              itemCode: item.itemCode,
+              warehouse,
+            },
+            {
+              $inc: { quantity: -item.quantity },
+            },
+            { upsert: false }
+          );
+
+          console.log(
+            `📉 InventoryMain reduced for ${item.itemCode} in ${warehouse}: -${item.quantity}`
+          );
+        } catch (err) {
+          console.error(
+            `❌ InventoryMain update failed for ${item.itemCode}:`,
+            err
+          );
+        }
+      }
+    }
+
+    for (const item of normalizedItems) {
+      try {
+        const now = new Date();
+        const warehouse = salesOrderDoc?.warehouse?.trim().toUpperCase();
+        const inventoryDoc = await Inventory.findOne({ warehouse });
+
+        const newEntry = {
+          itemCode: item.itemCode,
+          itemName: item.itemName,
+          category: "SOLD",
+          quantity: -item.quantity,
+          unitType: item.unitType,
+          source: invoiceNo,
+          referenceNumber: reference || invoiceNo,
+          activity: "SALE",
+          user: "SYSTEM", // or pass from frontend
+          inQty: 0,
+          outQty: item.quantity,
+          currentOnhand: 0,
+          particulars: `Sold via ${reference || invoiceNo}`,
+          date: now.toISOString(),
+          receivedAt: now,
+          createdAt: now,
+          updatedAt: now,
+        };
+
+        if (!inventoryDoc) {
+          newEntry.currentOnhand = -item.quantity;
+
+          await Inventory.create({
+            warehouse,
+            items: [newEntry],
+            remarks: `Auto-created from invoice ${invoiceNo}`,
+          });
+
+          console.log(`🆕 Created inventory tracker for ${warehouse}`);
+        } else {
+          inventoryDoc.items.push(newEntry);
+
+          const totalOnhand = inventoryDoc.items
+            .filter((i: InventoryItem) => i.itemCode === item.itemCode)
+            .reduce((sum: number, i: InventoryItem) => sum + i.quantity, 0);
+
+          inventoryDoc.items[inventoryDoc.items.length - 1].currentOnhand =
+            totalOnhand;
+
+          await inventoryDoc.save();
+          console.log(`📤 Logged sale for ${item.itemCode} in ${warehouse}`);
+        }
+      } catch (err) {
+        console.error(
+          `❌ Failed to log inventory tracker for ${item.itemCode}:`,
+          err
+        );
+      }
+    }
 
     return NextResponse.json({ invoice }, { status: 201 });
   } catch (err) {
