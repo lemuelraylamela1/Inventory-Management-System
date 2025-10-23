@@ -28,6 +28,8 @@ import PurchaseReturn from "./components/sections/PurchaseReturn";
 import InventoryAdjustment from "./components/sections/InventoryAdjustment";
 import InventorySummary from "./components/sections/InventorySummary";
 import InventoryTracker from "./components/sections/InventoryTracker";
+import TransferRequest from "./components/sections/TransferRequest";
+import TransferApproved from "./components/sections/TransferApproved";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -98,6 +100,10 @@ export default function App() {
         return <Supplier />;
       case "tax":
         return <Tax />;
+      case "transfer-approved":
+        return <TransferApproved />;
+      case "transfer-request":
+        return <TransferRequest />;
       case "unit-measure":
         return <UnitOFMeasure />;
       case "warehouse":

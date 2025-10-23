@@ -226,6 +226,7 @@ export type InventoryType = {
   currentOnhand: number;
   createdAt?: Date;
   updatedAt?: Date;
+  unitType?: string;
 };
 
 import type { Types } from "mongoose";
@@ -315,4 +316,27 @@ export type SalesInvoiceItem = {
   price: number;
   quantity: number;
   amount: number;
+};
+
+export type TransferRequestItem = {
+  itemCode: string;
+  quantity: number;
+  unitType: string;
+};
+
+export type TransferRequest = {
+  _id?: string;
+  date: Date | string;
+  requestNo: string;
+  requestingWarehouse: string;
+  sourceWarehouse: string;
+  transactionDate: Date | string;
+  transferDate?: Date | string; // 🆕 Optional transfer date
+  reference?: string; // 🆕 Optional reference number
+  notes?: string; // 🆕 Optional notes
+  preparedBy: string;
+  status: "pending" | "approved" | "rejected";
+  items: TransferRequestItem[];
+  createdAt?: string;
+  updatedAt?: string;
 };

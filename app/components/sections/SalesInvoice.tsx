@@ -799,51 +799,50 @@ export default function SalesInvoicePage({
                 )}
               </TableBody>
             </Table>
+          </div>
+          {/* Results count */}
+          <div className="flex items-center justify-between mt-4">
+            {/* Rows per page selector */}
+            <div className="flex items-center gap-2">
+              <span className="text-sm text-gray-600">
+                Sales invoice per page:
+              </span>
+              <Select
+                value={String(rowsPerPage)}
+                onValueChange={(val) => {
+                  setRowsPerPage(Number(val));
+                  setCurrentPage(1); // reset to first page
+                }}>
+                <SelectTrigger className="w-20">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="10">10</SelectItem>
+                  <SelectItem value="50">50</SelectItem>
+                  <SelectItem value="100">100</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
 
-            {/* Results count */}
-            <div className="flex items-center justify-between mt-4">
-              {/* Rows per page selector */}
-              <div className="flex items-center gap-2">
-                <span className="text-sm text-gray-600">
-                  Sales invoice per page:
-                </span>
-                <Select
-                  value={String(rowsPerPage)}
-                  onValueChange={(val) => {
-                    setRowsPerPage(Number(val));
-                    setCurrentPage(1); // reset to first page
-                  }}>
-                  <SelectTrigger className="w-20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="10">10</SelectItem>
-                    <SelectItem value="50">50</SelectItem>
-                    <SelectItem value="100">100</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              {/* Pagination controls */}
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={currentPage === 1}
-                  onClick={() => setCurrentPage((prev) => prev - 1)}>
-                  Previous
-                </Button>
-                <span className="text-sm text-gray-600">
-                  Page {currentPage} of {totalPages}
-                </span>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  disabled={currentPage === totalPages || totalPages === 0}
-                  onClick={() => setCurrentPage((prev) => prev + 1)}>
-                  Next
-                </Button>
-              </div>
+            {/* Pagination controls */}
+            <div className="flex items-center gap-2">
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={currentPage === 1}
+                onClick={() => setCurrentPage((prev) => prev - 1)}>
+                Previous
+              </Button>
+              <span className="text-sm text-gray-600">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="ghost"
+                size="sm"
+                disabled={currentPage === totalPages || totalPages === 0}
+                onClick={() => setCurrentPage((prev) => prev + 1)}>
+                Next
+              </Button>
             </div>
           </div>
         </CardContent>

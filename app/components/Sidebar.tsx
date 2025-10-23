@@ -37,6 +37,7 @@ import {
   FileEdit,
   Boxes,
   Undo2,
+  CheckCircle,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -94,6 +95,11 @@ export function Sidebar({
   const sales = [
     { id: "sales-order", label: "Sales Order", icon: ShoppingCart },
     { id: "sales-invoice", label: "Sales Invoice", icon: FileText },
+  ];
+
+  const stockTransfer = [
+    { id: "transfer-request", label: "Transfer Request", icon: Truck },
+    { id: "transfer-approved", label: "Transfer Approved", icon: CheckCircle },
   ];
 
   const maintenanceItems = [
@@ -210,6 +216,55 @@ export function Sidebar({
               </Collapsible>
 
               <Collapsible
+                open={openSubMenus.includes("purchase")}
+                onOpenChange={() => toggleSubMenu("purchase")}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-start">
+                    <Package className="mr-2 h-4 w-4" />
+                    Purchase
+                    {openSubMenus.includes("purchase") ? (
+                      <ChevronDown
+                        className={`ml-auto h-4 w-4 transform transition-transform duration-300 ${
+                          openSubMenus.includes("purchase")
+                            ? "rotate-180"
+                            : "rotate-0"
+                        }`}
+                      />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <AnimatePresence initial={false}>
+                  {openSubMenus.includes("purchase") && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.4, ease: "easeInOut" }}
+                      className="space-y-1 ml-4 mt-1 overflow-hidden">
+                      {purchase.map((item) => (
+                        <Button
+                          key={item.id}
+                          variant={
+                            activeSection === item.id ? "default" : "ghost"
+                          }
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            onSectionChange(item.id);
+                            if (window.innerWidth < 1024) onToggle();
+                          }}>
+                          <item.icon className="mr-2 h-3 w-3" />
+                          {item.label}
+                        </Button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Collapsible>
+
+              <Collapsible
                 open={openSubMenus.includes("inventory")}
                 onOpenChange={() => toggleSubMenu("inventory")}>
                 <CollapsibleTrigger asChild>
@@ -259,16 +314,16 @@ export function Sidebar({
               </Collapsible>
 
               <Collapsible
-                open={openSubMenus.includes("purchase")}
-                onOpenChange={() => toggleSubMenu("purchase")}>
+                open={openSubMenus.includes("stock-transfer")}
+                onOpenChange={() => toggleSubMenu("stock-transfer")}>
                 <CollapsibleTrigger asChild>
                   <Button variant="ghost" className="w-full justify-start">
                     <Package className="mr-2 h-4 w-4" />
-                    Purchase
-                    {openSubMenus.includes("purchase") ? (
+                    Stock Transfer
+                    {openSubMenus.includes("stock-transfer") ? (
                       <ChevronDown
                         className={`ml-auto h-4 w-4 transform transition-transform duration-300 ${
-                          openSubMenus.includes("purchase")
+                          openSubMenus.includes("stock-transfer")
                             ? "rotate-180"
                             : "rotate-0"
                         }`}
@@ -279,14 +334,14 @@ export function Sidebar({
                   </Button>
                 </CollapsibleTrigger>
                 <AnimatePresence initial={false}>
-                  {openSubMenus.includes("purchase") && (
+                  {openSubMenus.includes("stock-transfer") && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
                       transition={{ duration: 0.4, ease: "easeInOut" }}
                       className="space-y-1 ml-4 mt-1 overflow-hidden">
-                      {purchase.map((item) => (
+                      {stockTransfer.map((item) => (
                         <Button
                           key={item.id}
                           variant={
