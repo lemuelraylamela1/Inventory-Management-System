@@ -3,7 +3,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 export interface TransferRequestItem {
   itemCode: string;
   quantity: number;
-  uom: string;
+  unitType: string;
 }
 
 export interface TransferRequest extends Document {
@@ -24,21 +24,20 @@ const TransferRequestItemSchema = new Schema<TransferRequestItem>(
   {
     itemCode: { type: String, required: true },
     quantity: { type: Number, required: true, min: 1 },
-    uom: { type: String, required: true },
+    unitType: { type: String, required: true },
   },
   { _id: false }
 );
 
 const TransferRequestSchema = new Schema<TransferRequest>(
   {
-    date: { type: Date, required: true, default: () => new Date() },
     requestNo: { type: String, unique: true },
     requestingWarehouse: { type: String },
     sourceWarehouse: { type: String },
     transactionDate: { type: Date },
-    transferDate: { type: Date }, // 🆕 Optional
-    reference: { type: String }, // 🆕 Optional
-    notes: { type: String }, // 🆕 Optional
+    transferDate: { type: Date },
+    reference: { type: String },
+    notes: { type: String },
     status: {
       type: String,
       enum: ["pending", "approved", "rejected"],

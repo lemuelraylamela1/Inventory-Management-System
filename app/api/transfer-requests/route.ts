@@ -9,7 +9,6 @@ export async function POST(req: Request) {
   const body = await req.json();
 
   const {
-    date,
     requestingWarehouse,
     sourceWarehouse,
     transactionDate,
@@ -50,12 +49,11 @@ export async function POST(req: Request) {
       .map((item: TransferRequestItem) => ({
         itemCode: item.itemCode?.trim().toUpperCase() || "",
         quantity: Math.max(Number(item.quantity) || 1, 1),
-        uom: item.unitType?.trim().toUpperCase() || "",
+        unitType: item.unitType?.trim().toUpperCase() || "",
       }));
 
     // 🧮 Construct payload
     const payload = {
-      date: date ? new Date(date) : new Date(),
       requestNo,
       requestingWarehouse: requestingWarehouse.trim().toUpperCase(),
       sourceWarehouse: sourceWarehouse.trim().toUpperCase(),

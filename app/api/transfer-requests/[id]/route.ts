@@ -5,18 +5,31 @@ import { TransferRequestModel } from "@/models/transferRequest";
 // GET /api/transfer-requests/[id]
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: { id?: string } }
 ) {
   await connectMongoDB();
+
+  const id = params?.id;
+
   try {
-    const request = await TransferRequestModel.findById(params.id);
+    // 🛡️ Defensive ID check
+    if (!id || typeof id !== "string" || id.trim() === "") {
+      console.warn("⚠️ Invalid transfer request ID:", id);
+      return NextResponse.json({ error: "Invalid ID" }, { status: 400 });
+    }
+
+    // 🔍 Fetch transfer request
+    const request = await TransferRequestModel.findById(id);
     if (!request) {
+      console.warn("⚠️ Transfer request not found:", id);
       return NextResponse.json(
         { error: "Transfer request not found" },
         { status: 404 }
       );
     }
-    return NextResponse.json({ request }, { status: 200 });
+
+    // ✅ Success
+    return NextResponse.json(request, { status: 200 });
   } catch (err) {
     console.error("❌ Failed to fetch transfer request:", err);
     return NextResponse.json(

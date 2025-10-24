@@ -326,7 +326,6 @@ export type TransferRequestItem = {
 
 export type TransferRequest = {
   _id?: string;
-  date: Date | string;
   requestNo: string;
   requestingWarehouse: string;
   sourceWarehouse: string;

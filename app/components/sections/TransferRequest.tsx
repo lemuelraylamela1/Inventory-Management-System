@@ -27,6 +27,7 @@ import {
 
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
 
 import {
   Card,
@@ -44,6 +45,8 @@ import {
   Search,
   CalendarDays,
   Filter,
+  Edit,
+  Eye,
 } from "lucide-react";
 import { Label } from "../ui/label";
 import {
@@ -64,20 +67,26 @@ export default function TransferRequestPage() {
   );
   const [inventoryItems, setInventoryItems] = useState<InventoryType[]>([]);
   const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
-  const [availableItemCodes, setAvailableItemCodes] = useState<string[]>([]);
+  // const [availableItemCodes, setAvailableItemCodes] = useState<string[]>([]);
+  const [selectedTransferRequestId, setSelectedTransferRequestId] = useState<
+    string | null
+  >(null);
+
   const [showSourceSuggestions, setShowSourceSuggestions] = useState(false);
   const [showDestinationSuggestions, setShowDestinationSuggestions] =
     useState(false);
   const [results, setResults] = useState<string[]>([]);
-  const [showSuggestions, setShowSuggestions] = useState(false);
-
-  const [loading, setLoading] = useState(false);
-  const [dialogOpen, setDialogOpen] = useState(false);
+  // const [showSuggestions, setShowSuggestions] = useState(false);
+  const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
+  const [isUpdating, setIsUpdating] = useState(false);
+  // const [loading, setLoading] = useState(false);
+  // const [dialogOpen, setDialogOpen] = useState(false);
   const [activeIndex, setActiveIndex] = useState<number | null>(null);
   const [searchTerm, setSearchTerm] = useState("");
 
   const [currentPage, setCurrentPage] = useState(1);
-  const pageSize = 10;
+  // const pageSize = 10;
   const [isLoading, setIsLoading] = useState(false);
   const isFirstFetch = useRef(true);
   const [dateFilter, setDateFilter] = useState("");
@@ -89,13 +98,28 @@ export default function TransferRequestPage() {
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
   const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
+
   const [formData, setFormData] = useState<
-    Omit<TransferRequest, "_id" | "requestNo" | "status">
+    Omit<TransferRequest, "_id" | "status">
   >({
-    date: new Date().toISOString(),
+    requestNo: "", // ✅ Add this
     requestingWarehouse: "",
     sourceWarehouse: "",
     transactionDate: "",
+    transferDate: "",
+    preparedBy: "",
+    items: [{ itemCode: "", quantity: 1, unitType: "" }],
+  });
+
+  const getInitialFormData = (): TransferRequest => ({
+    requestNo: "", // ✅ now included
+    status: "pending",
+    requestingWarehouse: "",
+    sourceWarehouse: "",
+    transactionDate: "",
+    transferDate: "",
+    reference: "",
+    notes: "",
     preparedBy: "",
     items: [{ itemCode: "", quantity: 1, unitType: "" }],
   });
@@ -128,6 +152,24 @@ export default function TransferRequestPage() {
     return () => clearInterval(intervalId);
   }, []);
 
+  useEffect(() => {
+    if (!isCreateDialogOpen) {
+      setFormData(getInitialFormData());
+    }
+  }, [isCreateDialogOpen]);
+
+  useEffect(() => {
+    if (!isEditDialogOpen) {
+      setFormData(getInitialFormData());
+    }
+  }, [isEditDialogOpen]);
+
+  useEffect(() => {
+    if (!isViewDialogOpen) {
+      setFormData(getInitialFormData());
+    }
+  }, [isViewDialogOpen]);
+
   const handleCreate = async () => {
     setIsCreating(true);
 
@@ -138,10 +180,10 @@ export default function TransferRequestPage() {
         .map((item) => ({
           itemCode: item.itemCode.trim().toUpperCase(),
           quantity: Math.max(Number(item.quantity) || 1, 1),
-          unitType: item.unitType.trim().toUpperCase(), // ✅ align with backend
+          unitType: item.unitType.trim().toUpperCase(),
         }));
 
-      // 🛡️ Validate required fields (mirror backend)
+      // 🛡️ Validate required fields
       if (
         !formData.requestingWarehouse ||
         !formData.sourceWarehouse ||
@@ -158,7 +200,6 @@ export default function TransferRequestPage() {
         TransferRequest,
         "_id" | "requestNo" | "status" | "createdAt" | "updatedAt"
       > = {
-        date: new Date(),
         requestingWarehouse: formData.requestingWarehouse.trim().toUpperCase(),
         sourceWarehouse: formData.sourceWarehouse.trim().toUpperCase(),
         transactionDate: new Date(formData.transactionDate),
@@ -171,7 +212,7 @@ export default function TransferRequestPage() {
         items: normalizedItems,
       };
 
-      // 🧾 Log payload for validation
+      // 🧾 Log payload
       console.log("📦 Transfer request payload:", payload);
 
       // 🚀 Submit request
@@ -183,13 +224,113 @@ export default function TransferRequestPage() {
 
       const data = await res.json();
 
-      // ✅ Success
       if (res.ok) {
         toast.success(`Transfer Request #${data.request.requestNo} created`);
         fetchTransferRequests();
         setIsCreateDialogOpen(false);
+        setFormData(getInitialFormData()); // ✅ Modular reset
+      } else {
+        console.error("❌ Create failed:", data.error);
+      }
+    } catch (err) {
+      console.error("❌ Create error:", err);
+    } finally {
+      setIsCreating(false);
+    }
+  };
+  const normalizeTransferRequestItems = (
+    items: TransferRequestItem[]
+  ): TransferRequestItem[] =>
+    items
+      .filter((item) => Number(item.quantity) > 0)
+      .map((item) => ({
+        itemCode: (item.itemCode ?? "").trim().toUpperCase(),
+        quantity: Math.max(Number(item.quantity) || 1, 1),
+        unitType: (item.unitType ?? "").trim().toUpperCase(),
+      }));
+
+  const handleEdit = (transferRequest: TransferRequest) => {
+    const hydratedItems = normalizeTransferRequestItems(transferRequest.items);
+
+    setFormData({
+      requestNo: transferRequest.requestNo ?? "", // ✅ Include this
+      requestingWarehouse: transferRequest.requestingWarehouse ?? "",
+      sourceWarehouse: transferRequest.sourceWarehouse ?? "",
+      transactionDate: transferRequest.transactionDate?.toString() ?? "",
+      transferDate: transferRequest.transferDate?.toString() ?? "",
+      reference: (transferRequest.reference ?? "").trim(),
+      notes: (transferRequest.notes ?? "").trim(),
+      preparedBy: (transferRequest.preparedBy ?? "").trim(),
+      items:
+        hydratedItems.length > 0
+          ? hydratedItems
+          : [{ itemCode: "", quantity: 1, unitType: "" }],
+    });
+
+    setSelectedTransferRequestId(transferRequest._id ?? null);
+    setIsEditDialogOpen(true);
+  };
+
+  const handleUpdate = async () => {
+    setIsUpdating(true);
+
+    try {
+      // 📦 Normalize items
+      const normalizedItems: TransferRequestItem[] = formData.items
+        .filter((item) => Number(item.quantity) > 0)
+        .map((item) => ({
+          itemCode: item.itemCode.trim().toUpperCase(),
+          quantity: Math.max(Number(item.quantity) || 1, 1),
+          unitType: item.unitType.trim().toUpperCase(),
+        }));
+
+      // 🛡️ Validate required fields
+      if (
+        !formData.requestingWarehouse ||
+        !formData.sourceWarehouse ||
+        !formData.transactionDate ||
+        normalizedItems.length === 0
+      ) {
+        toast.error("Missing required fields or items");
+        setIsUpdating(false);
+        return;
+      }
+
+      // 🧮 Construct payload
+      const payload: Partial<TransferRequest> = {
+        requestingWarehouse: formData.requestingWarehouse.trim().toUpperCase(),
+        sourceWarehouse: formData.sourceWarehouse.trim().toUpperCase(),
+        transactionDate: new Date(formData.transactionDate),
+        transferDate: formData.transferDate
+          ? new Date(formData.transferDate)
+          : undefined,
+        reference: formData.reference?.trim() || "",
+        notes: formData.notes?.trim() || "",
+        preparedBy: formData.preparedBy.trim(),
+        items: normalizedItems,
+      };
+
+      // 🧾 Log payload
+      console.log("✏️ Transfer request update payload:", payload);
+
+      // 🚀 Submit update
+      const res = await fetch(
+        `/api/transfer-requests/${selectedTransferRequestId}`,
+        {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(payload),
+        }
+      );
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success(`Transfer Request #${data.request.requestNo} updated`);
+        fetchTransferRequests();
+        setIsEditDialogOpen(false);
         setFormData({
-          date: "",
+          requestNo: "", // ✅ Include this
           requestingWarehouse: "",
           sourceWarehouse: "",
           transactionDate: "",
@@ -200,12 +341,55 @@ export default function TransferRequestPage() {
           items: [{ itemCode: "", quantity: 1, unitType: "" }],
         });
       } else {
-        console.error("❌ Create failed:", data.error);
+        console.error("❌ Update failed:", data.error);
       }
     } catch (err) {
-      console.error("❌ Create error:", err);
+      console.error("❌ Update error:", err);
     } finally {
-      setIsCreating(false);
+      setIsUpdating(false);
+    }
+  };
+
+  const handleView = async (id: string) => {
+    try {
+      const res = await fetch(`/api/transfer-requests/${id}`);
+      if (!res.ok) {
+        const { error } = await res.json();
+        throw new Error(error || "Failed to fetch transfer request");
+      }
+
+      const data: TransferRequest = await res.json();
+
+      const hydrated: TransferRequest = {
+        _id: data._id,
+        requestNo: data.requestNo ?? "",
+        requestingWarehouse:
+          data.requestingWarehouse?.trim().toUpperCase() ?? "",
+        sourceWarehouse: data.sourceWarehouse?.trim().toUpperCase() ?? "",
+        transactionDate: data.transactionDate ?? "",
+        transferDate: data.transferDate ?? "",
+        preparedBy: data.preparedBy?.trim() ?? "system",
+        reference: data.reference?.trim() ?? "",
+        notes: data.notes?.trim() ?? "",
+        status: data.status ?? "pending",
+        items: Array.isArray(data.items)
+          ? data.items.map((item) => ({
+              itemCode: item.itemCode?.trim().toUpperCase() ?? "",
+              quantity: Math.max(Number(item.quantity) || 1, 1),
+              unitType: item.unitType?.trim().toUpperCase() ?? "",
+            }))
+          : [],
+        createdAt: data.createdAt,
+        updatedAt: data.updatedAt,
+      };
+
+      setFormData(hydrated);
+      setIsViewDialogOpen(true);
+    } catch (err) {
+      console.error("❌ View failed:", err);
+      toast.error("Failed to load transfer request");
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -469,14 +653,37 @@ export default function TransferRequestPage() {
                       <TableCell>{req.sourceWarehouse ?? "—"}</TableCell>
                       <TableCell>{req.preparedBy ?? "—"}</TableCell>
                       <TableCell>{req.status}</TableCell>
-                      {/* <TableCell className="text-right">
-          <button
-            className="text-red-600 hover:text-red-800 flex items-center gap-1 text-sm"
-            onClick={() => handleDelete(req._id!)}>
-            <Trash2 className="w-4 h-4" />
-            Delete
-          </button>
-        </TableCell> */}
+
+                      <TableCell className="text-right flex gap-2 justify-end">
+                        {/* 👁️ View Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleView(req._id!)}
+                          title="View Purchase Order">
+                          <Eye className="w-4 h-4" />
+                        </Button>
+
+                        {/* ✏️ Edit Button */}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleEdit(req)}
+                          title="Edit Purchase Order">
+                          <Edit className="w-4 h-4" />
+                        </Button>
+
+                        {/* 🗑️ Delete Button (optional) */}
+                        {/* <Button
+    variant="ghost"
+    size="sm"
+    onClick={() => handleDelete(req._id!)}
+    title="Delete Purchase Order"
+    className="text-red-600 hover:text-red-800"
+  >
+    <Trash2 className="w-4 h-4" />
+  </Button> */}
+                      </TableCell>
                     </TableRow>
                   ))
                 )}
@@ -719,11 +926,17 @@ export default function TransferRequestPage() {
                 <Label className="text-sm font-medium">Transfer Date</Label>
                 <Input
                   type="date"
-                  value={formData.transactionDate.toString()}
+                  value={
+                    formData.transferDate
+                      ? new Date(formData.transferDate)
+                          .toISOString()
+                          .split("T")[0]
+                      : ""
+                  }
                   onChange={(e) =>
                     setFormData((prev) => ({
                       ...prev,
-                      transactionDate: e.target.value,
+                      transferDate: e.target.value,
                     }))
                   }
                 />
@@ -763,198 +976,180 @@ export default function TransferRequestPage() {
                 </div>
 
                 {/* Item Rows */}
-                {formData.items.map((item, index) => (
-                  <div
-                    key={index}
-                    className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 items-center border-t px-2 py-2 text-sm">
-                    {/* Item Code Live Search */}
-                    <div className="relative w-full">
-                      <Input
-                        id={`item-code-${index}`}
-                        type="text"
-                        autoComplete="off"
-                        value={item.itemCode || ""}
-                        onClick={() => setShowItemSuggestions(index)}
-                        onBlur={() =>
-                          setTimeout(() => setShowItemSuggestions(null), 200)
-                        }
-                        onChange={(e) => {
-                          const value = e.target.value.toUpperCase().trim();
+                {formData.items.map((item, index) => {
+                  const normalizedCode = item.itemCode?.trim().toUpperCase();
+                  const inventoryMatch = inventoryItems.find(
+                    (i) => i.itemCode?.trim().toUpperCase() === normalizedCode
+                  );
+                  const maxQty = inventoryMatch?.quantity || 1;
+                  const unitType = inventoryMatch?.unitType || "";
 
-                          setFormData((prev) => {
-                            const updatedItems = [...prev.items];
-                            updatedItems[index] = {
-                              ...updatedItems[index],
-                              itemCode: value,
-                            };
-                            return { ...prev, items: updatedItems };
-                          });
+                  return (
+                    <div
+                      key={index}
+                      className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 items-center border-t px-2 py-2 text-sm">
+                      {/* 🔍 Item Code Input */}
+                      <div className="space-y-1 relative w-full">
+                        <Input
+                          id={`item-code-${index}`}
+                          type="text"
+                          autoComplete="off"
+                          value={normalizedCode}
+                          placeholder="Search item code"
+                          onFocus={() => setShowItemSuggestions(index)}
+                          onBlur={() =>
+                            setTimeout(() => setShowItemSuggestions(null), 200)
+                          }
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase().trim();
+                            const updated = [...formData.items];
+                            updated[index].itemCode = value;
+                            setFormData((prev) => ({
+                              ...prev,
+                              items: updated,
+                            }));
+                            setShowItemSuggestions(index);
+                          }}
+                          className="text-sm uppercase w-full px-2 py-1 pr-8 border border-border bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                        />
 
-                          setShowItemSuggestions(index);
-                        }}
-                        placeholder="Search item code"
-                        className="text-sm uppercase w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8"
-                      />
+                        {/* 🔍 Icon */}
+                        <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+                          <Search className="h-4 w-4 text-muted-foreground" />
+                        </div>
 
-                      {/* Magnifying Glass Icon */}
-                      <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          className="h-4 w-4 text-muted-foreground"
-                          fill="none"
-                          viewBox="0 0 24 24"
-                          stroke="currentColor"
-                          strokeWidth={2}>
-                          <path
-                            strokeLinecap="round"
-                            strokeLinejoin="round"
-                            d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
-                          />
-                        </svg>
+                        {/* 📜 Suggestions */}
+                        {showItemSuggestions === index && (
+                          <div className="absolute top-full mt-1 w-full z-50">
+                            <ul className="bg-white border border-border rounded-md shadow-lg max-h-[7.5rem] overflow-y-auto text-sm">
+                              {/* Each item is ~2.5rem tall → 3 items = 7.5rem max height */}
+                              {inventoryItems
+                                .filter((option) => {
+                                  const code = option.itemCode
+                                    ?.trim()
+                                    .toUpperCase();
+                                  const isSelected = formData.items.some(
+                                    (itm, i) =>
+                                      i !== index &&
+                                      itm.itemCode?.trim().toUpperCase() ===
+                                        code
+                                  );
+                                  return (
+                                    option.warehouse?.trim().toUpperCase() ===
+                                      formData.sourceWarehouse
+                                        ?.trim()
+                                        .toUpperCase() &&
+                                    code?.includes(
+                                      item.itemCode?.toUpperCase() || ""
+                                    ) &&
+                                    !isSelected
+                                  );
+                                })
+                                .map((option) => {
+                                  const code = option.itemCode
+                                    ?.trim()
+                                    .toUpperCase();
+                                  return (
+                                    <li
+                                      key={option._id || code}
+                                      className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                      onMouseDown={() => {
+                                        const updated = [...formData.items];
+                                        updated[index] = {
+                                          ...updated[index],
+                                          itemCode: code,
+                                          unitType: option.unitType || "",
+                                          quantity: Math.min(
+                                            updated[index].quantity || 1,
+                                            option.quantity || 1
+                                          ),
+                                        };
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          items: updated,
+                                        }));
+                                        setShowItemSuggestions(null);
+                                      }}>
+                                      {code}
+                                    </li>
+                                  );
+                                })}
+
+                              {/* 🧭 Fallback */}
+                              {inventoryItems.filter(
+                                (option) =>
+                                  option.warehouse?.trim().toUpperCase() ===
+                                    formData.sourceWarehouse
+                                      ?.trim()
+                                      .toUpperCase() &&
+                                  option.itemCode
+                                    ?.trim()
+                                    .toUpperCase()
+                                    .includes(
+                                      item.itemCode?.toUpperCase() || ""
+                                    )
+                              ).length === 0 && (
+                                <li className="px-3 py-2 text-muted-foreground">
+                                  No matching items found
+                                </li>
+                              )}
+                            </ul>
+                          </div>
+                        )}
                       </div>
 
-                      {/* Live Suggestions */}
-                      {showItemSuggestions === index && (
-                        <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
-                          {inventoryItems
-                            .filter((option) => {
-                              const normalizedCode = option.itemCode
-                                ?.trim()
-                                .toUpperCase();
-                              const isAlreadySelected = formData.items.some(
-                                (itm, i) =>
-                                  i !== index &&
-                                  itm.itemCode?.trim().toUpperCase() ===
-                                    normalizedCode
-                              );
+                      {/* 🔢 Quantity */}
+                      <div>
+                        <Input
+                          type="number"
+                          min={1}
+                          max={maxQty}
+                          value={item.quantity}
+                          onChange={(e) => {
+                            const raw = Number(e.target.value) || 1;
+                            const clamped = Math.max(raw, 1);
+                            const updated = [...formData.items];
+                            updated[index].quantity = Math.min(clamped, maxQty);
+                            setFormData((prev) => ({
+                              ...prev,
+                              items: updated,
+                            }));
+                          }}
+                          className="text-end"
+                        />
+                      </div>
 
-                              return (
-                                option.warehouse?.trim().toUpperCase() ===
-                                  formData.sourceWarehouse
-                                    ?.trim()
-                                    .toUpperCase() &&
-                                normalizedCode?.includes(
-                                  item.itemCode?.toUpperCase() || ""
-                                ) &&
-                                !isAlreadySelected
-                              );
-                            })
-                            .map((option) => {
-                              const normalized = option.itemCode
-                                ?.trim()
-                                .toUpperCase();
-                              return (
-                                <li
-                                  key={option._id || normalized}
-                                  className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                                  onClick={() => {
-                                    const maxQty = option.quantity || 1;
+                      {/* 📏 UOM */}
+                      <div>
+                        <Input
+                          placeholder="UOM"
+                          value={unitType}
+                          readOnly
+                          className="text-end bg-muted cursor-not-allowed"
+                        />
+                      </div>
 
-                                    setFormData((prev) => {
-                                      const updatedItems = [...prev.items];
-                                      updatedItems[index] = {
-                                        ...updatedItems[index],
-                                        itemCode: normalized,
-                                        unitType: option.unitType || "",
-                                        quantity: Math.min(
-                                          updatedItems[index]?.quantity || 1,
-                                          maxQty
-                                        ),
-                                      };
-                                      return { ...prev, items: updatedItems };
-                                    });
-
-                                    setShowItemSuggestions(null);
-                                  }}>
-                                  {normalized}
-                                </li>
-                              );
-                            })}
-
-                          {inventoryItems.filter(
-                            (option) =>
-                              option.warehouse?.trim().toUpperCase() ===
-                                formData.sourceWarehouse
-                                  ?.trim()
-                                  .toUpperCase() &&
-                              option.itemCode
-                                ?.trim()
-                                .toUpperCase()
-                                .includes(item.itemCode?.toUpperCase() || "")
-                          ).length === 0 && (
-                            <li className="px-3 py-2 text-muted-foreground">
-                              No matching items found
-                            </li>
-                          )}
-                        </ul>
-                      )}
-                    </div>
-
-                    {/* Quantity */}
-                    <div>
-                      <Input
-                        type="number"
-                        min={1}
-                        max={
-                          inventoryItems.find(
-                            (i) => i.itemCode === item.itemCode
-                          )?.quantity || 1
-                        }
-                        value={item.quantity}
-                        onChange={(e) => {
-                          const value = Math.max(
-                            Number(e.target.value) || 1,
-                            1
-                          );
-                          const maxQty =
-                            inventoryItems.find(
-                              (i) => i.itemCode === item.itemCode
-                            )?.quantity || 1;
-
-                          setFormData((prev) => {
-                            const updatedItems = [...prev.items];
-                            updatedItems[index].quantity = Math.min(
-                              value,
-                              maxQty
+                      {/* 🗑️ Remove */}
+                      <div className="flex justify-end">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-600 hover:text-red-800"
+                          onClick={() => {
+                            const updated = formData.items.filter(
+                              (_, i) => i !== index
                             );
-                            return { ...prev, items: updatedItems };
-                          });
-                        }}
-                        className="text-end"
-                      />
+                            setFormData((prev) => ({
+                              ...prev,
+                              items: updated,
+                            }));
+                          }}>
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </div>
                     </div>
-
-                    {/* UOM */}
-                    <div>
-                      <Input
-                        placeholder="UOM"
-                        value={
-                          inventoryItems.find(
-                            (i) => i.itemCode === item.itemCode
-                          )?.unitType || ""
-                        }
-                        readOnly
-                        className="text-end bg-muted cursor-not-allowed"
-                      />
-                    </div>
-
-                    {/* Action */}
-                    <div className="flex justify-end">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-red-600 hover:text-red-800"
-                        onClick={() => {
-                          const updated = formData.items.filter(
-                            (_, i) => i !== index
-                          );
-                          setFormData((prev) => ({ ...prev, items: updated }));
-                        }}>
-                        <Trash2 className="w-4 h-4" />
-                      </Button>
-                    </div>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
 
               {/* Add Item Row */}
@@ -983,6 +1178,552 @@ export default function TransferRequestPage() {
               {isCreating && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               {isCreating ? "Creating…" : "Create Request"}
             </Button>
+          </DialogFooter>
+        </DialogPanel>
+      </Dialog>
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogPanel className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
+              Edit Transfer Request
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* 🧭 Transaction Metadata */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="space-y-1 col-span-2">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Request No.
+              </Label>
+              <Input value={formData.requestNo ?? ""} readOnly disabled />
+            </div>
+
+            <div className="space-y-1">
+              <div className="space-y-1 relative">
+                <Label className="text-sm font-medium text-muted-foreground">
+                  Request from Warehouse
+                </Label>
+                <Input
+                  type="text"
+                  autoComplete="off"
+                  value={formData.requestingWarehouse}
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setFormData((prev) => ({
+                      ...prev,
+                      requestingWarehouse: value,
+                    }));
+                    setShowDestinationSuggestions(true);
+                  }}
+                  onFocus={() => setShowDestinationSuggestions(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowDestinationSuggestions(false), 200)
+                  }
+                  placeholder="Search warehouse"
+                />
+
+                {showDestinationSuggestions && (
+                  <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                    {(() => {
+                      const input = formData.requestingWarehouse
+                        .trim()
+                        .toUpperCase();
+                      const filtered = warehouses.filter((w) =>
+                        w.warehouse_name?.trim().toUpperCase().includes(input)
+                      );
+
+                      return filtered.length > 0 ? (
+                        filtered.map((w) => {
+                          const label =
+                            w.warehouse_name?.trim() || "Unnamed Warehouse";
+                          const value = label.toUpperCase();
+                          return (
+                            <li
+                              key={w._id || value}
+                              className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                              onMouseDown={() => {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  requestingWarehouse: value,
+                                }));
+                                setShowDestinationSuggestions(false);
+                              }}>
+                              {label}
+                            </li>
+                          );
+                        })
+                      ) : (
+                        <li className="px-3 py-2 text-muted-foreground">
+                          No matching warehouse found
+                        </li>
+                      );
+                    })()}
+                  </ul>
+                )}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <div className="space-y-1 relative">
+                <Label className="text-sm font-medium text-muted-foreground">
+                  Destination Warehouse
+                </Label>
+                <Input
+                  type="text"
+                  autoComplete="off"
+                  value={formData.sourceWarehouse}
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setFormData((prev) => ({
+                      ...prev,
+                      sourceWarehouse: value,
+                    }));
+                    setShowSourceSuggestions(true);
+                  }}
+                  onFocus={() => setShowSourceSuggestions(true)}
+                  onBlur={() =>
+                    setTimeout(() => setShowSourceSuggestions(false), 200)
+                  }
+                  placeholder="Search warehouse"
+                />
+
+                {showSourceSuggestions && (
+                  <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                    {(() => {
+                      const input = formData.sourceWarehouse
+                        .trim()
+                        .toUpperCase();
+                      const filtered = warehouses.filter((w) =>
+                        w.warehouse_name?.trim().toUpperCase().includes(input)
+                      );
+
+                      return filtered.length > 0 ? (
+                        filtered.map((w) => {
+                          const label =
+                            w.warehouse_name?.trim() || "Unnamed Warehouse";
+                          const value = label.toUpperCase();
+                          return (
+                            <li
+                              key={w._id || value}
+                              className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                              onMouseDown={() => {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  sourceWarehouse: value,
+                                }));
+                                setShowSourceSuggestions(false);
+                              }}>
+                              {label}
+                            </li>
+                          );
+                        })
+                      ) : (
+                        <li className="px-3 py-2 text-muted-foreground">
+                          No matching warehouse found
+                        </li>
+                      );
+                    })()}
+                  </ul>
+                )}
+              </div>
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Transaction Date
+              </Label>
+              <Input
+                type="date"
+                value={
+                  formData.transactionDate
+                    ? new Date(formData.transactionDate)
+                        .toISOString()
+                        .split("T")[0]
+                    : ""
+                }
+                readOnly
+                disabled
+              />
+            </div>
+
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Transfer Date
+              </Label>
+              <Input
+                type="date"
+                value={
+                  formData.transferDate
+                    ? new Date(formData.transferDate)
+                        .toISOString()
+                        .split("T")[0]
+                    : new Date().toISOString().split("T")[0]
+                }
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    transferDate: e.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          {/* 🧑‍💼 Personnel Info */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Prepared By
+              </Label>
+              <Input value={formData.preparedBy ?? ""} readOnly disabled />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-sm font-medium text-muted-foreground">
+                Reference
+              </Label>
+              <Input
+                value={formData.reference ?? ""}
+                onChange={(e) =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    reference: e.target.value,
+                  }))
+                }
+              />
+            </div>
+          </div>
+
+          {/* 📝 Notes */}
+          <div className="space-y-1 mb-4">
+            <label className="text-sm font-medium text-muted-foreground">
+              Notes
+            </label>
+            <Textarea
+              value={formData.notes ?? ""}
+              onChange={(e) =>
+                setFormData((prev) => ({
+                  ...prev,
+                  notes: e.target.value,
+                }))
+              }
+            />
+          </div>
+
+          {/* 📦 Transfer Items */}
+          <div className="space-y-2">
+            <div className="border rounded-md overflow-visible">
+              {/* Header */}
+              <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 bg-primary text-primary-foreground py-2 px-2 rounded-t text-xs font-semibold uppercase">
+                <div className="text-start">Item Code</div>
+                <div className="text-end">Qty</div>
+                <div className="text-end">UOM</div>
+                <div className="text-end">Action</div>
+              </div>
+
+              {/* Editable Rows */}
+              {formData.items.map((item, index) => {
+                const normalizedCode = item.itemCode?.trim().toUpperCase();
+                const inventoryMatch = inventoryItems.find(
+                  (i) => i.itemCode?.trim().toUpperCase() === normalizedCode
+                );
+                const maxQty = inventoryMatch?.quantity || 1;
+                const unitType = inventoryMatch?.unitType || "";
+
+                return (
+                  <div
+                    key={index}
+                    className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 items-center border-t px-2 py-2 text-sm">
+                    {/* 🔍 Item Code Live Search */}
+                    <div className="relative w-full">
+                      <Input
+                        value={normalizedCode}
+                        autoComplete="off"
+                        onChange={(e) => {
+                          const value = e.target.value.toUpperCase().trim();
+                          const updated = [...formData.items];
+                          updated[index].itemCode = value;
+                          setFormData((prev) => ({ ...prev, items: updated }));
+                          setShowItemSuggestions(index);
+                        }}
+                        onFocus={() => setShowItemSuggestions(index)}
+                        onBlur={() =>
+                          setTimeout(() => setShowItemSuggestions(null), 200)
+                        }
+                        placeholder="Search item code"
+                        className="text-sm uppercase w-full px-2 py-1 pr-8"
+                      />
+
+                      {/* 🔎 Icon */}
+                      <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+                        <Search className="w-4 h-4 text-muted-foreground" />
+                      </div>
+
+                      {/* 🔽 Suggestions */}
+                      {showItemSuggestions === index && (
+                        <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm">
+                          {inventoryItems
+                            .filter((option) => {
+                              const code = option.itemCode
+                                ?.trim()
+                                .toUpperCase();
+                              const isSelected = formData.items.some(
+                                (itm, i) =>
+                                  i !== index &&
+                                  itm.itemCode?.trim().toUpperCase() === code
+                              );
+                              return (
+                                option.warehouse?.trim().toUpperCase() ===
+                                  formData.sourceWarehouse
+                                    ?.trim()
+                                    .toUpperCase() &&
+                                code?.includes(normalizedCode) &&
+                                !isSelected
+                              );
+                            })
+                            .map((option) => {
+                              const code = option.itemCode
+                                ?.trim()
+                                .toUpperCase();
+                              return (
+                                <li
+                                  key={option._id || code}
+                                  className="px-3 py-2 hover:bg-accent cursor-pointer"
+                                  onMouseDown={() => {
+                                    const updated = [...formData.items];
+                                    updated[index] = {
+                                      ...updated[index],
+                                      itemCode: code,
+                                      unitType: option.unitType || "",
+                                      quantity: Math.min(
+                                        updated[index].quantity || 1,
+                                        option.quantity || 1
+                                      ),
+                                    };
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      items: updated,
+                                    }));
+                                    setShowItemSuggestions(null);
+                                  }}>
+                                  {code}
+                                </li>
+                              );
+                            })}
+                          {inventoryItems.filter(
+                            (option) =>
+                              option.warehouse?.trim().toUpperCase() ===
+                                formData.sourceWarehouse
+                                  ?.trim()
+                                  .toUpperCase() &&
+                              option.itemCode
+                                ?.trim()
+                                .toUpperCase()
+                                .includes(normalizedCode)
+                          ).length === 0 && (
+                            <li className="px-3 py-2 text-muted-foreground">
+                              No matching items found
+                            </li>
+                          )}
+                        </ul>
+                      )}
+                    </div>
+
+                    {/* 🔢 Quantity */}
+                    <Input
+                      type="number"
+                      min={1}
+                      max={maxQty}
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const value = Math.max(Number(e.target.value) || 1, 1);
+                        const updated = [...formData.items];
+                        updated[index].quantity = Math.min(value, maxQty);
+                        setFormData((prev) => ({ ...prev, items: updated }));
+                      }}
+                      className="text-end"
+                    />
+
+                    {/* 📏 UOM */}
+                    <Input
+                      value={unitType}
+                      readOnly
+                      className="text-end bg-muted cursor-not-allowed"
+                    />
+
+                    {/* 🗑️ Remove */}
+                    <div className="flex justify-end">
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="text-red-600 hover:text-red-800"
+                        onClick={() => {
+                          const updated = formData.items.filter(
+                            (_, i) => i !== index
+                          );
+                          setFormData((prev) => ({ ...prev, items: updated }));
+                        }}>
+                        <Trash2 className="w-4 h-4" />
+                      </Button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+
+            {/* ➕ Add Item */}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                setFormData((prev) => ({
+                  ...prev,
+                  items: [
+                    ...prev.items,
+                    { itemCode: "", quantity: 1, unitType: "" },
+                  ],
+                }))
+              }>
+              + Add Item
+            </Button>
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="ghost" className="flex items-center gap-1">
+                Cancel
+              </Button>
+            </DialogClose>
+            <Button
+              onClick={handleUpdate}
+              disabled={isUpdating}
+              className="flex items-center gap-1">
+              {isUpdating ? "Updating…" : "Update"}
+            </Button>
+          </DialogFooter>
+        </DialogPanel>
+      </Dialog>
+      {/* View Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogPanel className="max-w-2xl">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
+              View Transfer Request
+            </DialogTitle>
+          </DialogHeader>
+
+          {/* 🧭 Transaction Metadata */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="space-y-1 col-span-2">
+              <label className="text-sm font-medium text-muted-foreground">
+                Request No.
+              </label>
+              <Input value={formData.requestNo ?? ""} readOnly disabled />
+            </div>
+
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-muted-foreground">
+                Requesting Warehouse
+              </label>
+              <Input value={formData.requestingWarehouse} readOnly disabled />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-muted-foreground">
+                Source Warehouse
+              </label>
+              <Input value={formData.sourceWarehouse} readOnly disabled />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-muted-foreground">
+                Transaction Date
+              </label>
+              <Input
+                type="date"
+                value={
+                  formData.transactionDate
+                    ? new Date(formData.transactionDate)
+                        .toISOString()
+                        .split("T")[0]
+                    : ""
+                }
+                readOnly
+                disabled
+              />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-muted-foreground">
+                Transfer Date
+              </label>
+              <Input
+                type="date"
+                value={
+                  formData.transferDate
+                    ? new Date(formData.transferDate)
+                        .toISOString()
+                        .split("T")[0]
+                    : ""
+                }
+                readOnly
+                disabled
+              />
+            </div>
+          </div>
+
+          {/* 🧑‍💼 Personnel Info */}
+          <div className="grid grid-cols-2 gap-4 mb-4">
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-muted-foreground">
+                Prepared By
+              </label>
+              <Input value={formData.preparedBy} readOnly disabled />
+            </div>
+            <div className="space-y-1">
+              <label className="text-sm font-medium text-muted-foreground">
+                Reference
+              </label>
+              <Input value={formData.reference ?? ""} readOnly disabled />
+            </div>
+          </div>
+
+          {/* 📝 Notes */}
+          <div className="space-y-1 mb-4">
+            <label className="text-sm font-medium text-muted-foreground">
+              Notes
+            </label>
+            <Textarea value={formData.notes ?? ""} readOnly disabled />
+          </div>
+
+          {/* 📦 Items Table */}
+          <div className="space-y-1 mb-4">
+            <label className="text-sm font-medium text-muted-foreground">
+              Transfer Items
+            </label>
+            <div className="border rounded-md overflow-auto max-h-64">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-muted-foreground">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Item Code</th>
+                    <th className="px-3 py-2 text-right">Quantity</th>
+                    <th className="px-3 py-2 text-right">Unit Type</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {formData.items.map((item, index) => (
+                    <tr key={index} className="border-t">
+                      <td className="px-3 py-2">{item.itemCode}</td>
+                      <td className="px-3 py-2 text-right">{item.quantity}</td>
+                      <td className="px-3 py-2 text-right">{item.unitType}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="ghost" className="flex items-center gap-1">
+                Close
+              </Button>
+            </DialogClose>
           </DialogFooter>
         </DialogPanel>
       </Dialog>
