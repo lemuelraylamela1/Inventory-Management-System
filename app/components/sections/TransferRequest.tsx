@@ -25,9 +25,22 @@ import {
   TableRow,
 } from "../ui/table";
 
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "../ui/alert-dialog";
+
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
+import { Checkbox } from "../ui/checkbox";
 
 import {
   Card,
@@ -396,6 +409,27 @@ export default function TransferRequestPage() {
     }
   };
 
+  const handleDelete = async (id: string) => {
+    try {
+      const res = await fetch(`/api/transfer-requests/${id}`, {
+        method: "DELETE",
+      });
+
+      const data = await res.json();
+
+      if (res.ok) {
+        toast.success(`Transfer Request #${data.requestNo ?? id} deleted`);
+        fetchTransferRequests(); // ✅ Refresh list
+      } else {
+        console.error("❌ Delete failed:", data.error);
+        toast.error(data.error || "Failed to delete transfer request");
+      }
+    } catch (err) {
+      console.error("❌ Delete error:", err);
+      toast.error("Internal error while deleting");
+    }
+  };
+
   const filteredTransferRequests = useMemo(() => {
     const query = searchTerm.trim().toLowerCase();
 
@@ -492,6 +526,75 @@ export default function TransferRequestPage() {
     setResults(filtered);
   }, [searchTerm, inventoryItems, activeIndex]);
 
+  const handleDeleteMany = async (_ids: string[], onSuccess?: () => void) => {
+    if (!_ids || _ids.length === 0) {
+      toast.error("No transfer requests selected for deletion.");
+      return;
+    }
+
+    try {
+      setTransferRequests((prev) =>
+        prev.filter((req) => !_ids.includes(String(req._id)))
+      );
+
+      const results = await Promise.allSettled(
+        _ids.map(async (_id) => {
+          const res = await fetch(`/api/transfer-requests/${_id}`, {
+            method: "DELETE",
+          });
+
+          if (!res.ok) {
+            const error = await res.json();
+            console.warn(
+              `❌ Failed to delete transfer request ${_id}:`,
+              error.message
+            );
+            throw new Error(
+              error.message || `Failed to delete transfer request ${_id}`
+            );
+          }
+
+          return res;
+        })
+      );
+
+      const failures = results.filter(
+        (result) => result.status === "rejected"
+      ) as PromiseRejectedResult[];
+
+      if (failures.length > 0) {
+        toast.warning(
+          `Some transfer requests could not be deleted (${failures.length} failed).`
+        );
+      } else {
+        toast.success("✅ Selected transfer requests deleted.");
+      }
+
+      setSelectedIds([]);
+      onSuccess?.(); // 🔄 Refresh list
+    } catch (err) {
+      console.error("❌ Bulk delete failed:", err);
+      toast.error("Failed to delete selected transfer requests.");
+    }
+  };
+
+  const toggleSelectAll = () => {
+    const visibleIds = paginatedRequests
+      .map((req) => req._id)
+      .filter((id): id is string => typeof id === "string");
+
+    const allSelected = visibleIds.every((id) => selectedIds.includes(id));
+    setSelectedIds(
+      allSelected ? [] : [...new Set([...selectedIds, ...visibleIds])]
+    );
+  };
+
+  const toggleSelectOne = (id: string) => {
+    setSelectedIds((prev) =>
+      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+    );
+  };
+
   return (
     <div className="space-y-6">
       <Card className="space-y-6">
@@ -583,9 +686,11 @@ export default function TransferRequestPage() {
                 ✅ {selectedIds.length} transfer request(s) selected
               </span>
               <div className="flex gap-2">
-                {/* <Button variant="destructive" onClick={() => handleDeleteMany(selectedIds)}>
-        Delete Selected
-      </Button> */}
+                <Button
+                  variant="destructive"
+                  onClick={() => handleDeleteMany(selectedIds)}>
+                  Delete Selected
+                </Button>
                 <Button variant="outline" onClick={() => setSelectedIds([])}>
                   Clear Selection
                 </Button>
@@ -597,6 +702,27 @@ export default function TransferRequestPage() {
             <Table>
               <TableHeader>
                 <TableRow>
+                  <TableHead className="w-4 px-2">
+                    <Checkbox
+                      checked={paginatedRequests
+                        .map((req) => req._id)
+                        .filter((id): id is string => typeof id === "string")
+                        .every((id) => selectedIds.includes(id))}
+                      onCheckedChange={(checked) => {
+                        const visibleIds = paginatedRequests
+                          .map((req) => req._id)
+                          .filter((id): id is string => typeof id === "string"); // 🛡️ Type guard
+
+                        setSelectedIds((prev) =>
+                          checked === true
+                            ? [...new Set([...prev, ...visibleIds])]
+                            : prev.filter((id) => !visibleIds.includes(id))
+                        );
+                      }}
+                      aria-label="Select all visible transfer requests"
+                      className="ml-1"
+                    />
+                  </TableHead>
                   <TableHead>Date</TableHead>
                   <TableHead>Request No</TableHead>
                   <TableHead>Requesting Warehouse</TableHead>
@@ -611,7 +737,7 @@ export default function TransferRequestPage() {
                 {isLoading ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="py-10 text-center text-muted-foreground">
                       <div className="flex flex-col items-center gap-2">
                         <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
@@ -624,7 +750,7 @@ export default function TransferRequestPage() {
                 ) : paginatedRequests.length === 0 ? (
                   <TableRow>
                     <TableCell
-                      colSpan={7}
+                      colSpan={8}
                       className="py-10 text-center text-muted-foreground">
                       <div className="flex flex-col items-center gap-2">
                         <Inbox className="h-6 w-6 text-muted-foreground" />
@@ -639,6 +765,25 @@ export default function TransferRequestPage() {
                 ) : (
                   paginatedRequests.map((req) => (
                     <TableRow key={req._id}>
+                      <TableCell className="px-2">
+                        <Checkbox
+                          checked={selectedIds.includes(req._id ?? "")}
+                          onCheckedChange={(checked) => {
+                            const id = req._id;
+                            if (!id) return; // 🛡️ Defensive guard
+
+                            setSelectedIds((prev) =>
+                              checked
+                                ? [...prev, id]
+                                : prev.filter((x) => x !== id)
+                            );
+                          }}
+                          aria-label={`Select ${
+                            req.requestNo || "Transfer Request"
+                          }`}
+                          className="ml-1"
+                        />
+                      </TableCell>
                       <TableCell>
                         {req.transactionDate
                           ? new Date(req.transactionDate).toLocaleDateString(
@@ -663,7 +808,7 @@ export default function TransferRequestPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleView(req._id!)}
-                          title="View Purchase Order">
+                          title="View Transfer Request">
                           <Eye className="w-4 h-4" />
                         </Button>
 
@@ -672,20 +817,48 @@ export default function TransferRequestPage() {
                           variant="ghost"
                           size="sm"
                           onClick={() => handleEdit(req)}
-                          title="Edit Purchase Order">
+                          title="Edit Transfer Request">
                           <Edit className="w-4 h-4" />
                         </Button>
 
-                        {/* 🗑️ Delete Button (optional) */}
-                        {/* <Button
-    variant="ghost"
-    size="sm"
-    onClick={() => handleDelete(req._id!)}
-    title="Delete Purchase Order"
-    className="text-red-600 hover:text-red-800"
-  >
-    <Trash2 className="w-4 h-4" />
-  </Button> */}
+                        {/* 🗑️ Delete Button */}
+                        <AlertDialog>
+                          <AlertDialogTrigger asChild>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Delete Transfer Request"
+                              className="text-red-600 hover:text-red-800">
+                              <Trash2 className="w-4 h-4" />
+                            </Button>
+                          </AlertDialogTrigger>
+
+                          <AlertDialogContent>
+                            <AlertDialogHeader>
+                              <AlertDialogTitle>
+                                Delete Transfer Request
+                              </AlertDialogTitle>
+                              <AlertDialogDescription>
+                                This action cannot be undone. Are you sure you
+                                want to permanently delete this transfer
+                                request?
+                              </AlertDialogDescription>
+                            </AlertDialogHeader>
+
+                            <AlertDialogFooter>
+                              <AlertDialogCancel asChild>
+                                <Button variant="outline">Cancel</Button>
+                              </AlertDialogCancel>
+                              <AlertDialogAction asChild>
+                                <Button
+                                  variant="destructive"
+                                  onClick={() => handleDelete(req._id!)}>
+                                  Confirm Delete
+                                </Button>
+                              </AlertDialogAction>
+                            </AlertDialogFooter>
+                          </AlertDialogContent>
+                        </AlertDialog>
                       </TableCell>
                     </TableRow>
                   ))
@@ -1621,88 +1794,88 @@ export default function TransferRequestPage() {
             </DialogTitle>
           </DialogHeader>
 
-          {/* 🧭 Transaction Metadata */}
-          <section className="mb-6 space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="col-span-2 space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">
-                  Request No.
-                </label>
-                <Input value={formData.requestNo ?? ""} readOnly disabled />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">
-                  Requesting Warehouse
-                </label>
-                <Input value={formData.requestingWarehouse} readOnly disabled />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">
-                  Source Warehouse
-                </label>
-                <Input value={formData.sourceWarehouse} readOnly disabled />
-              </div>
-
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">
-                  Transaction Date
-                </label>
-                <Input
-                  type="date"
-                  value={
-                    formData.transactionDate
-                      ? new Date(formData.transactionDate)
-                          .toISOString()
-                          .split("T")[0]
-                      : ""
-                  }
-                  readOnly
-                  disabled
-                />
-              </div>
-              <div className="space-y-1">
-                <label className="text-sm font-medium text-muted-foreground">
-                  Transfer Date
-                </label>
-                <Input
-                  type="date"
-                  value={
-                    formData.transferDate
-                      ? new Date(formData.transferDate)
-                          .toISOString()
-                          .split("T")[0]
-                      : ""
-                  }
-                  readOnly
-                  disabled
-                />
-              </div>
+          {/* 🧭 Transaction Metadata & Personnel Info */}
+          <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-3">
+            <div className="flex justify-between">
+              <span className="text-sm font-medium text-muted-foreground">
+                Request No.
+              </span>
+              <span className="text-sm font-mono">
+                {formData.requestNo ?? "—"}
+              </span>
             </div>
-          </section>
-
-          {/* 🧑‍💼 Personnel Info */}
-          <section className="mb-6 grid grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-muted-foreground">
+            <div className="flex justify-between">
+              <span className="text-sm font-medium text-muted-foreground">
+                Requesting Warehouse
+              </span>
+              <span className="text-sm">
+                {formData.requestingWarehouse ?? "—"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm font-medium text-muted-foreground">
+                Source Warehouse
+              </span>
+              <span className="text-sm">{formData.sourceWarehouse ?? "—"}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm font-medium text-muted-foreground">
+                Transaction Date
+              </span>
+              <span className="text-sm font-mono">
+                {formData.transactionDate
+                  ? new Date(formData.transactionDate).toLocaleDateString(
+                      "en-PH",
+                      {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      }
+                    )
+                  : "—"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm font-medium text-muted-foreground">
+                Transfer Date
+              </span>
+              <span className="text-sm font-mono">
+                {formData.transferDate
+                  ? new Date(formData.transferDate).toLocaleDateString(
+                      "en-PH",
+                      {
+                        year: "numeric",
+                        month: "short",
+                        day: "numeric",
+                      }
+                    )
+                  : "—"}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-sm font-medium text-muted-foreground">
                 Prepared By
-              </label>
-              <Input value={formData.preparedBy} readOnly disabled />
+              </span>
+              <span className="text-sm">{formData.preparedBy ?? "—"}</span>
             </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-muted-foreground">
+            <div className="flex justify-between">
+              <span className="text-sm font-medium text-muted-foreground">
                 Reference
-              </label>
-              <Input value={formData.reference ?? ""} readOnly disabled />
+              </span>
+              <span className="text-sm">{formData.reference ?? "—"}</span>
             </div>
-          </section>
-
-          {/* 📝 Notes */}
-          <section className="mb-6 space-y-1">
-            <label className="text-sm font-medium text-muted-foreground">
-              Notes
-            </label>
-            <Textarea value={formData.notes ?? ""} readOnly disabled />
+            <div className="flex justify-between">
+              <span className="text-sm font-medium text-muted-foreground">
+                Notes
+              </span>
+              <div className="text-sm ">
+                {formData.notes?.trim() ? (
+                  formData.notes
+                ) : (
+                  <em>No notes provided</em>
+                )}
+              </div>
+            </div>
           </section>
 
           {/* 📦 Items Table */}

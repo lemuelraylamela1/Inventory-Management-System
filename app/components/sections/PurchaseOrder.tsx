@@ -2560,224 +2560,168 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
           {viewingPO && (
             <div className="grid gap-6 py-4">
-              <Card className="p-6 rounded-xl shadow-sm border border-border">
-                <div className="grid grid-cols-2 gap-6 w-full">
-                  {/* PO Number */}
-                  <div className="flex flex-col gap-1">
-                    <label
-                      htmlFor="po-number"
-                      className="text-xs font-medium text-muted-foreground">
-                      PO Number
-                    </label>
-                    <input
-                      type="text"
-                      id="po-number"
-                      value={viewingPO.poNumber || "—"}
-                      readOnly
-                      disabled
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Reference Number */}
-                  <div className="flex flex-col gap-1">
-                    <label
-                      htmlFor="reference-number"
-                      className="text-xs font-medium text-muted-foreground">
-                      Reference Number
-                    </label>
-                    <input
-                      type="text"
-                      id="reference-number"
-                      value={viewingPO.referenceNumber || "—"}
-                      readOnly
-                      disabled
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Supplier */}
-                  <div className="flex flex-col gap-1">
-                    <label
-                      htmlFor="supplier-name"
-                      className="text-xs font-medium text-muted-foreground">
-                      Supplier
-                    </label>
-                    <input
-                      type="text"
-                      id="supplier-name"
-                      value={viewingPO.supplierName || "—"}
-                      readOnly
-                      disabled
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Warehouse */}
-                  <div className="flex flex-col gap-1">
-                    <label
-                      htmlFor="warehouse"
-                      className="text-xs font-medium text-muted-foreground">
-                      Warehouse
-                    </label>
-                    <input
-                      type="text"
-                      id="warehouse"
-                      value={viewingPO.warehouse || "—"}
-                      readOnly
-                      disabled
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Status */}
-                  <div className="flex flex-col gap-1">
-                    <label
-                      htmlFor="status"
-                      className="text-xs font-medium text-muted-foreground">
-                      Status
-                    </label>
-                    <input
-                      type="text"
-                      id="status"
-                      value={viewingPO.status || "—"}
-                      readOnly
-                      disabled
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed"
-                    />
-                  </div>
-
-                  {/* Remarks */}
-                  <div className="flex flex-col gap-1">
-                    <label
-                      htmlFor="remarks"
-                      className="text-xs font-medium text-muted-foreground">
-                      Remarks
-                    </label>
-                    <input
-                      type="text"
-                      id="remarks"
-                      value={viewingPO.remarks || "—"}
-                      readOnly
-                      disabled
-                      title={viewingPO.remarks}
-                      className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed truncate"
-                    />
-                  </div>
+              <div className="grid grid-cols-2 gap-x-6 gap-y-3 w-full">
+                {/* PO Number */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    PO Number
+                  </span>
+                  <span className="text-sm font-mono">
+                    {viewingPO.poNumber || "—"}
+                  </span>
                 </div>
 
-                {/* Header Row */}
-                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 border-b py-3 mb-2 bg-primary text-primary-foreground rounded-t shadow-sm">
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Item Code
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Item Name
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    UOM
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Purchase Price
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Quantity
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Amount
-                  </div>
+                {/* Reference Number */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Reference Number
+                  </span>
+                  <span className="text-sm">
+                    {viewingPO.referenceNumber || "—"}
+                  </span>
                 </div>
 
-                {viewingPO.items?.map((item, index) => {
-                  const isZero = item.quantity === 0;
+                {/* Supplier */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Supplier
+                  </span>
+                  <span className="text-sm">
+                    {viewingPO.supplierName || "—"}
+                  </span>
+                </div>
 
-                  return (
-                    <div
-                      key={index}
-                      className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] items-center text-sm py-2 px-1 rounded-md transition-all duration-150
+                {/* Warehouse */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Warehouse
+                  </span>
+                  <span className="text-sm">{viewingPO.warehouse || "—"}</span>
+                </div>
+
+                {/* Status */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Status
+                  </span>
+                  <span className="text-sm">{viewingPO.status || "—"}</span>
+                </div>
+
+                {/* Remarks */}
+                <div className="flex justify-between items-center">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Remarks
+                  </span>
+                  <span
+                    className="text-sm truncate max-w-[60%]"
+                    title={viewingPO.remarks}>
+                    {viewingPO.remarks?.trim() || (
+                      <em className="text-muted-foreground">—</em>
+                    )}
+                  </span>
+                </div>
+              </div>
+
+              {/* 📦 Header Row */}
+              <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] bg-primary text-primary-foreground text-xs font-semibold uppercase tracking-wide rounded-t-md shadow-sm border border-border">
+                {[
+                  "Item Code",
+                  "Item Name",
+                  "UOM",
+                  "Purchase Price",
+                  "Quantity",
+                  "Amount",
+                ].map((label, i) => (
+                  <div
+                    key={i}
+                    className="px-3 py-2 text-center border-r last:border-r-0 border-border whitespace-nowrap">
+                    {label}
+                  </div>
+                ))}
+              </div>
+
+              {/* 📦 Item Rows */}
+              {viewingPO.items?.map((item, index) => {
+                const isZero = item.quantity === 0;
+                const amount = item.quantity * item.purchasePrice || 0;
+
+                return (
+                  <div
+                    key={index}
+                    className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] items-center text-sm py-2 px-1 rounded-md transition-all duration-150
         ${
           isZero
             ? "bg-green-50 text-green-700 animate-fade-in"
-            : "even:bg-muted/5 hover:ring-1 hover:ring-muted"
+            : "even:bg-muted/5 hover:bg-accent/20 hover:ring-1 hover:ring-accent/50"
         }`}>
-                      {/* Item Code */}
-                      <div className="text-center uppercase px-3 font-semibold">
-                        {item.itemCode || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </div>
-
-                      {/* Item Name */}
-                      <div className="text-center uppercase px-3 font-semibold">
-                        {item.itemName || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </div>
-
-                      {/* Unit Type */}
-                      <div className="text-center uppercase px-3 font-semibold">
-                        {item.unitType || (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </div>
-
-                      {/* Purchase Price */}
-                      <div className="text-center uppercase px-3 font-semibold">
-                        {item.purchasePrice !== undefined ? (
-                          item.purchasePrice.toLocaleString("en-PH", {
-                            style: "currency",
-                            currency: "PHP",
-                          })
-                        ) : (
-                          <span className="text-muted-foreground">—</span>
-                        )}
-                      </div>
-
-                      {/* Quantity */}
-                      <div className="text-center uppercase px-3 font-semibold">
-                        {item.quantity ?? (
-                          <span className="text-muted-foreground">0</span>
-                        )}
-                      </div>
-
-                      {/* Amount */}
-                      <div className="text-center uppercase px-3 font-semibold">
-                        {(
-                          item.quantity * item.purchasePrice || 0
-                        ).toLocaleString("en-PH", {
-                          style: "currency",
-                          currency: "PHP",
-                        })}
-                      </div>
+                    <div className="text-center px-3 font-mono">
+                      {item.itemCode || (
+                        <span className="text-muted-foreground">—</span>
+                      )}
                     </div>
-                  );
-                })}
-
-                <div className="flex w-full justify-end mt-4 gap-6">
-                  <div className="flex items-center gap-2 min-w-[180px]">
-                    <span className="text-sm font-medium">Total Qty:</span>
-                    <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                      {viewingPO.totalQuantity ?? 0}
-                    </span>
-                  </div>
-
-                  <div className="flex items-center gap-2 min-w-[180px]">
-                    <span className="text-sm font-medium">Total Amount:</span>
-                    <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                      {viewingPO.items
-                        ?.reduce(
-                          (sum, item) =>
-                            sum + (item.quantity * item.purchasePrice || 0),
-                          0
-                        )
-                        ?.toLocaleString("en-PH", {
+                    <div className="text-center px-3">
+                      {item.itemName || (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
+                    <div className="text-center px-3">
+                      {item.unitType || (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
+                    <div className="text-center px-3">
+                      {item.purchasePrice !== undefined ? (
+                        item.purchasePrice.toLocaleString("en-PH", {
                           style: "currency",
                           currency: "PHP",
-                        }) ?? "₱0.00"}
-                    </span>
+                        })
+                      ) : (
+                        <span className="text-muted-foreground">—</span>
+                      )}
+                    </div>
+                    <div className="text-center px-3">
+                      {item.quantity ?? (
+                        <span className="text-muted-foreground">0</span>
+                      )}
+                    </div>
+                    <div className="text-center px-3 font-semibold">
+                      {amount.toLocaleString("en-PH", {
+                        style: "currency",
+                        currency: "PHP",
+                      })}
+                    </div>
                   </div>
+                );
+              })}
+
+              <div className="flex w-full justify-end mt-6 gap-6 border-t pt-4">
+                <div className="flex items-center gap-2 min-w-[180px]">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Total Qty:
+                  </span>
+                  <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
+                    {viewingPO.totalQuantity ?? 0}
+                  </span>
                 </div>
-              </Card>
+
+                <div className="flex items-center gap-2 min-w-[180px]">
+                  <span className="text-sm font-medium text-muted-foreground">
+                    Total Amount:
+                  </span>
+                  <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
+                    {viewingPO.items
+                      ?.reduce(
+                        (sum, item) =>
+                          sum + (item.quantity * item.purchasePrice || 0),
+                        0
+                      )
+                      .toLocaleString("en-PH", {
+                        style: "currency",
+                        currency: "PHP",
+                      }) ?? "₱0.00"}
+                  </span>
+                </div>
+              </div>
             </div>
           )}
 
