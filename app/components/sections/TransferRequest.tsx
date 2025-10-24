@@ -153,8 +153,11 @@ export default function TransferRequestPage() {
   }, []);
 
   useEffect(() => {
-    if (!isCreateDialogOpen) {
-      setFormData(getInitialFormData());
+    if (isCreateDialogOpen) {
+      setFormData((prev) => ({
+        ...prev,
+        transactionDate: new Date().toISOString(), // ✅ ISO format for payload
+      }));
     }
   }, [isCreateDialogOpen]);
 
@@ -913,15 +916,23 @@ export default function TransferRequestPage() {
                 <Label className="text-sm font-medium">Transaction Date</Label>
                 <Input
                   type="text"
-                  value={new Date().toLocaleDateString("en-PH", {
-                    year: "numeric",
-                    month: "short",
-                    day: "numeric",
-                  })}
+                  value={
+                    formData.transactionDate
+                      ? new Date(formData.transactionDate).toLocaleDateString(
+                          "en-PH",
+                          {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          }
+                        )
+                      : ""
+                  }
                   disabled
                   className="text-muted-foreground"
                 />
               </div>
+
               <div>
                 <Label className="text-sm font-medium">Transfer Date</Label>
                 <Input
@@ -1605,70 +1616,73 @@ export default function TransferRequestPage() {
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogPanel className="max-w-2xl">
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
+            <DialogTitle className="text-lg font-semibold tracking-tight">
               View Transfer Request
             </DialogTitle>
           </DialogHeader>
 
           {/* 🧭 Transaction Metadata */}
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="space-y-1 col-span-2">
-              <label className="text-sm font-medium text-muted-foreground">
-                Request No.
-              </label>
-              <Input value={formData.requestNo ?? ""} readOnly disabled />
-            </div>
+          <section className="mb-6 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="col-span-2 space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Request No.
+                </label>
+                <Input value={formData.requestNo ?? ""} readOnly disabled />
+              </div>
 
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-muted-foreground">
-                Requesting Warehouse
-              </label>
-              <Input value={formData.requestingWarehouse} readOnly disabled />
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Requesting Warehouse
+                </label>
+                <Input value={formData.requestingWarehouse} readOnly disabled />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Source Warehouse
+                </label>
+                <Input value={formData.sourceWarehouse} readOnly disabled />
+              </div>
+
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Transaction Date
+                </label>
+                <Input
+                  type="date"
+                  value={
+                    formData.transactionDate
+                      ? new Date(formData.transactionDate)
+                          .toISOString()
+                          .split("T")[0]
+                      : ""
+                  }
+                  readOnly
+                  disabled
+                />
+              </div>
+              <div className="space-y-1">
+                <label className="text-sm font-medium text-muted-foreground">
+                  Transfer Date
+                </label>
+                <Input
+                  type="date"
+                  value={
+                    formData.transferDate
+                      ? new Date(formData.transferDate)
+                          .toISOString()
+                          .split("T")[0]
+                      : ""
+                  }
+                  readOnly
+                  disabled
+                />
+              </div>
             </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-muted-foreground">
-                Source Warehouse
-              </label>
-              <Input value={formData.sourceWarehouse} readOnly disabled />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-muted-foreground">
-                Transaction Date
-              </label>
-              <Input
-                type="date"
-                value={
-                  formData.transactionDate
-                    ? new Date(formData.transactionDate)
-                        .toISOString()
-                        .split("T")[0]
-                    : ""
-                }
-                readOnly
-                disabled
-              />
-            </div>
-            <div className="space-y-1">
-              <label className="text-sm font-medium text-muted-foreground">
-                Transfer Date
-              </label>
-              <Input
-                type="date"
-                value={
-                  formData.transferDate
-                    ? new Date(formData.transferDate)
-                        .toISOString()
-                        .split("T")[0]
-                    : ""
-                }
-                readOnly
-                disabled
-              />
-            </div>
-          </div>
+          </section>
 
           {/* 🧑‍💼 Personnel Info */}
-          <div className="grid grid-cols-2 gap-4 mb-4">
+          <section className="mb-6 grid grid-cols-2 gap-4">
             <div className="space-y-1">
               <label className="text-sm font-medium text-muted-foreground">
                 Prepared By
@@ -1681,42 +1695,42 @@ export default function TransferRequestPage() {
               </label>
               <Input value={formData.reference ?? ""} readOnly disabled />
             </div>
-          </div>
+          </section>
 
           {/* 📝 Notes */}
-          <div className="space-y-1 mb-4">
+          <section className="mb-6 space-y-1">
             <label className="text-sm font-medium text-muted-foreground">
               Notes
             </label>
             <Textarea value={formData.notes ?? ""} readOnly disabled />
-          </div>
+          </section>
 
           {/* 📦 Items Table */}
-          <div className="space-y-1 mb-4">
-            <label className="text-sm font-medium text-muted-foreground">
-              Transfer Items
-            </label>
-            <div className="border rounded-md overflow-auto max-h-64">
-              <table className="w-full text-sm">
-                <thead className="bg-muted text-muted-foreground">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Item Code</th>
-                    <th className="px-3 py-2 text-right">Quantity</th>
-                    <th className="px-3 py-2 text-right">Unit Type</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {formData.items.map((item, index) => (
-                    <tr key={index} className="border-t">
-                      <td className="px-3 py-2">{item.itemCode}</td>
-                      <td className="px-3 py-2 text-right">{item.quantity}</td>
-                      <td className="px-3 py-2 text-right">{item.unitType}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
+          <section className="mb-6 space-y-2">
+            <div className="border rounded-md overflow-auto max-h-64 shadow-sm">
+              <div className="grid grid-cols-3 bg-primary text-primary-foreground text-xs font-semibold uppercase sticky top-0 z-10">
+                <div className="px-4 py-2 text-left">Item Code</div>
+                <div className="px-4 py-2 text-right">Quantity</div>
+                <div className="px-4 py-2 text-right">Unit Type</div>
+              </div>
+
+              {formData.items.length > 0 ? (
+                formData.items.map((item, index) => (
+                  <div
+                    key={index}
+                    className="grid grid-cols-3 border-t text-sm hover:bg-accent/40">
+                    <div className="px-4 py-2 font-mono">{item.itemCode}</div>
+                    <div className="px-4 py-2 text-right">{item.quantity}</div>
+                    <div className="px-4 py-2 text-right">{item.unitType}</div>
+                  </div>
+                ))
+              ) : (
+                <div className="px-4 py-3 text-center text-muted-foreground italic">
+                  No items added
+                </div>
+              )}
             </div>
-          </div>
+          </section>
 
           <DialogFooter>
             <DialogClose asChild>

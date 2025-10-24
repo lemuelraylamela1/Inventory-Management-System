@@ -3,10 +3,8 @@ import connectMongoDB from "@/libs/mongodb";
 import { TransferRequestModel } from "@/models/transferRequest";
 
 // GET /api/transfer-requests/[id]
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id?: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id?: string }> }) {
+  const params = await props.params;
   await connectMongoDB();
 
   const id = params?.id;
@@ -40,10 +38,8 @@ export async function GET(
 }
 
 // PATCH /api/transfer-requests/[id]
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await connectMongoDB();
   const updates = await req.json();
 
@@ -72,10 +68,8 @@ export async function PATCH(
 }
 
 // DELETE /api/transfer-requests/[id]
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await connectMongoDB();
   try {
     const deleted = await TransferRequestModel.findByIdAndDelete(params.id);
