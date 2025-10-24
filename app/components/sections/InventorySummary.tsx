@@ -45,22 +45,30 @@ export default function InventorySummary() {
     > = {};
 
     inventoryItems.forEach((item) => {
-      const warehouse = item.warehouse;
-      const key = item.itemName.trim().toUpperCase();
+      const warehouse = item.warehouse?.trim().toUpperCase() || "UNKNOWN";
+      const itemName = item.itemName?.trim() || "";
+      const normalizedName = itemName.toUpperCase();
+      const category = item.category?.trim().toUpperCase() || "UNCATEGORIZED";
+      const quantity = Number(item.quantity) || 0;
+
+      if (!itemName) {
+        console.warn("⚠️ Skipped item with missing itemName:", item);
+        return;
+      }
 
       if (!summary[warehouse]) summary[warehouse] = [];
 
       const existing = summary[warehouse].find(
-        (entry) => entry.itemName === item.itemName
+        (entry) => entry.itemName.trim().toUpperCase() === normalizedName
       );
 
       if (existing) {
-        existing.quantity += item.quantity;
+        existing.quantity += quantity;
       } else {
         summary[warehouse].push({
-          itemName: item.itemName,
-          category: item.category ?? "UNCATEGORIZED",
-          quantity: item.quantity,
+          itemName,
+          category,
+          quantity,
         });
       }
     });
@@ -71,10 +79,18 @@ export default function InventorySummary() {
   // ✅ Memoized category lookup map
   const categoryMap = useMemo(() => {
     const map: Record<string, string> = {};
+
     itemCatalog.forEach((item) => {
-      const key = item.itemName.trim().toUpperCase();
-      map[key] = item.category?.trim().toUpperCase() || "UNCATEGORIZED";
+      const itemName = item.itemName?.trim().toUpperCase() || "";
+      const category = item.category?.trim().toUpperCase() || "UNCATEGORIZED";
+
+      if (itemName) {
+        map[itemName] = category;
+      } else {
+        console.warn("⚠️ Skipped item with missing itemName:", item);
+      }
     });
+
     return map;
   }, [itemCatalog]);
 
@@ -112,12 +128,15 @@ export default function InventorySummary() {
         if (!res.ok) throw new Error("Failed to fetch inventory-main");
 
         const response = await res.json();
+
         const data = Array.isArray(response)
           ? response.map((item: InventoryType) => {
-              const key = item.itemName.trim().toUpperCase();
+              const itemName = item.itemName?.trim().toUpperCase() || "";
+              const category = categoryMap[itemName] ?? "";
+
               return {
                 ...item,
-                category: categoryMap[key] ?? "",
+                category,
               };
             })
           : [];

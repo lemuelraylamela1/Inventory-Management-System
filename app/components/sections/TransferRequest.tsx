@@ -817,12 +817,28 @@ export default function TransferRequestPage() {
                       {showItemSuggestions === index && (
                         <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
                           {inventoryItems
-                            .filter((option) =>
-                              option.itemCode
+                            .filter((option) => {
+                              const normalizedCode = option.itemCode
                                 ?.trim()
-                                .toUpperCase()
-                                .includes(item.itemCode?.toUpperCase() || "")
-                            )
+                                .toUpperCase();
+                              const isAlreadySelected = formData.items.some(
+                                (itm, i) =>
+                                  i !== index &&
+                                  itm.itemCode?.trim().toUpperCase() ===
+                                    normalizedCode
+                              );
+
+                              return (
+                                option.warehouse?.trim().toUpperCase() ===
+                                  formData.sourceWarehouse
+                                    ?.trim()
+                                    .toUpperCase() &&
+                                normalizedCode?.includes(
+                                  item.itemCode?.toUpperCase() || ""
+                                ) &&
+                                !isAlreadySelected
+                              );
+                            })
                             .map((option) => {
                               const normalized = option.itemCode
                                 ?.trim()
@@ -854,11 +870,17 @@ export default function TransferRequestPage() {
                                 </li>
                               );
                             })}
-                          {inventoryItems.filter((option) =>
-                            option.itemCode
-                              ?.trim()
-                              .toUpperCase()
-                              .includes(item.itemCode?.toUpperCase() || "")
+
+                          {inventoryItems.filter(
+                            (option) =>
+                              option.warehouse?.trim().toUpperCase() ===
+                                formData.sourceWarehouse
+                                  ?.trim()
+                                  .toUpperCase() &&
+                              option.itemCode
+                                ?.trim()
+                                .toUpperCase()
+                                .includes(item.itemCode?.toUpperCase() || "")
                           ).length === 0 && (
                             <li className="px-3 py-2 text-muted-foreground">
                               No matching items found
