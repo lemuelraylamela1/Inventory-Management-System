@@ -452,7 +452,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
   const allowedStatuses: PurchaseOrderType["status"][] = [
     "PENDING",
-    "APPROVED",
+    "PARTIAL",
     "REJECTED",
     "COMPLETED",
   ];
@@ -1901,11 +1901,11 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                         <span
                           className={`inline-block text-sm font-medium px-2 py-1 rounded-full ${
                             po.status === "COMPLETED"
-                              ? "bg-green-100 text-green-800"
-                              : po.status === "APPROVED"
-                              ? "bg-blue-100 text-blue-800"
+                              ? "inline-flex items-center gap-1 text-green-600"
+                              : po.status === "PARTIAL"
+                              ? "inline-flex items-center gap-1 text-blue-600"
                               : po.status === "PENDING"
-                              ? "bg-yellow-100 text-yellow-800"
+                              ? "inline-flex items-center gap-1 text-yellow-600"
                               : po.status === "REJECTED"
                               ? "bg-red-100 text-red-800"
                               : "bg-gray-100 text-gray-800"

@@ -2828,12 +2828,12 @@ export default function SalesOrder({ onSuccess }: Props) {
                         <span
                           className={`inline-block text-sm font-medium px-2 py-1 rounded-full ${
                             so.status === "COMPLETED"
-                              ? "bg-green-100 text-green-800"
+                              ? "inline-flex items-center gap-1 text-green-600"
                               : so.status === "TO PREPARE"
-                              ? "bg-yellow-100 text-yellow-800"
+                              ? "inline-flex items-center gap-1 text-blue-600"
                               : so.status === "CANCELLED"
-                              ? "bg-red-100 text-red-800"
-                              : "bg-gray-100 text-gray-800"
+                              ? "inline-flex items-center gap-1 text-red-600"
+                              : "inline-flex items-center gap-1 text-yellow-600"
                           }`}>
                           {so.status}
                         </span>

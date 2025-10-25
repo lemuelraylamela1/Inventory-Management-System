@@ -109,7 +109,7 @@ export type PurchaseOrderType = {
   totalQuantity?: number;
   balance?: number;
   remarks?: string;
-  status: "PENDING" | "APPROVED" | "REJECTED" | "COMPLETED";
+  status: "PENDING" | "PARTIAL" | "REJECTED" | "COMPLETED";
 };
 
 export type PurchaseOrderResponse = PurchaseOrderType & {

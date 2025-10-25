@@ -1932,10 +1932,10 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                             className={`inline-block text-sm font-medium px-2 py-1 rounded-full
                               ${
                                 receipt.status === "OPEN"
-                                  ? "bg-blue-100 text-blue-800"
+                                  ? "inline-flex items-center gap-1 text-blue-600"
                                   : receipt.status === "RECEIVED"
-                                  ? "bg-green-100 text-green-800"
-                                  : "bg-neutral-100 text-neutral-800"
+                                  ? "inline-flex items-center gap-1 text-green-600"
+                                  : "inline-flex items-center gap-1 text-yellow-600"
                               }`}>
                             {receipt.status?.toUpperCase() || "—"}
                           </span>

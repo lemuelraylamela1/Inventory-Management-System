@@ -14,7 +14,7 @@ const InventoryMainSchema = new mongoose.Schema<InventoryMainItem>({
   itemCode: { type: String, required: true, uppercase: true },
   itemName: { type: String, required: true },
   warehouse: { type: String, required: true, uppercase: true },
-  quantity: { type: Number, required: true, default: 0 },
+  quantity: { type: Number, default: 0 },
   unitType: { type: String, required: true },
   updatedAt: { type: Date, default: Date.now },
 });

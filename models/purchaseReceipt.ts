@@ -93,7 +93,7 @@ const PurchaseReceiptSchema = new Schema<PurchaseReceiptType>(
         {
           itemCode: { type: String, required: true },
           itemName: { type: String, required: true },
-          quantity: { type: Number, required: true },
+          quantity: { type: Number },
           unitType: { type: String, required: true },
           purchasePrice: { type: Number, required: true },
           amount: { type: Number, required: true },

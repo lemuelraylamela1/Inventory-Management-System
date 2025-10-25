@@ -621,7 +621,7 @@ export default function TransferRequestPage() {
 
             <Button onClick={() => setIsCreateDialogOpen(true)}>
               <Plus className="w-4 h-4 mr-2" />
-              New Invoice
+              New Transfer Request
             </Button>
           </div>
 

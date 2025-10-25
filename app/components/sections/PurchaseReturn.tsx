@@ -1878,7 +1878,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                           <span
                             className={`inline-block text-sm font-medium px-2 py-1 rounded-full ${
                               ret.status === "RETURNED"
-                                ? "bg-green-100 text-green-800"
+                                ? "inline-flex items-center gap-1 text-green-600"
                                 : ret.status === "APPROVED"
                                 ? "bg-blue-100 text-blue-800"
                                 : ret.status === "OPEN"
