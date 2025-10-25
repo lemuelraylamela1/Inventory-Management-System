@@ -126,7 +126,7 @@ export default function TransferRequestPage() {
 
   const getInitialFormData = (): TransferRequest => ({
     requestNo: "", // ✅ now included
-    status: "pending",
+    status: "PENDING",
     requestingWarehouse: "",
     sourceWarehouse: "",
     transactionDate: "",
@@ -578,22 +578,22 @@ export default function TransferRequestPage() {
     }
   };
 
-  const toggleSelectAll = () => {
-    const visibleIds = paginatedRequests
-      .map((req) => req._id)
-      .filter((id): id is string => typeof id === "string");
+  // const toggleSelectAll = () => {
+  //   const visibleIds = paginatedRequests
+  //     .map((req) => req._id)
+  //     .filter((id): id is string => typeof id === "string");
 
-    const allSelected = visibleIds.every((id) => selectedIds.includes(id));
-    setSelectedIds(
-      allSelected ? [] : [...new Set([...selectedIds, ...visibleIds])]
-    );
-  };
+  //   const allSelected = visibleIds.every((id) => selectedIds.includes(id));
+  //   setSelectedIds(
+  //     allSelected ? [] : [...new Set([...selectedIds, ...visibleIds])]
+  //   );
+  // };
 
-  const toggleSelectOne = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
+  // const toggleSelectOne = (id: string) => {
+  //   setSelectedIds((prev) =>
+  //     prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
+  //   );
+  // };
 
   return (
     <div className="space-y-6">
@@ -723,7 +723,7 @@ export default function TransferRequestPage() {
                       className="ml-1"
                     />
                   </TableHead>
-                  <TableHead>Date</TableHead>
+                  <TableHead>Transaction Date</TableHead>
                   <TableHead>Request No</TableHead>
                   <TableHead>Requesting Warehouse</TableHead>
                   <TableHead>Source Warehouse</TableHead>
@@ -800,7 +800,21 @@ export default function TransferRequestPage() {
                       <TableCell>{req.requestingWarehouse ?? "—"}</TableCell>
                       <TableCell>{req.sourceWarehouse ?? "—"}</TableCell>
                       <TableCell>{req.preparedBy ?? "—"}</TableCell>
-                      <TableCell>{req.status}</TableCell>
+                      <TableCell>
+                        {req.status === "APPROVED" ? (
+                          <span className="inline-flex items-center gap-1 text-green-600">
+                            APPROVED
+                          </span>
+                        ) : req.status === "REJECTED" ? (
+                          <span className="inline-flex items-center gap-1 text-red-600">
+                            REJECTED
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-yellow-600">
+                            PENDING
+                          </span>
+                        )}
+                      </TableCell>
 
                       <TableCell className="text-right flex gap-2 justify-end">
                         {/* 👁️ View Button */}
@@ -812,53 +826,56 @@ export default function TransferRequestPage() {
                           <Eye className="w-4 h-4" />
                         </Button>
 
-                        {/* ✏️ Edit Button */}
-                        <Button
-                          variant="ghost"
-                          size="sm"
-                          onClick={() => handleEdit(req)}
-                          title="Edit Transfer Request">
-                          <Edit className="w-4 h-4" />
-                        </Button>
-
-                        {/* 🗑️ Delete Button */}
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
+                        {/* ✏️ Edit & 🗑️ Delete Buttons — only if status is pending */}
+                        {req.status === "PENDING" && (
+                          <>
                             <Button
                               variant="ghost"
                               size="sm"
-                              title="Delete Transfer Request"
-                              className="text-red-600 hover:text-red-800">
-                              <Trash2 className="w-4 h-4" />
+                              onClick={() => handleEdit(req)}
+                              title="Edit Transfer Request">
+                              <Edit className="w-4 h-4" />
                             </Button>
-                          </AlertDialogTrigger>
 
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                Delete Transfer Request
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                This action cannot be undone. Are you sure you
-                                want to permanently delete this transfer
-                                request?
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-
-                            <AlertDialogFooter>
-                              <AlertDialogCancel asChild>
-                                <Button variant="outline">Cancel</Button>
-                              </AlertDialogCancel>
-                              <AlertDialogAction asChild>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
                                 <Button
-                                  variant="destructive"
-                                  onClick={() => handleDelete(req._id!)}>
-                                  Confirm Delete
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Delete Transfer Request"
+                                  className="text-red-600 hover:text-red-800">
+                                  <Trash2 className="w-4 h-4" />
                                 </Button>
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
+                              </AlertDialogTrigger>
+
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    Delete Transfer Request
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This action cannot be undone. Are you sure
+                                    you want to permanently delete this transfer
+                                    request?
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel asChild>
+                                    <Button variant="outline">Cancel</Button>
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction asChild>
+                                    <Button
+                                      variant="destructive"
+                                      onClick={() => handleDelete(req._id!)}>
+                                      Confirm Delete
+                                    </Button>
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        )}
                       </TableCell>
                     </TableRow>
                   ))

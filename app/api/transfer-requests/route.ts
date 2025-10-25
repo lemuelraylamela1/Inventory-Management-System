@@ -63,7 +63,7 @@ export async function POST(req: Request) {
       reference: reference?.trim() || "",
       notes: notes?.trim() || "",
       items: normalizedItems,
-      status: "pending",
+      status: "PENDING",
     };
 
     console.log("📥 TransferRequest payload:", payload);

@@ -334,8 +334,21 @@ export type TransferRequest = {
   reference?: string; // 🆕 Optional reference number
   notes?: string; // 🆕 Optional notes
   preparedBy: string;
-  status: "pending" | "approved" | "rejected";
+  status: "PENDING" | "APPROVED" | "REJECTED";
   items: TransferRequestItem[];
   createdAt?: string;
   updatedAt?: string;
 };
+
+export type TransferApproval = {
+  _id: string;
+  transferApproveNo: string; // Auto-generated: TA0000000001, TA0000000002, ...
+  transferRequestNo: string; // References TransferRequest.requestNo
+  approvedBy: string;
+  approvedDate: Date;
+  status: "APPROVED" | "REJECTED";
+};
+export type TransferApprovalInput = Omit<
+  TransferApproval,
+  "_id" | "approvedDate"
+>;

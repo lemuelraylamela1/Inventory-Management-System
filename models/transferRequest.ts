@@ -15,7 +15,7 @@ export interface TransferRequest extends Document {
   transferDate?: Date;
   reference?: string;
   notes?: string;
-  status: "pending" | "approved" | "rejected";
+  status: "PENDING" | "APPROVED" | "REJECTED";
   preparedBy: string;
   items: TransferRequestItem[];
 }
@@ -40,8 +40,8 @@ const TransferRequestSchema = new Schema<TransferRequest>(
     notes: { type: String },
     status: {
       type: String,
-      enum: ["pending", "approved", "rejected"],
-      default: "pending",
+      enum: ["PENDING", "APPROVED", "REJECTED"],
+      default: "PENDING",
     },
     preparedBy: { type: String, required: true },
     items: { type: [TransferRequestItemSchema], required: true },
