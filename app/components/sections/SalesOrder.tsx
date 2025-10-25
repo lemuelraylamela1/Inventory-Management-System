@@ -7,11 +7,11 @@ import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import {
   Eye,
-  MoreVertical,
   FileText,
   Filter,
   CalendarDays,
   Loader2,
+  ArrowRightCircle,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import {
@@ -79,6 +79,7 @@ import {
   Clock,
   ClipboardList,
 } from "lucide-react";
+import StatusStepperButton from "./StatusStepperButton";
 
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -2825,19 +2826,13 @@ export default function SalesOrder({ onSuccess }: Props) {
                       </TableCell>
 
                       <TableCell>
-                        <span
-                          className={`inline-block text-sm font-medium px-2 py-1 rounded-full ${
-                            so.status === "COMPLETED"
-                              ? "inline-flex items-center gap-1 text-green-600"
-                              : so.status === "TO PREPARE"
-                              ? "inline-flex items-center gap-1 text-blue-600"
-                              : so.status === "CANCELLED"
-                              ? "inline-flex items-center gap-1 text-red-600"
-                              : "inline-flex items-center gap-1 text-yellow-600"
-                          }`}>
-                          {so.status}
-                        </span>
+                        <StatusStepperButton
+                          soId={String(so._id)}
+                          currentStatus={so.status}
+                          handleUpdateStatus={handleUpdateStatus}
+                        />
                       </TableCell>
+
                       <TableCell>
                         <div className="flex gap-1">
                           <Button
@@ -2899,67 +2894,6 @@ export default function SalesOrder({ onSuccess }: Props) {
                               </AlertDialog>
                             </>
                           )}
-
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="More actions">
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuLabel>
-                                Export Options
-                              </DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              {/* <DropdownMenuItem
-                                onClick={() => {
-                                  const enrichedItems: SalesOrderItem[] =
-                                    items.map((item, index) => ({
-                                      _id: item._id ?? crypto.randomUUID(),
-                                      itemCode: item.itemCode ?? "—",
-                                      itemName: item.itemName ?? "—",
-                                      unitType: item.unitType ?? "—",
-                                      quantity: item.quantity ?? 0,
-                                      price: item.purchasePrice ?? 0,
-                                      description: item.description ?? "",
-                                      amount:
-                                        item.amount ??
-                                        item.quantity * item.price ??
-                                        0,
-                                    }));
-
-                                  handleExportPDF(enrichedItems, {
-                                    soNumber: so.soNumber,
-                                    customer: so.customer,
-                                    salesPerson: so.salesPerson,
-                                    warehouse: so.warehouse,
-                                    status: so.status,
-                                    notes: so.notes,
-                                  });
-                                }}>
-                                <FileText className="w-4 h-4 mr-2 text-red-600" />
-                                Export as PDF
-                              </DropdownMenuItem> */}
-
-                              {statusOptions.map(
-                                ({ label, value, color, icon: Icon }) => (
-                                  <DropdownMenuItem
-                                    key={value}
-                                    onClick={() =>
-                                      handleUpdateStatus(String(so._id), value)
-                                    }
-                                    disabled={so.status === value}
-                                    className={color}>
-                                    <Icon className="w-4 h-4 mr-2" />
-                                    {label}
-                                  </DropdownMenuItem>
-                                )
-                              )}
-                            </DropdownMenuContent>
-                          </DropdownMenu>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -3993,7 +3927,7 @@ export default function SalesOrder({ onSuccess }: Props) {
               </div>
 
               {/* Summary Section - 4 Column Grid with Spacers */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-6 mt-6">
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6  mt-6">
                 <div className="hidden md:block" />
                 <div className="hidden md:block" />
 
@@ -4085,7 +4019,7 @@ export default function SalesOrder({ onSuccess }: Props) {
               </div>
 
               {/* Footer */}
-              <DialogFooter className="px-6 py-4 border-t border-border flex justify-end">
+              <DialogFooter className="py-4 border-t border-border flex justify-end">
                 <Button
                   variant="outline"
                   onClick={() => setIsViewDialogOpen(false)}>

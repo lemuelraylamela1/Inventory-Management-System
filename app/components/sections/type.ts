@@ -279,6 +279,8 @@ export type SalesOrder = {
   updatedAt?: string;
 };
 
+export type Status = SalesOrder["status"];
+
 // 🔹 Input payload for creation
 export type SalesOrderInput = Omit<
   SalesOrder,

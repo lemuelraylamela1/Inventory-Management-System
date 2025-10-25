@@ -29,9 +29,11 @@ async function reconcilePOWithReceipt(
     );
 
     if (matched) {
-      const remainingQuantity = Math.max(poItem.quantity - matched.quantity, 0);
-      const deductedAmount = matched.quantity * poItem.purchasePrice;
+      const receivedQty = Math.min(matched.quantity, poItem.quantity);
+      const remainingQuantity = Math.max(poItem.quantity - receivedQty, 0);
+      const deductedAmount = receivedQty * (poItem.purchasePrice ?? 0);
       totalDeducted += deductedAmount;
+
       return {
         itemCode: poItem.itemCode,
         itemName: poItem.itemName,
@@ -48,6 +50,7 @@ async function reconcilePOWithReceipt(
   const filteredItems = updatedItems.filter((item) => item.quantity > 0);
   const newBalance = Math.max(originalBalance - totalDeducted, 0);
   const newStatus = newBalance === 0 ? "COMPLETED" : "PARTIAL";
+  const isCompleted = newStatus === "COMPLETED";
 
   await PurchaseOrder.updateOne(
     { _id: po._id },
@@ -60,7 +63,7 @@ async function reconcilePOWithReceipt(
           (sum: number, item: PurchaseOrderItem) => sum + item.quantity,
           0
         ),
-        locked: newStatus === "COMPLETED",
+        locked: isCompleted,
       },
     }
   );
@@ -68,6 +71,10 @@ async function reconcilePOWithReceipt(
   console.log(
     `📦 PO ${po.poNumber} updated — Status: ${newStatus}, Deducted: ${totalDeducted}, Remaining balance: ${newBalance}`
   );
+
+  if (isCompleted) {
+    console.log(`✅ PO ${po.poNumber} marked as COMPLETED — fully reconciled`);
+  }
 }
 
 export async function POST(request: Request) {
