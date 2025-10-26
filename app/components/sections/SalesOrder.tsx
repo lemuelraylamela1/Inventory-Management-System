@@ -749,7 +749,7 @@ export default function SalesOrder({ onSuccess }: Props) {
     const normalizedItems = formData.items.map((item, index) => {
       const key = item.itemName?.trim().toUpperCase();
       const price = salesPriceMap[key] ?? 0;
-      const quantity = Number(item.quantity) || 0;
+      const quantity = Math.max(Number(item.quantity) || 0, 0);
       const amount = quantity * price;
 
       const catalogItem = itemCatalog.find(
@@ -771,11 +771,11 @@ export default function SalesOrder({ onSuccess }: Props) {
 
       return {
         itemName: key || "UNNAMED",
-        quantity,
-        unitType: item.unitType?.trim().toUpperCase() || "",
-        price,
         itemCode: item.itemCode?.trim().toUpperCase() || "",
         description: item.description?.trim() || "",
+        unitType: item.unitType?.trim().toUpperCase() || "",
+        quantity,
+        price,
         amount,
         weight,
         cbm: parseFloat(cbm.toFixed(5)),
@@ -841,7 +841,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       deliveryDate: formData.deliveryDate,
       shippingAddress: formData.shippingAddress?.trim() || "",
       notes: formData.notes?.trim() || "",
-      status: formData.status?.trim() || "PENDING",
+      status: formData.status?.trim().toUpperCase() || "PENDING",
       creationDate: formData.creationDate,
       items: normalizedItems,
       total,
@@ -1726,7 +1726,7 @@ export default function SalesOrder({ onSuccess }: Props) {
   const totalAfterDiscounts = subtotal * discountFactor;
   const formattedNetTotal = isNaN(totalAfterDiscounts)
     ? "Invalid"
-    : totalAfterDiscounts.toLocaleString("en-US", {
+    : totalAfterDiscounts.toLocaleString("en-PH", {
         style: "currency",
         currency: "PHP",
       });
@@ -2818,12 +2818,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                       <TableCell>{so.soNumber || "—"}</TableCell>
                       <TableCell>{so.customer || "—"}</TableCell>
 
-                      <TableCell>
-                        ₱
-                        {so.total?.toLocaleString(undefined, {
-                          minimumFractionDigits: 2,
-                        })}
-                      </TableCell>
+                      <TableCell>{so.formattedNetTotal}</TableCell>
 
                       <TableCell>
                         <StatusStepperButton

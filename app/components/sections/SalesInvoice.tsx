@@ -117,6 +117,13 @@ export default function SalesInvoicePage({
     salesOrder: string;
     salesOrderLabel: string;
     soItems: SalesOrderItem[];
+    netTotal: string;
+    discounts: string[];
+    discountBreakdown: {
+      rate: number;
+      amount: number;
+      remaining: number;
+    }[];
   }>({
     customer: "",
     reference: "",
@@ -131,6 +138,9 @@ export default function SalesInvoicePage({
     salesOrder: "",
     salesOrderLabel: "",
     soItems: [],
+    netTotal: "₱0.00",
+    discounts: [],
+    discountBreakdown: [],
   });
 
   const [isCreating, setIsCreating] = useState(false);
@@ -379,28 +389,57 @@ export default function SalesInvoicePage({
   const formatCurrency = (value?: number) =>
     typeof value === "number" ? `₱${value.toFixed(2)}` : "₱0.00";
 
+  function applySequentialDiscounts(base: number, rates: number[]): number {
+    return rates.reduce((remaining, rate) => {
+      return remaining - remaining * (rate / 100);
+    }, base);
+  }
+
   const handleCreate = async () => {
     setIsCreating(true);
 
     try {
+      // 🧮 Parse discount rates
+      const discountRates = formData.discounts
+        .map((d) => parseFloat(d))
+        .filter((n) => !isNaN(n));
+
+      console.log("💡 Raw discounts:", formData.discounts);
+      console.log("🔢 Parsed discount rates:", discountRates);
+
+      // 🧩 Normalize items and apply discounts
       const items = formData.soItems.map((item) => {
         const key = item.itemName?.trim().toUpperCase();
+        const quantity = Math.max(Number(item.quantity) || 1, 1);
+        const grossPrice = Number(item.price) || 0;
+        const grossAmount = quantity * grossPrice;
+
+        const netPrice = applySequentialDiscounts(grossPrice, discountRates);
+        const netAmount = applySequentialDiscounts(grossAmount, discountRates);
+
+        console.log(
+          `🧮 ${key} → grossPrice: ${grossPrice}, grossAmount: ${grossAmount}`
+        );
+        console.log(
+          `✅ ${key} → netPrice: ${netPrice}, netAmount: ${netAmount}`
+        );
+
         return {
           itemCode: item.itemCode?.trim().toUpperCase() || "",
           itemName: key,
           description: item.description?.trim() || descriptionMap[key] || "—",
-          quantity: Math.max(Number(item.quantity) || 1, 1),
+          quantity,
           unitType: item.unitType?.trim().toUpperCase() || "",
-          price: Number(item.price) || 0,
-          amount: Number(item.quantity) * Number(item.price),
+          price: parseFloat(netPrice.toFixed(2)), // ✅ Inject discounted price
+          amount: parseFloat(netAmount.toFixed(2)), // ✅ Inject discounted amount
         };
       });
 
-      const totalAmount = items.reduce(
-        (sum, item) => sum + (item.amount || 0),
-        0
-      );
+      // 🧾 Compute totals
+      const grossTotal = items.reduce((sum, item) => sum + item.amount, 0);
+      const netTotal = items.reduce((sum, item) => sum + item.amount, 0);
 
+      // 📦 Build payload
       const payload = {
         customer: formData.customer.trim().toUpperCase(),
         reference: formData.reference || "",
@@ -420,11 +459,13 @@ export default function SalesInvoicePage({
         notes: formData.notes?.trim() || "",
         salesOrder: formData.salesOrderLabel || "",
         items,
-        amount: Math.max(totalAmount, 0), // ✅ Inject total amount
+        amount: parseFloat(netTotal.toFixed(2)),
+        grossAmount: parseFloat(grossTotal.toFixed(2)),
+        discounts: formData.discounts,
+        discountBreakdown: formData.discountBreakdown,
       };
 
       console.log("📦 Creating Sales Invoice with payload:", payload);
-      console.log("🧮 Computed total amount:", totalAmount);
 
       const res = await fetch("/api/sales-invoices", {
         method: "POST",
@@ -433,7 +474,6 @@ export default function SalesInvoicePage({
       });
 
       const data = await res.json();
-
       console.log("📨 Server response:", data);
 
       if (res.ok) {
@@ -454,6 +494,9 @@ export default function SalesInvoicePage({
           salesOrder: "",
           salesOrderLabel: "",
           soItems: [],
+          netTotal: "₱0.00",
+          discounts: [],
+          discountBreakdown: [],
         });
 
         toast.success(
@@ -867,6 +910,9 @@ export default function SalesInvoicePage({
               salesOrder: "",
               salesOrderLabel: "",
               soItems: [],
+              netTotal: "₱0.00",
+              discounts: [],
+              discountBreakdown: [],
             });
           }
         }}>
@@ -1064,12 +1110,14 @@ export default function SalesInvoicePage({
                       salesOrderSuggestions.length > 0 && (
                         <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
                           {salesOrderSuggestions
-                            .filter((so) =>
-                              so.soNumber
-                                .toLowerCase()
-                                .includes(
-                                  formData.salesOrderLabel.toLowerCase()
-                                )
+                            .filter(
+                              (so) =>
+                                so.status === "COMPLETED" &&
+                                so.soNumber
+                                  .toLowerCase()
+                                  .includes(
+                                    formData.salesOrderLabel.toLowerCase()
+                                  )
                             )
                             .map((so) => (
                               <li
@@ -1102,6 +1150,14 @@ export default function SalesInvoicePage({
                                     setFormData((prev) => ({
                                       ...prev,
                                       soItems: order?.items || [],
+                                      discounts: Array.isArray(order?.discounts)
+                                        ? order.discounts
+                                        : [],
+
+                                      netTotal:
+                                        order?.formattedNetTotal || "₱0.00",
+                                      discountBreakdown:
+                                        order?.discountBreakdown || [],
                                     }));
                                   } catch (err) {
                                     console.error(
@@ -1117,6 +1173,20 @@ export default function SalesInvoicePage({
                                 {so.soNumber}
                               </li>
                             ))}
+
+                          {salesOrderSuggestions.filter(
+                            (so) =>
+                              so.status === "COMPLETED" &&
+                              so.soNumber
+                                .toLowerCase()
+                                .includes(
+                                  formData.salesOrderLabel.toLowerCase()
+                                )
+                          ).length === 0 && (
+                            <li className="px-3 py-2 text-muted-foreground text-sm">
+                              No COMPLETED sales orders found
+                            </li>
+                          )}
                         </ul>
                       )}
                   </div>
@@ -1203,61 +1273,91 @@ export default function SalesInvoicePage({
               </div>
 
               {formData.soItems?.length > 0 && (
-                <div className="mt-4">
-                  {/* Header */}
-                  <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-4 border-b py-2 mb-2 bg-primary text-primary-foreground rounded-t">
-                    <div className="text-xs font-semibold uppercase text-start px-2">
-                      Item Name
+                <div className="mt-6 space-y-6">
+                  {/* Item Table */}
+                  <div className="rounded-md border border-border overflow-hidden shadow-sm">
+                    {/* Header */}
+                    <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-4 bg-primary text-primary-foreground text-xs font-semibold uppercase tracking-wide py-2 px-2">
+                      <div>Item Name</div>
+                      <div>Description</div>
+                      <div className="text-end">Qty</div>
+                      <div className="text-end">UOM</div>
+                      <div className="text-end">Price</div>
+                      <div className="text-end">Amount</div>
                     </div>
-                    <div className="text-xs font-semibold uppercase text-start px-2">
-                      Description
-                    </div>
-                    <div className="text-xs font-semibold uppercase text-end px-2">
-                      Qty
-                    </div>
-                    <div className="text-xs font-semibold uppercase text-end px-2">
-                      UOM
-                    </div>
-                    <div className="text-xs font-semibold uppercase text-end px-2">
-                      Price
-                    </div>
-                    <div className="text-xs font-semibold uppercase text-end px-2">
-                      Tax
-                    </div>
-                    <div className="text-xs font-semibold uppercase text-end px-2">
-                      Amount
-                    </div>
+
+                    {/* Rows */}
+                    {formData.soItems.map((item, idx) => {
+                      const key = item.itemName?.trim().toUpperCase();
+                      const description =
+                        item.description?.trim() || descriptionMap[key] || "—";
+
+                      return (
+                        <div
+                          key={idx}
+                          className={`grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-4 items-center text-sm py-2 px-2 ${
+                            idx % 2 === 0 ? "bg-background" : "bg-muted/50"
+                          } border-t border-border`}>
+                          <div>{item.itemName || "—"}</div>
+                          <div>{description}</div>
+                          <div className="text-end">{item.quantity}</div>
+                          <div className="text-end">{item.unitType}</div>
+                          <div className="text-end">
+                            ₱
+                            {applySequentialDiscounts(
+                              item.price,
+                              formData.discounts
+                                .map((d) => parseFloat(d))
+                                .filter((n) => !isNaN(n))
+                            ).toFixed(2)}
+                          </div>
+                          <div className="text-end">
+                            ₱
+                            {applySequentialDiscounts(
+                              item.amount,
+                              formData.discounts
+                                .map((d) => parseFloat(d))
+                                .filter((n) => !isNaN(n))
+                            ).toFixed(2)}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
 
-                  {/* Rows */}
-                  {formData.soItems.map((item, idx) => {
-                    const key = item.itemName?.trim().toUpperCase();
-                    const description =
-                      item.description?.trim() || descriptionMap[key] || "—";
+                  {/* Financial Summary */}
+                  <div className="grid grid-cols-4 gap-4">
+                    <div>{/* Column 1 */}</div>
+                    <div>{/* Column 2 */}</div>
+                    <div>{/* Column 3 */}</div>
 
-                    return (
-                      <div
-                        key={idx}
-                        className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-4 items-center text-sm py-2 border-b border-border">
-                        <div className="px-2 text-start">
-                          {item.itemName || "—"}
-                        </div>
-                        <div className="px-2 text-start">{description}</div>
-                        <div className="px-2 text-end">{item.quantity}</div>
-                        <div className="px-2 text-end">{item.unitType}</div>
-                        <div className="px-2 text-end">
-                          ₱{item.price.toFixed(2)}
-                        </div>
-                        <div className="px-2 text-end">
-                          {/* ₱{item.price.toFixed(2)} */}₱0.00
-                        </div>{" "}
-                        {/* Replace with actual tax if available */}
-                        <div className="px-2 text-end">
-                          ₱{item.amount.toFixed(2)}
-                        </div>
-                      </div>
-                    );
-                  })}
+                    <div className="space-y-2">
+                      <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
+                        <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                          <tr>
+                            <th className="px-4 py-2 text-left">Breakdown</th>
+                            <th className="px-4 py-2 text-right">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <tr className="border-t">
+                            <td className="px-4 py-2">Gross Amount</td>
+                            <td className="px-4 py-2 text-right text-muted-foreground">
+                              {formData.netTotal}
+                            </td>
+                          </tr>
+                          <tr className="border-t bg-muted/40">
+                            <td className="px-4 py-2 font-medium text-primary">
+                              Net Amount
+                            </td>
+                            <td className="px-4 py-2 text-right font-bold text-primary">
+                              {formData.netTotal}
+                            </td>
+                          </tr>
+                        </tbody>
+                      </table>
+                    </div>
+                  </div>
                 </div>
               )}
 
@@ -1450,84 +1550,38 @@ export default function SalesInvoicePage({
                 </table>
               </div>
 
-              {/* Summary Section */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-6 mt-6">
-                <div className="hidden md:block" />
-                <div className="hidden md:block" />
+              {/* Financial Summary */}
+              <div className="grid grid-cols-4 gap-4">
+                <div>{/* Column 1 */}</div>
+                <div>{/* Column 2 */}</div>
+                <div>{/* Column 3 */}</div>
 
-                {/* Metrics */}
-                {/* <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
-                  <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                    <tr>
-                      <th className="px-4 py-2 text-left">Metric</th>
-                      <th className="px-4 py-2 text-right">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Total Quantity</td>
-                      <td className="px-4 py-2 text-right">
-                        {formData.totalQuantity}
-                      </td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Total Weight</td>
-                      <td className="px-4 py-2 text-right">
-                        {formData.formattedWeight}
-                      </td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Total CBM</td>
-                      <td className="px-4 py-2 text-right">
-                        {formData.formattedCBM}
-                      </td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">UOM</td>
-                      <td className="px-4 py-2 text-right">
-                        {Array.from(
-                          new Set(
-                            formData.items.map((item) =>
-                              item.unitType?.trim().toUpperCase()
-                            )
-                          )
-                        )
-                          .filter(Boolean)
-                          .join(", ")}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table> */}
-
-                {/* Financials */}
-                {/* <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
-                  <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                    <tr>
-                      <th className="px-4 py-2 text-left">Breakdown</th>
-                      <th className="px-4 py-2 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Gross Amount</td>
-                      <td className="px-4 py-2 text-right">
-                        ₱
-                        {formData.amount.toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Balance</td>
-                      <td className="px-4 py-2 text-right">
-                        ₱
-                        {formData.balance.toLocaleString("en-PH", {
-                          minimumFractionDigits: 2,
-                        })}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table> */}
+                <div className="space-y-2">
+                  <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
+                    <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Breakdown</th>
+                        <th className="px-4 py-2 text-right">Amount</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <tr className="border-t">
+                        <td className="px-4 py-2">Gross Amount</td>
+                        <td className="px-4 py-2 text-right text-muted-foreground">
+                          {formData.netTotal}
+                        </td>
+                      </tr>
+                      <tr className="border-t bg-muted/40">
+                        <td className="px-4 py-2 font-medium text-primary">
+                          Net Amount
+                        </td>
+                        <td className="px-4 py-2 text-right font-bold text-primary">
+                          {formData.netTotal}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
               </div>
 
               {/* Footer */}

@@ -12,6 +12,9 @@ import type {
   SalesOrderItem,
   SalesOrder,
 } from "../../components/sections/type";
+import InventoryMain from "@/models/inventoryMain";
+import Inventory from "@/models/inventory";
+import { InventoryItem } from "../../components/sections/type";
 
 type SalesOrderInput = Omit<
   SalesOrder,

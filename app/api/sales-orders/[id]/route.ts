@@ -6,6 +6,9 @@ import type {
   SalesOrder,
   SalesOrderItem,
 } from "../../../components/sections/type";
+import InventoryMain from "@/models/inventoryMain";
+import Inventory from "@/models/inventory";
+import { InventoryItem } from "../../../components/sections/type";
 
 // ✅ GET /api/sales-orders/[id]
 export async function GET(
@@ -44,7 +47,10 @@ export async function GET(
 }
 
 // ✅ PATCH /api/sales-orders/[id]
-export async function PATCH(request: NextRequest, props: { params: Promise<{ id: string }> }) {
+export async function PATCH(
+  request: NextRequest,
+  props: { params: Promise<{ id: string }> }
+) {
   const params = await props.params;
   await connectMongoDB();
 
@@ -142,6 +148,7 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
   }
 
   try {
+    const previousOrder = await SalesOrderModel.findById(id);
     const order = await SalesOrderModel.findByIdAndUpdate(id, updatePayload, {
       new: true,
       runValidators: true,
@@ -152,6 +159,99 @@ export async function PATCH(request: NextRequest, props: { params: Promise<{ id:
         { error: "Sales order not found" },
         { status: 404 }
       );
+    }
+
+    // ✅ Trigger inventory logic only if status changed to COMPLETED
+    if (previousOrder?.status !== "COMPLETED" && order.status === "COMPLETED") {
+      const warehouseCode = order.warehouse?.trim().toUpperCase();
+      const soNumber = order.soNumber;
+      const now = new Date();
+
+      if (!warehouseCode) {
+        console.warn(`⚠️ No warehouse found in sales order ${soNumber}`);
+      } else {
+        for (const item of order.items) {
+          const itemCode = item.itemCode?.trim().toUpperCase();
+          const quantity = Math.max(Number(item.quantity) || 0, 0);
+
+          if (!itemCode || quantity <= 0) {
+            console.warn(
+              `⚠️ Skipping invalid item: ${item.itemName} (${itemCode})`
+            );
+            continue;
+          }
+
+          // 📉 Deduct from InventoryMain
+          try {
+            await InventoryMain.updateOne(
+              { itemCode, warehouse: warehouseCode },
+              { $inc: { quantity: -quantity } },
+              { upsert: false }
+            );
+            console.log(
+              `📉 InventoryMain reduced for ${itemCode} in ${warehouseCode}: -${quantity}`
+            );
+          } catch (err) {
+            console.error(
+              `❌ InventoryMain update failed for ${itemCode}:`,
+              err
+            );
+          }
+
+          // 📦 Log to Inventory tracker
+          try {
+            const inventoryDoc = await Inventory.findOne({
+              warehouse: warehouseCode,
+            });
+
+            const newEntry = {
+              itemCode,
+              itemName: item.itemName?.trim().toUpperCase(),
+              category: "SOLD",
+              quantity: -quantity,
+              unitType: item.unitType?.trim().toUpperCase() || "",
+              source: soNumber,
+              referenceNumber: soNumber,
+              activity: "SALE",
+              user: "SYSTEM",
+              inQty: 0,
+              outQty: quantity,
+              currentOnhand: 0,
+              particulars: `Sold via ${soNumber}`,
+              date: now.toISOString(),
+              receivedAt: now,
+              createdAt: now,
+              updatedAt: now,
+            };
+
+            if (!inventoryDoc) {
+              newEntry.currentOnhand = -quantity;
+              await Inventory.create({
+                warehouse: warehouseCode,
+                items: [newEntry],
+                remarks: `Auto-created from sales order ${soNumber}`,
+              });
+              console.log(`🆕 Created inventory tracker for ${warehouseCode}`);
+            } else {
+              inventoryDoc.items.push(newEntry);
+
+              const totalOnhand = inventoryDoc.items
+                .filter((i: InventoryItem) => i.itemCode === itemCode)
+                .reduce((sum: number, i: InventoryItem) => sum + i.quantity, 0);
+
+              inventoryDoc.items[inventoryDoc.items.length - 1].currentOnhand =
+                totalOnhand;
+              await inventoryDoc.save();
+              console.log(`📤 Logged sale for ${itemCode} in ${warehouseCode}`);
+            }
+          } catch (err) {
+            console.error(
+              `❌ Failed to log inventory tracker for ${itemCode}:`,
+              err
+            );
+          }
+        }
+      }
     }
 
     return NextResponse.json({ message: "Sales order updated", order });
