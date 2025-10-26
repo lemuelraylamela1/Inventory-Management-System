@@ -149,6 +149,30 @@ export default function SalesInvoicePage({
     SalesOrder[]
   >([]);
 
+  const [usedSoNumbers, setUsedSoNumbers] = useState<string[]>([]);
+
+  const fetchUsedSoNumbers = async () => {
+    try {
+      const res = await fetch("/api/sales-invoices/used-sales-orders");
+      const raw = await res.json();
+      const normalized = Array.isArray(raw)
+        ? [...new Set(raw.map((num) => num.trim().toUpperCase()))]
+        : [];
+      setUsedSoNumbers(normalized);
+    } catch (err) {
+      console.error("❌ Failed to fetch used SO numbers:", err);
+      setUsedSoNumbers([]);
+    }
+  };
+
+  const normalizedUsedSoNumbers = useMemo(() => {
+    return [...new Set(usedSoNumbers.map((num) => num.trim().toUpperCase()))];
+  }, [usedSoNumbers]);
+
+  useEffect(() => {
+    if (formData.customer) fetchUsedSoNumbers();
+  }, [formData.customer]);
+
   const [showSalesOrderSuggestions, setShowSalesOrderSuggestions] =
     useState(false);
 
@@ -718,7 +742,7 @@ export default function SalesInvoicePage({
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="w-4">
+                  {/* <TableHead className="w-4">
                     <Checkbox
                       checked={
                         paginatedSalesInvoices.length > 0 &&
@@ -729,7 +753,7 @@ export default function SalesInvoicePage({
                       onCheckedChange={toggleSelectAll}
                       aria-label="Select all sales orders on current page"
                     />
-                  </TableHead>
+                  </TableHead> */}
                   <TableHead>Invoice Date</TableHead>
                   <TableHead>Invoice No.</TableHead>
                   <TableHead>Customer</TableHead>
@@ -767,7 +791,7 @@ export default function SalesInvoicePage({
                 ) : (
                   paginatedSalesInvoices.map((inv) => (
                     <TableRow key={inv._id}>
-                      <TableCell className="w-4">
+                      {/* <TableCell className="w-4">
                         <Checkbox
                           checked={selectedIds.includes(String(inv._id))}
                           onClick={(e) => e.stopPropagation()}
@@ -775,7 +799,7 @@ export default function SalesInvoicePage({
                             toggleSelectOne(String(inv._id))
                           }
                         />
-                      </TableCell>
+                      </TableCell> */}
 
                       <TableCell>
                         {format(new Date(inv.invoiceDate), "MMM d, yyyy")}
@@ -785,7 +809,22 @@ export default function SalesInvoicePage({
                       <TableCell>{inv.customer}</TableCell>
                       <TableCell>{formatCurrency(inv.amount)}</TableCell>
                       <TableCell>{formatCurrency(inv.balance)}</TableCell>
-                      <TableCell>{inv.status}</TableCell>
+                      <TableCell>
+                        {inv.status === "UNPAID" ? (
+                          <span className="inline-flex items-center gap-1 text-red-600">
+                            UNPAID
+                          </span>
+                        ) : inv.status === "PARTIAL" ? (
+                          <span className="inline-flex items-center gap-1 text-blue-600">
+                            PARTIAL
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-green-600">
+                            PAID
+                          </span>
+                        )}
+                      </TableCell>
+
                       <TableCell className="text-right space-x-2">
                         <Button
                           size="icon"
@@ -1110,81 +1149,89 @@ export default function SalesInvoicePage({
                       salesOrderSuggestions.length > 0 && (
                         <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
                           {salesOrderSuggestions
-                            .filter(
-                              (so) =>
-                                so.status === "COMPLETED" &&
-                                so.soNumber
-                                  .toLowerCase()
-                                  .includes(
-                                    formData.salesOrderLabel.toLowerCase()
-                                  )
-                            )
-                            .map((so) => (
-                              <li
-                                key={
-                                  typeof so._id === "string"
-                                    ? so._id
-                                    : so._id.toString()
-                                }
-                                className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                                onClick={async () => {
-                                  const soId =
-                                    typeof so._id === "string"
-                                      ? so._id
-                                      : so._id.toString();
-
-                                  setFormData((prev) => ({
-                                    ...prev,
-                                    salesOrder: soId,
-                                    salesOrderLabel: so.soNumber,
-                                  }));
-                                  setShowSalesOrderSuggestions(false);
-
-                                  try {
-                                    const res = await fetch(
-                                      `/api/sales-orders/${soId}`
-                                    );
-                                    if (!res.ok)
-                                      throw new Error(`HTTP ${res.status}`);
-                                    const { order } = await res.json();
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      soItems: order?.items || [],
-                                      discounts: Array.isArray(order?.discounts)
-                                        ? order.discounts
-                                        : [],
-
-                                      netTotal:
-                                        order?.formattedNetTotal || "₱0.00",
-                                      discountBreakdown:
-                                        order?.discountBreakdown || [],
-                                    }));
-                                  } catch (err) {
-                                    console.error(
-                                      "❌ Failed to fetch SO details:",
-                                      err
-                                    );
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      soItems: [],
-                                    }));
-                                  }
-                                }}>
-                                {so.soNumber}
-                              </li>
-                            ))}
-
-                          {salesOrderSuggestions.filter(
-                            (so) =>
-                              so.status === "COMPLETED" &&
-                              so.soNumber
+                            .filter((so) => {
+                              const inputMatch = so.soNumber
                                 .toLowerCase()
                                 .includes(
                                   formData.salesOrderLabel.toLowerCase()
-                                )
-                          ).length === 0 && (
+                                );
+                              const isCompleted = so.status === "COMPLETED";
+                              const normalizedSO = so.soNumber
+                                .trim()
+                                .toUpperCase();
+                              const isUnused =
+                                !normalizedUsedSoNumbers.includes(normalizedSO);
+
+                              return inputMatch && isCompleted && isUnused;
+                            })
+                            .map((so) => {
+                              const soId =
+                                typeof so._id === "string"
+                                  ? so._id
+                                  : so._id.toString();
+
+                              return (
+                                <li
+                                  key={soId}
+                                  className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                  onClick={async () => {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      salesOrder: soId,
+                                      salesOrderLabel: so.soNumber,
+                                    }));
+                                    setShowSalesOrderSuggestions(false);
+
+                                    try {
+                                      const res = await fetch(
+                                        `/api/sales-orders/${soId}`
+                                      );
+                                      if (!res.ok)
+                                        throw new Error(`HTTP ${res.status}`);
+                                      const { order } = await res.json();
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        soItems: order?.items || [],
+                                        discounts: Array.isArray(
+                                          order?.discounts
+                                        )
+                                          ? order.discounts
+                                          : [],
+                                        netTotal:
+                                          order?.formattedNetTotal || "₱0.00",
+                                        discountBreakdown:
+                                          order?.discountBreakdown || [],
+                                      }));
+                                    } catch (err) {
+                                      console.error(
+                                        "❌ Failed to fetch SO details:",
+                                        err
+                                      );
+                                      setFormData((prev) => ({
+                                        ...prev,
+                                        soItems: [],
+                                      }));
+                                    }
+                                  }}>
+                                  {so.soNumber}
+                                </li>
+                              );
+                            })}
+
+                          {salesOrderSuggestions.filter((so) => {
+                            const inputMatch = so.soNumber
+                              .toLowerCase()
+                              .includes(formData.salesOrderLabel.toLowerCase());
+                            const isCompleted = so.status === "COMPLETED";
+                            const normalizedSO = so.soNumber
+                              .trim()
+                              .toUpperCase();
+                            const isUnused =
+                              !normalizedUsedSoNumbers.includes(normalizedSO);
+                            return inputMatch && isCompleted && isUnused;
+                          }).length === 0 && (
                             <li className="px-3 py-2 text-muted-foreground text-sm">
-                              No COMPLETED sales orders found
+                              No available COMPLETED sales orders found
                             </li>
                           )}
                         </ul>
