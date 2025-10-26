@@ -1568,7 +1568,10 @@ export default function SalesInvoicePage({
                       <tr className="border-t">
                         <td className="px-4 py-2">Gross Amount</td>
                         <td className="px-4 py-2 text-right text-muted-foreground">
-                          {formData.netTotal}
+                          ₱
+                          {selectedInvoice.amount.toLocaleString("en-PH", {
+                            minimumFractionDigits: 2,
+                          })}
                         </td>
                       </tr>
                       <tr className="border-t bg-muted/40">
@@ -1576,7 +1579,10 @@ export default function SalesInvoicePage({
                           Net Amount
                         </td>
                         <td className="px-4 py-2 text-right font-bold text-primary">
-                          {formData.netTotal}
+                          ₱
+                          {selectedInvoice.amount.toLocaleString("en-PH", {
+                            minimumFractionDigits: 2,
+                          })}
                         </td>
                       </tr>
                     </tbody>
