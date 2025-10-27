@@ -232,7 +232,7 @@ export default function TransferApproved() {
     preparedBy: string;
     reference: string;
     notes: string;
-    status: "pending" | "approved" | "rejected";
+    status: "PENDING" | "APPROVED" | "REJECTED";
     items: {
       itemCode: string;
       quantity: number;
@@ -621,130 +621,167 @@ export default function TransferApproved() {
         <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
           <DialogPanel className="max-w-2xl">
             <DialogHeader>
-              <DialogTitle className="text-lg font-semibold tracking-tight">
+              <DialogTitle className="sr-only">
+                {" "}
                 View Transfer Request
               </DialogTitle>
             </DialogHeader>
 
-            {/* 🧭 Transaction Metadata & Personnel Info */}
-            <section className="mb-6 grid grid-cols-2 gap-x-6 gap-y-3">
-              <div className="flex justify-between">
-                <span className="text-sm font-medium text-muted-foreground">
+            {/* 🧾 Invoice Header */}
+            <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
+              <div>
+                <h2 className="text-xl font-bold text-primary tracking-wide">
+                  Transfer Request
+                </h2>
+                <p className="text-sm text-muted-foreground">
                   Request No.
-                </span>
-                <span className="text-sm font-mono">
-                  {viewedRequest.requestNo ?? "—"}
-                </span>
+                  <span className=" text-foreground font-semibold">
+                    {viewedRequest.requestNo ?? "—"}
+                  </span>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  Reference:
+                  <span className="text-foreground font-semibold">
+                    {viewedRequest.reference ?? "—"}
+                  </span>
+                </p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Requesting Warehouse
-                </span>
-                <span className="text-sm">
-                  {viewedRequest.requestingWarehouse ?? "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Source Warehouse
-                </span>
-                <span className="text-sm">
-                  {viewedRequest.sourceWarehouse ?? "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Transaction Date
-                </span>
-                <span className="text-sm font-mono">
-                  {viewedRequest.transactionDate
-                    ? new Date(
-                        viewedRequest.transactionDate
-                      ).toLocaleDateString("en-PH", {
-                        year: "numeric",
-                        month: "short",
-                        day: "numeric",
-                      })
-                    : "—"}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Transfer Date
-                </span>
-                <span className="text-sm font-mono">
-                  {viewedRequest.transferDate
-                    ? new Date(viewedRequest.transferDate).toLocaleDateString(
-                        "en-PH",
-                        {
+              <div className="text-sm text-right text-muted-foreground">
+                <p>
+                  Transaction Date:{" "}
+                  <span className="text-foreground">
+                    {viewedRequest.transactionDate
+                      ? new Date(
+                          viewedRequest.transactionDate
+                        ).toLocaleDateString("en-PH", {
                           year: "numeric",
                           month: "short",
                           day: "numeric",
-                        }
-                      )
-                    : "—"}
-                </span>
+                        })
+                      : "—"}
+                  </span>
+                </p>
+                <p>
+                  Transfer Date:{" "}
+                  <span className="text-foreground">
+                    {viewedRequest.transferDate
+                      ? new Date(viewedRequest.transferDate).toLocaleDateString(
+                          "en-PH",
+                          {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          }
+                        )
+                      : "—"}
+                  </span>
+                </p>
+                <p>
+                  Status:{" "}
+                  <span
+                    className={`font-semibold ${
+                      viewedRequest?.status === "APPROVED"
+                        ? "text-green-600"
+                        : viewedRequest?.status === "PENDING"
+                        ? "text-yellow-600"
+                        : viewedRequest?.status === "REJECTED"
+                        ? "text-red-600"
+                        : "text-muted-foreground"
+                    }`}>
+                    {viewedRequest.status ?? "—"}
+                  </span>
+                </p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Prepared By
-                </span>
-                <span className="text-sm">
-                  {viewedRequest.preparedBy ?? "—"}
-                </span>
+            </div>
+
+            {/* 🏢 Supplier & Warehouse Info */}
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+              <div className="text-sm space-y-1">
+                <p>
+                  <span className="font-medium text-muted-foreground">
+                    Requesting Warehouse:
+                  </span>{" "}
+                  <span className="text-foreground font-semibold">
+                    {viewedRequest.requestingWarehouse ?? "—"}
+                  </span>
+                </p>
+                <p>
+                  <span className="font-medium text-muted-foreground">
+                    Prepared By:
+                  </span>{" "}
+                  <span className="text-foreground font-semibold">
+                    {viewedRequest.preparedBy ?? "—"}
+                  </span>
+                </p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Reference
-                </span>
-                <span className="text-sm">
-                  {viewedRequest.reference ?? "—"}
-                </span>
+
+              <div className="text-sm space-y-1">
+                <p>
+                  <span className="font-medium text-muted-foreground">
+                    Source Warehouse:
+                  </span>{" "}
+                  <span className="text-foreground font-semibold">
+                    {viewedRequest.sourceWarehouse ?? "—"}
+                  </span>
+                </p>
+                <p>
+                  <span className="font-medium text-muted-foreground">
+                    Notes:
+                  </span>{" "}
+                  <span>
+                    {viewedRequest.notes?.trim() ? (
+                      viewedRequest.notes
+                    ) : (
+                      <em>No notes provided</em>
+                    )}
+                  </span>
+                </p>
               </div>
-              <div className="flex justify-between">
-                <span className="text-sm font-medium text-muted-foreground">
-                  Notes
-                </span>
-                <div className="text-sm">
-                  {viewedRequest.notes?.trim() ? (
-                    viewedRequest.notes
-                  ) : (
-                    <em>No notes provided</em>
-                  )}
-                </div>
-              </div>
-            </section>
+            </div>
 
             {/* 📦 Items Table */}
-            <section className="mb-6 space-y-2">
-              <div className="border rounded-md overflow-auto max-h-64 shadow-sm">
-                <div className="grid grid-cols-3 bg-primary text-primary-foreground text-xs font-semibold uppercase sticky top-0 z-10">
-                  <div className="px-4 py-2 text-left">Item Code</div>
-                  <div className="px-4 py-2 text-right">Quantity</div>
-                  <div className="px-4 py-2 text-right">Unit Type</div>
-                </div>
+            <div className="overflow-x-auto mb-6">
+              <table className="min-w-full text-sm border border-border rounded-md overflow-hidden">
+                <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Item</th>
+                    <th className="px-4 py-2 text-right">Quantity</th>
+                    <th className="px-4 py-2 text-left">UOM</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {viewedRequest?.items?.map((item, index) => {
+                    const isZero = item.quantity === 0;
 
-                {viewedRequest.items.length > 0 ? (
-                  viewedRequest.items.map((item, index) => (
-                    <div
-                      key={index}
-                      className="grid grid-cols-3 border-t text-sm hover:bg-accent/40">
-                      <div className="px-4 py-2 font-mono">{item.itemCode}</div>
-                      <div className="px-4 py-2 text-right">
-                        {item.quantity}
-                      </div>
-                      <div className="px-4 py-2 text-right">
-                        {item.unitType}
-                      </div>
-                    </div>
-                  ))
-                ) : (
-                  <div className="px-4 py-3 text-center text-muted-foreground italic">
-                    No items added
-                  </div>
-                )}
-              </div>
-            </section>
+                    return (
+                      <tr
+                        key={index}
+                        className={`border-t transition-colors duration-150 ${
+                          isZero
+                            ? "bg-green-50 text-green-700 animate-fade-in"
+                            : "even:bg-muted/5 hover:bg-accent/20 hover:ring-1 hover:ring-accent/50"
+                        }`}>
+                        <td className="px-4 py-2">
+                          {item.itemCode || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2 text-right">
+                          {item.quantity ?? (
+                            <span className="text-muted-foreground">0</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          {item.unitType || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
 
             <DialogFooter>
               <DialogClose asChild>

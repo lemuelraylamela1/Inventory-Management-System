@@ -1370,33 +1370,44 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                 {formData.supplierName && formData.warehouse && (
                   <>
                     <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
-                      {/* Header Row */}
-                      <div className="text-xs font-semibold uppercase text-center">
+                      {/* Item Code */}
+                      <div className="text-xs font-semibold uppercase text-start px-2">
                         Item Code
                       </div>
-                      <div className="text-xs font-semibold uppercase text-center">
+
+                      {/* Item Name */}
+                      <div className="text-xs font-semibold uppercase text-start px-2">
                         Item Name
                       </div>
-                      <div className="text-xs font-semibold uppercase text-center">
+
+                      {/* Quantity */}
+                      <div className="text-xs font-semibold uppercase text-end px-2">
                         Qty
                       </div>
-                      <div className="text-xs font-semibold uppercase text-center">
+
+                      {/* Unit of Measure */}
+                      <div className="text-xs font-semibold uppercase text-start px-2">
                         UOM
                       </div>
-                      <div className="text-xs font-semibold uppercase text-center">
+
+                      {/* Sales Price */}
+                      <div className="text-xs font-semibold uppercase text-end px-2">
                         Purchase Price
                       </div>
-                      <div className="text-xs font-semibold uppercase text-center">
+
+                      {/* Amount */}
+                      <div className="text-xs font-semibold uppercase text-end px-2">
                         Amount
                       </div>
-                      <div className="text-center"></div>{" "}
-                      {/* Trash icon column */}
+
+                      {/* Trash Icon Column */}
+                      <div className="text-center"></div>
                     </div>
 
                     {itemsData.map((item, index) => (
                       <div
                         key={index}
-                        className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
+                        className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0 mb-4">
                         {/* Item Code */}
                         <input
                           type="text"
@@ -1563,7 +1574,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                               };
                             });
                           }}
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary text-end"
                         />
 
                         {/* Unit Type */}
@@ -1586,7 +1597,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                               : ""
                           }
                           readOnly
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-end"
                         />
 
                         {/* Amount */}
@@ -1603,7 +1614,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                               : ""
                           }
                           readOnly
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-end"
                         />
 
                         {/* Trash Button */}
@@ -1616,6 +1627,9 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                         </Button>
                       </div>
                     ))}
+
+                    <Button onClick={handleAddItem}>Add Item</Button>
+
                     <div className="flex w-full justify-end mt-4 gap-6">
                       {/* Total Quantity */}
                       <div className="flex items-center gap-2 min-w-[180px]">
@@ -1649,10 +1663,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                 )}
                 {/* Footer Actions */}
                 <DialogFooter className="pt-4 border-t">
-                  <div className="flex w-full justify-between items-center">
-                    {/* Left: Add Item */}
-                    <Button onClick={handleAddItem}>Add Item</Button>
-
+                  <div className="flex w-full justify-end">
                     {/* Right: Cancel & Create */}
                     <div className="flex gap-2">
                       <Button
@@ -1663,7 +1674,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                         }}>
                         Cancel
                       </Button>
-                      {/* <Button onClick={handleCreate}>Create</Button> */}
+
                       <div className="flex items-center gap-2">
                         {/* Primary Save Button */}
                         <Button
@@ -1710,12 +1721,6 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                               className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">
                               🆕 Save & New
                             </DropdownMenuItem>
-
-                            {/* <DropdownMenuItem
-                              onClick={handleSaveAndPreview}
-                              className="px-3 py-2 cursor-pointer hover:bg-accent hover:text-accent-foreground transition-colors">
-                              👁️ Save & Preview
-                            </DropdownMenuItem> */}
                           </DropdownMenuContent>
                         </DropdownMenu>
                       </div>
@@ -2553,178 +2558,200 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-xl p-6 scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-transparent bg-white shadow-xl border border-border">
-          <DialogHeader>
-            <DialogTitle>PO Details</DialogTitle>
-          </DialogHeader>
+        <DialogPanel className="w-full px-6 py-6">
+          <DialogTitle className="sr-only">Purchase Order</DialogTitle>
 
-          {viewingPO && (
-            <div className="grid gap-6 py-4">
-              <div className="grid grid-cols-2 gap-x-6 gap-y-3 w-full">
-                {/* PO Number */}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    PO Number
-                  </span>
-                  <span className="text-sm font-mono">
-                    {viewingPO.poNumber || "—"}
-                  </span>
-                </div>
+          {/* 🧾 Invoice Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
+            <div>
+              <h2 className="text-xl font-bold text-primary tracking-wide">
+                Purchase Order
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Purchase Order No:{" "}
+                <span className=" text-foreground font-semibold">
+                  {viewingPO?.poNumber || "—"}
+                </span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Reference No.:{" "}
+                <span className="text-foreground font-semibold">
+                  {viewingPO?.referenceNumber || "—"}
+                </span>
+              </p>
+            </div>
+            <div className="text-sm text-right text-muted-foreground">
+              <p>
+                Transaction Date:{" "}
+                <span className="text-foreground">
+                  {viewingPO?.createdAt
+                    ? new Date(viewingPO.createdAt).toLocaleDateString(
+                        "en-PH",
+                        {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        }
+                      )
+                    : "—"}
+                </span>
+              </p>
+              <p>
+                Status:{" "}
+                <span
+                  className={`font-semibold ${
+                    viewingPO?.status === "COMPLETED"
+                      ? "text-green-600"
+                      : viewingPO?.status === "PARTIAL"
+                      ? "text-blue-600"
+                      : viewingPO?.status === "PENDING"
+                      ? "text-yellow-600"
+                      : "text-muted-foreground"
+                  }`}>
+                  {viewingPO?.status || "—"}
+                </span>
+              </p>
+            </div>
+          </div>
 
-                {/* Reference Number */}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Reference Number
-                  </span>
-                  <span className="text-sm">
-                    {viewingPO.referenceNumber || "—"}
-                  </span>
-                </div>
+          {/* 🏢 Supplier & Warehouse Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Supplier:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {viewingPO?.supplierName || "—"}
+                </span>
+              </p>
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Warehouse Name:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {viewingPO?.warehouse || "—"}
+                </span>
+              </p>
+            </div>
 
-                {/* Supplier */}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Supplier
-                  </span>
-                  <span className="text-sm">
-                    {viewingPO.supplierName || "—"}
-                  </span>
-                </div>
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Remarks:
+                </span>{" "}
+                <span
+                  className="text-foreground font-semibold truncate max-w-[60%]"
+                  title={viewingPO?.remarks}>
+                  {viewingPO?.remarks?.trim() || (
+                    <em className="text-muted-foreground">—</em>
+                  )}
+                </span>
+              </p>
+            </div>
+          </div>
 
-                {/* Warehouse */}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Warehouse
-                  </span>
-                  <span className="text-sm">{viewingPO.warehouse || "—"}</span>
-                </div>
+          <div className="overflow-x-auto mb-6">
+            <table className="min-w-full text-sm border border-border rounded-md overflow-hidden">
+              <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                <tr>
+                  <th className="px-4 py-2 text-left">Item</th>
+                  <th className="px-4 py-2 text-right">Qty</th>
+                  <th className="px-4 py-2 text-left">UOM</th>
+                  <th className="px-4 py-2 text-right">Price</th>
+                  <th className="px-4 py-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {viewingPO?.items?.map((item, index) => {
+                  const isZero = item.quantity === 0;
+                  const amount = item.quantity * item.purchasePrice || 0;
 
-                {/* Status */}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Status
-                  </span>
-                  <span className="text-sm">{viewingPO.status || "—"}</span>
-                </div>
-
-                {/* Remarks */}
-                <div className="flex justify-between items-center">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Remarks
-                  </span>
-                  <span
-                    className="text-sm truncate max-w-[60%]"
-                    title={viewingPO.remarks}>
-                    {viewingPO.remarks?.trim() || (
-                      <em className="text-muted-foreground">—</em>
-                    )}
-                  </span>
-                </div>
-              </div>
-
-              {/* 📦 Header Row */}
-              <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] bg-primary text-primary-foreground text-xs font-semibold uppercase tracking-wide rounded-t-md shadow-sm border border-border">
-                {[
-                  "Item Code",
-                  "Item Name",
-                  "UOM",
-                  "Purchase Price",
-                  "Quantity",
-                  "Amount",
-                ].map((label, i) => (
-                  <div
-                    key={i}
-                    className="px-3 py-2 text-center border-r last:border-r-0 border-border whitespace-nowrap">
-                    {label}
-                  </div>
-                ))}
-              </div>
-
-              {/* 📦 Item Rows */}
-              {viewingPO.items?.map((item, index) => {
-                const isZero = item.quantity === 0;
-                const amount = item.quantity * item.purchasePrice || 0;
-
-                return (
-                  <div
-                    key={index}
-                    className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] items-center text-sm py-2 px-1 rounded-md transition-all duration-150
-        ${
-          isZero
-            ? "bg-green-50 text-green-700 animate-fade-in"
-            : "even:bg-muted/5 hover:bg-accent/20 hover:ring-1 hover:ring-accent/50"
-        }`}>
-                    <div className="text-center px-3 font-mono">
-                      {item.itemCode || (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </div>
-                    <div className="text-center px-3">
-                      {item.itemName || (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </div>
-                    <div className="text-center px-3">
-                      {item.unitType || (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </div>
-                    <div className="text-center px-3">
-                      {item.purchasePrice !== undefined ? (
-                        item.purchasePrice.toLocaleString("en-PH", {
+                  return (
+                    <tr
+                      key={index}
+                      className={`border-t transition-colors duration-150 ${
+                        isZero
+                          ? "bg-green-50 text-green-700 animate-fade-in"
+                          : "even:bg-muted/5 hover:bg-accent/20 hover:ring-1 hover:ring-accent/50"
+                      }`}>
+                      <td className="px-4 py-2">
+                        {item.itemName || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {item.quantity ?? (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2">
+                        {item.unitType || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {item.purchasePrice !== undefined ? (
+                          item.purchasePrice.toLocaleString("en-PH", {
+                            style: "currency",
+                            currency: "PHP",
+                          })
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right font-semibold">
+                        {amount.toLocaleString("en-PH", {
                           style: "currency",
                           currency: "PHP",
-                        })
-                      ) : (
-                        <span className="text-muted-foreground">—</span>
-                      )}
-                    </div>
-                    <div className="text-center px-3">
-                      {item.quantity ?? (
-                        <span className="text-muted-foreground">0</span>
-                      )}
-                    </div>
-                    <div className="text-center px-3 font-semibold">
-                      {amount.toLocaleString("en-PH", {
-                        style: "currency",
-                        currency: "PHP",
-                      })}
-                    </div>
-                  </div>
-                );
-              })}
+                        })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
 
-              <div className="flex w-full justify-end mt-6 gap-6 border-t pt-4">
-                <div className="flex items-center gap-2 min-w-[180px]">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Total Qty:
-                  </span>
-                  <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                    {viewingPO.totalQuantity ?? 0}
-                  </span>
-                </div>
-
-                <div className="flex items-center gap-2 min-w-[180px]">
-                  <span className="text-sm font-medium text-muted-foreground">
-                    Total Amount:
-                  </span>
-                  <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                    {viewingPO.items
-                      ?.reduce(
-                        (sum, item) =>
-                          sum + (item.quantity * item.purchasePrice || 0),
+          <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                <tr>
+                  <th className="px-4 py-2 text-left">Metric</th>
+                  <th className="px-4 py-2 text-right">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                <tr>
+                  <td className="py-2 px-4 text-muted-foreground">
+                    Total Quantity
+                  </td>
+                  <td className="py-2 px-4 text-right font-semibold text-foreground">
+                    {(viewingPO?.items ?? []).reduce(
+                      (sum, item) => sum + item.quantity,
+                      0
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 px-4  text-primary">Total Amount</td>
+                  <td className="py-2 px-4 text-right font-semibold text-primary">
+                    {(viewingPO?.items ?? [])
+                      .reduce(
+                        (sum, item) => sum + item.quantity * item.purchasePrice,
                         0
                       )
                       .toLocaleString("en-PH", {
                         style: "currency",
                         currency: "PHP",
-                      }) ?? "₱0.00"}
-                  </span>
-                </div>
-              </div>
-            </div>
-          )}
+                      })}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
 
+          {/* 🔘 Footer */}
           <div className="flex justify-end mt-4">
             <Button
               variant="outline"

@@ -89,7 +89,6 @@ export async function PATCH(
     ? items
         .filter((item) => Number(item.quantity) > 0)
         .map((item) => ({
-          _id: item._id,
           itemName: item.itemName?.trim().toUpperCase() || "",
           quantity: Math.max(Number(item.quantity) || 1, 1),
           unitType: item.unitType?.trim().toUpperCase() || "",

@@ -2586,12 +2586,17 @@ export default function SalesOrder({ onSuccess }: Props) {
                                 Discounts (%)
                               </td>
                               <td className="px-4 py-2 text-right text-foreground text-sm">
-                                {formData.discountBreakdown[0]?.rate.toFixed(2)}
-                                %
+                                {typeof formData.discountBreakdown?.[0]
+                                  ?.rate === "number"
+                                  ? `${parseFloat(
+                                      (
+                                        formData.discountBreakdown[0].rate * 100
+                                      ).toFixed(2)
+                                    )}%`
+                                  : "0.00%"}
                               </td>
                             </tr>
 
-                            {/* Remaining discount rows */}
                             {formData.discountBreakdown
                               .slice(1)
                               .map((step, index) => (
@@ -2600,7 +2605,11 @@ export default function SalesOrder({ onSuccess }: Props) {
                                   className="border-t bg-muted/10">
                                   <td className="px-4 py-2"></td>
                                   <td className="px-4 py-2 text-right text-foreground text-sm">
-                                    {step.rate.toFixed(2)}%
+                                    {typeof step.rate === "number"
+                                      ? `${parseFloat(
+                                          (step.rate * 100).toFixed(2)
+                                        )}%`
+                                      : "0.00%"}
                                   </td>
                                 </tr>
                               ))}
@@ -3696,17 +3705,28 @@ export default function SalesOrder({ onSuccess }: Props) {
                         Discounts (%)
                       </td>
                       <td className="px-4 py-2 text-right text-foreground text-sm">
-                        {formData.discountBreakdown[0]?.rate.toFixed(2)}%
+                        {typeof formData.discountBreakdown?.[0]?.rate ===
+                        "number"
+                          ? `${parseFloat(
+                              (
+                                formData.discountBreakdown[0].rate * 100
+                              ).toFixed(2)
+                            )}%`
+                          : "0%"}
                       </td>
                     </tr>
+
                     {formData.discountBreakdown.slice(1).map((step, index) => (
                       <tr key={index} className="border-t bg-muted/10">
                         <td className="px-4 py-2"></td>
                         <td className="px-4 py-2 text-right text-foreground text-sm">
-                          {step.rate.toFixed(2)}%
+                          {typeof step.rate === "number"
+                            ? `${parseFloat((step.rate * 100).toFixed(2))}%`
+                            : "0%"}
                         </td>
                       </tr>
                     ))}
+
                     <tr className="border-t">
                       <td className="px-4 py-2 font-medium text-primary">
                         Net Amount
@@ -3794,7 +3814,7 @@ export default function SalesOrder({ onSuccess }: Props) {
             </div>
           ) : formData.soNumber ? (
             <>
-              <DialogTitle className="sr-only">Sales Invoice</DialogTitle>
+              <DialogTitle className="sr-only">Sales Order</DialogTitle>
 
               {/* Invoice Header */}
               <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
@@ -3802,8 +3822,11 @@ export default function SalesOrder({ onSuccess }: Props) {
                   <h2 className="text-xl font-bold text-primary tracking-wide">
                     Sales Order
                   </h2>
-                  <p className="text-sm text-muted-foreground">
-                    Sales Order No: {formData.soNumber}
+                  <p className="text-sm text-muted-foreground ">
+                    Sales Order No:{" "}
+                    <span className=" text-foreground font-semibold">
+                      {formData.soNumber}
+                    </span>
                   </p>
                 </div>
                 <div className="text-sm text-right text-muted-foreground">
@@ -3811,7 +3834,16 @@ export default function SalesOrder({ onSuccess }: Props) {
                   <p>Delivery Date: {formData.deliveryDate}</p>
                   <p>
                     Status:{" "}
-                    <span className="font-semibold text-foreground">
+                    <span
+                      className={`font-semibold ${
+                        formData.status === "COMPLETED"
+                          ? "text-green-600"
+                          : formData.status === "TO PREPARE"
+                          ? "text-blue-600"
+                          : formData.status === "PENDING"
+                          ? "text-yellow-600"
+                          : "text-gray-500"
+                      }`}>
                       {formData.status}
                     </span>
                   </p>
@@ -3822,22 +3854,19 @@ export default function SalesOrder({ onSuccess }: Props) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
                 {/* Customer Info */}
                 <div className="text-sm space-y-1">
-                  <h4 className="font-medium text-muted-foreground mb-1">
-                    Customer
-                  </h4>
                   <p>
                     <span className="font-medium text-muted-foreground">
-                      Name:
+                      Customer Name:
                     </span>{" "}
                     <span className="text-foreground font-semibold">
                       {formData.customer}
                     </span>
                   </p>
                   <p>
-                    <span className="font-medium text-muted-foreground">
+                    <span className="font-medium text-muted-foreground ">
                       Customer Type:
                     </span>{" "}
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {formData.customerType || "—"}
                     </span>
                   </p>
@@ -3845,7 +3874,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                     <span className="font-medium text-muted-foreground">
                       Sales Person:
                     </span>{" "}
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {formData.salesPerson || "—"}
                     </span>
                   </p>
@@ -3853,12 +3882,9 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                 {/* Warehouse Info */}
                 <div className="text-sm space-y-1">
-                  <h4 className="font-medium text-muted-foreground mb-1">
-                    Warehouse
-                  </h4>
                   <p>
                     <span className="font-medium text-muted-foreground">
-                      Name:
+                      Warehouse Name:
                     </span>{" "}
                     <span className="text-foreground font-semibold">
                       {formData.warehouse}
@@ -3868,7 +3894,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                     <span className="font-medium text-muted-foreground">
                       Shipping Address:
                     </span>{" "}
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {formData.shippingAddress || "—"}
                     </span>
                   </p>
@@ -3876,7 +3902,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                     <span className="font-medium text-muted-foreground">
                       Notes:
                     </span>{" "}
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {formData.notes || "—"}
                     </span>
                   </p>
@@ -3990,17 +4016,28 @@ export default function SalesOrder({ onSuccess }: Props) {
                         Discounts (%)
                       </td>
                       <td className="px-4 py-2 text-right text-foreground text-sm">
-                        {formData.discountBreakdown[0]?.rate.toFixed(2)}%
+                        {typeof formData.discountBreakdown?.[0]?.rate ===
+                        "number"
+                          ? `${parseFloat(
+                              (
+                                formData.discountBreakdown[0].rate * 100
+                              ).toFixed(2)
+                            )}%`
+                          : "0%"}
                       </td>
                     </tr>
+
                     {formData.discountBreakdown.slice(1).map((step, index) => (
                       <tr key={index} className="border-t bg-muted/10">
                         <td className="px-4 py-2"></td>
                         <td className="px-4 py-2 text-right text-foreground text-sm">
-                          {step.rate.toFixed(2)}%
+                          {typeof step.rate === "number"
+                            ? `${parseFloat((step.rate * 100).toFixed(2))}%`
+                            : "0%"}
                         </td>
                       </tr>
                     ))}
+
                     <tr className="border-t">
                       <td className="px-4 py-2 font-medium text-primary">
                         Net Amount

@@ -2559,151 +2559,196 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto rounded-xl p-6 scrollbar-thin scrollbar-thumb-muted-foreground scrollbar-track-transparent bg-white shadow-xl border border-border">
           <DialogHeader>
-            <DialogTitle>PO Details</DialogTitle>
+            <DialogTitle className="sr-only">Purchase Receipt</DialogTitle>
           </DialogHeader>
 
-          {viewingReceipt && (
-            <div className="grid gap-6 py-4">
-              <Card className="p-6 rounded-xl shadow-sm border border-border">
-                <h4 className="text-xl font-bold text-primary text-center mb-6 tracking-tight">
-                  Purchase Receipt Info
-                </h4>
+          {/* 🧾 Receipt Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
+            <div>
+              <h2 className="text-xl font-bold text-primary tracking-wide">
+                Purchase Receipt
+              </h2>
 
-                {/* Header Row */}
-                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] border-b py-3 mb-4 bg-primary text-primary-foreground rounded-t shadow-sm">
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide">
-                    PR Number
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Supplier Invoice #
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Supplier
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Warehouse
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Status
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border-l border-border">
-                    Remarks
-                  </div>
-                  <div className="text-center border-l border-border"></div>
-                </div>
-
-                {/* Data Row */}
-                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-b py-2 text-sm">
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingReceipt.prNumber || "—"}
-                  </div>
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingReceipt.supplierInvoiceNum || "—"}
-                  </div>
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingReceipt.supplierName || "—"}
-                  </div>
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingReceipt.warehouse || "—"}
-                  </div>
-                  <div className="text-center uppercase border-l border-border">
-                    {viewingReceipt.status || "—"}
-                  </div>
-                  <div
-                    className="text-center uppercase border-l border-border max-w-[160px] truncate whitespace-nowrap overflow-hidden"
-                    title={viewingReceipt.remarks}>
-                    {viewingReceipt.remarks || "—"}
-                  </div>
-                </div>
-
-                {/* Items Header */}
-                <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 border-b py-3 mb-2 bg-primary text-primary-foreground rounded-t shadow-sm">
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Item Code
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Item Name
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    UOM
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Purchase Price
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Quantity
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center tracking-wide border border-border">
-                    Amount
-                  </div>
-                </div>
-
-                {viewingReceipt.items?.map((item, index) => (
-                  <div
-                    key={index}
-                    className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-0 py-2 text-sm">
-                    <div className="text-center uppercase border-l border-border">
-                      {item.itemCode || "—"}
-                    </div>
-                    <div className="text-center uppercase border-l border-border">
-                      {item.itemName || "—"}
-                    </div>
-                    <div className="text-center uppercase border-l border-border">
-                      {item.unitType || "—"}
-                    </div>
-                    <div className="text-center uppercase border-l border-border">
-                      {item.purchasePrice?.toLocaleString("en-PH", {
-                        style: "currency",
-                        currency: "PHP",
-                      }) || "—"}
-                    </div>
-                    <div className="text-center uppercase border-l border-border">
-                      {item.quantity ?? 0}
-                    </div>
-                    <div className="text-center uppercase border-l border-border">
-                      {(item.quantity * item.purchasePrice || 0).toLocaleString(
+              <p className="text-sm text-muted-foreground">
+                PR Number:
+                <span className=" text-foreground font-semibold">
+                  {viewingReceipt?.prNumber || "—"}
+                </span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                Supplier Invoice #:
+                <span className="text-foreground font-semibold">
+                  {viewingReceipt?.supplierInvoiceNum || "—"}
+                </span>
+              </p>
+            </div>
+            <div className="text-sm text-right text-muted-foreground">
+              <p>
+                Transaction Date:{" "}
+                <span className="text-foreground">
+                  {viewingReceipt?.createdAt
+                    ? new Date(viewingReceipt.createdAt).toLocaleDateString(
                         "en-PH",
                         {
-                          style: "currency",
-                          currency: "PHP",
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
                         }
-                      )}
-                    </div>
-                  </div>
-                ))}
+                      )
+                    : "—"}
+                </span>
+              </p>
+              <p>
+                Status:{" "}
+                <span
+                  className={`font-semibold ${
+                    viewingReceipt?.status === "RECEIVED"
+                      ? "text-green-600"
+                      : viewingReceipt?.status === "OPEN"
+                      ? "text-blue-600"
+                      : "text-muted-foreground"
+                  }`}>
+                  {viewingReceipt?.status || "—"}
+                </span>
+              </p>
+            </div>
+          </div>
 
-                {/* Totals */}
-                <div className="flex w-full justify-end mt-4 gap-6">
-                  <div className="flex items-center gap-2 min-w-[180px]">
-                    <span className="text-sm font-medium">Total Qty:</span>
-                    <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                      {viewingReceipt.items?.reduce(
-                        (sum, item) => sum + (item.quantity || 0),
-                        0
-                      ) ?? 0}
-                    </span>
-                  </div>
+          {/* 🏢 Supplier & Warehouse Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Supplier:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {viewingReceipt?.supplierName || "—"}
+                </span>
+              </p>
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Warehouse Name:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {viewingReceipt?.warehouse || "—"}
+                </span>
+              </p>
+            </div>
 
-                  <div className="flex items-center gap-2 min-w-[180px]">
-                    <span className="text-sm font-medium">Total Amount:</span>
-                    <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                      {viewingReceipt.items
-                        ?.reduce(
-                          (sum, item) =>
-                            sum + (item.quantity * item.purchasePrice || 0),
-                          0
-                        )
-                        ?.toLocaleString("en-PH", {
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Remarks:
+                </span>{" "}
+                <span
+                  className="text-foreground font-semibold truncate max-w-[60%]"
+                  title={viewingReceipt?.remarks}>
+                  {viewingReceipt?.remarks?.trim() || (
+                    <em className="text-muted-foreground">—</em>
+                  )}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          <div className="overflow-x-auto mb-6">
+            <table className="min-w-full text-sm border border-border rounded-md overflow-hidden">
+              <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                <tr>
+                  <th className="px-4 py-2 text-left">Item</th>
+                  <th className="px-4 py-2 text-right">Qty</th>
+                  <th className="px-4 py-2 text-left">UOM</th>
+                  <th className="px-4 py-2 text-right">Price</th>
+                  <th className="px-4 py-2 text-right">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                {viewingReceipt?.items?.map((item, index) => {
+                  const isZero = item.quantity === 0;
+                  const amount = item.quantity * item.purchasePrice || 0;
+
+                  return (
+                    <tr
+                      key={index}
+                      className={`border-t transition-colors duration-150 ${
+                        isZero
+                          ? "bg-green-50 text-green-700 animate-fade-in"
+                          : "even:bg-muted/5 hover:bg-accent/20 hover:ring-1 hover:ring-accent/50"
+                      }`}>
+                      <td className="px-4 py-2">
+                        {item.itemName || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {item.quantity ?? (
+                          <span className="text-muted-foreground">0</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2">
+                        {item.unitType || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right">
+                        {item.purchasePrice !== undefined ? (
+                          item.purchasePrice.toLocaleString("en-PH", {
+                            style: "currency",
+                            currency: "PHP",
+                          })
+                        ) : (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+                      <td className="px-4 py-2 text-right font-semibold">
+                        {amount.toLocaleString("en-PH", {
                           style: "currency",
                           currency: "PHP",
-                        }) ?? "₱0.00"}
-                    </span>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          )}
-
+                        })}
+                      </td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+          <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+            <table className="w-full text-sm">
+              <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                <tr>
+                  <th className="px-4 py-2 text-left">Metric</th>
+                  <th className="px-4 py-2 text-right">Value</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-border">
+                <tr>
+                  <td className="py-2 px-4 text-muted-foreground">
+                    Total Quantity
+                  </td>
+                  <td className="py-2 px-4 text-right font-semibold text-foreground">
+                    {(viewingReceipt?.items ?? []).reduce(
+                      (sum, item) => sum + item.quantity,
+                      0
+                    )}
+                  </td>
+                </tr>
+                <tr>
+                  <td className="py-2 px-4  text-primary">Total Amount</td>
+                  <td className="py-2 px-4 text-right font-semibold text-primary">
+                    {(viewingReceipt?.items ?? [])
+                      .reduce(
+                        (sum, item) => sum + item.quantity * item.purchasePrice,
+                        0
+                      )
+                      .toLocaleString("en-PH", {
+                        style: "currency",
+                        currency: "PHP",
+                      })}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
           <div className="flex justify-end mt-4">
             <Button
               variant="outline"

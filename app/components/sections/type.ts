@@ -110,6 +110,7 @@ export type PurchaseOrderType = {
   balance?: number;
   remarks?: string;
   status: "PENDING" | "PARTIAL" | "REJECTED" | "COMPLETED";
+  createdAt?: Date;
 };
 
 export type PurchaseOrderResponse = PurchaseOrderType & {
@@ -233,7 +234,7 @@ import type { Types } from "mongoose";
 
 // 🔹 Base item type
 export type SalesOrderItem = {
-  _id: string;
+  _id?: string;
   itemName: string;
   description?: string;
   quantity: number;

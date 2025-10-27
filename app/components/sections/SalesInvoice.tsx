@@ -1443,13 +1443,13 @@ export default function SalesInvoicePage({
                   </h2>
                   <p className="text-sm text-muted-foreground">
                     <span className="font-medium">Invoice No:</span>{" "}
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {selectedInvoice.invoiceNo}
                     </span>
                   </p>
                   <p className="text-sm text-muted-foreground">
                     <span className="font-medium">Sales Order Ref:</span>{" "}
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {selectedInvoice.salesOrder || "—"}
                     </span>
                   </p>
@@ -1486,7 +1486,16 @@ export default function SalesInvoicePage({
                   </p>
                   <p>
                     <span className="font-medium">Status:</span>{" "}
-                    <span className="font-semibold text-foreground">
+                    <span
+                      className={`font-semibold ${
+                        formData.status === "PAID"
+                          ? "text-green-600"
+                          : formData.status === "PARTIAL"
+                          ? "text-yellow-600"
+                          : formData.status === "UNPAID"
+                          ? "text-red-600"
+                          : "text-gray-500"
+                      }`}>
                       {selectedInvoice.status}
                     </span>
                   </p>
@@ -1508,7 +1517,7 @@ export default function SalesInvoicePage({
                     <span className="font-medium text-muted-foreground">
                       Sales Person:
                     </span>{" "}
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {selectedInvoice.salesPerson || "—"}
                     </span>
                   </p>
@@ -1516,7 +1525,7 @@ export default function SalesInvoicePage({
                     <span className="font-medium text-muted-foreground">
                       TIN:
                     </span>{" "}
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {selectedInvoice.TIN || "—"}
                     </span>
                   </p>
@@ -1524,7 +1533,7 @@ export default function SalesInvoicePage({
                     <span className="font-medium text-muted-foreground">
                       Terms:
                     </span>{" "}
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {selectedInvoice.terms || "—"}
                     </span>
                   </p>
@@ -1534,7 +1543,7 @@ export default function SalesInvoicePage({
                     <span className="font-medium text-muted-foreground">
                       Address:
                     </span>{" "}
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {selectedInvoice.address || "—"}
                     </span>
                   </p>
@@ -1542,7 +1551,7 @@ export default function SalesInvoicePage({
                     <span className="font-medium text-muted-foreground">
                       Reference:
                     </span>{" "}
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {selectedInvoice.reference || "—"}
                     </span>
                   </p>
@@ -1550,7 +1559,7 @@ export default function SalesInvoicePage({
                     <span className="font-medium text-muted-foreground">
                       Notes:
                     </span>{" "}
-                    <span className="text-foreground">
+                    <span className="text-foreground font-semibold">
                       {selectedInvoice.notes || "—"}
                     </span>
                   </p>
@@ -1638,7 +1647,7 @@ export default function SalesInvoicePage({
               </div>
 
               {/* Footer */}
-              <DialogFooter className="px-6 py-4 border-t border-border flex justify-end">
+              <DialogFooter className=" py-4 border-t border-border flex justify-end">
                 <Button
                   variant="outline"
                   onClick={() => setIsViewDialogOpen(false)}>
