@@ -24,7 +24,7 @@ import {
 } from "../ui/table";
 import {
   Dialog,
-  DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogPanel,
@@ -510,6 +510,34 @@ export default function PurchaseOrder({ onSuccess }: Props) {
     setValidationErrors(defaultValidationErrors);
     setIsEditDialogOpen(true);
   };
+
+  const [formattedNewTotal, setFormattedTotal] = useState("₱0.00");
+
+  useEffect(() => {
+    const totalQuantity = formData.items.reduce(
+      (sum, item) => sum + (Number(item.quantity) || 0),
+      0
+    );
+
+    const totalAmount = formData.items.reduce(
+      (sum, item) =>
+        sum + (Number(item.quantity) || 0) * (Number(item.purchasePrice) || 0),
+      0
+    );
+
+    setFormData((prev) => ({
+      ...prev,
+      totalQuantity,
+      total: totalAmount,
+    }));
+
+    setFormattedTotal(
+      totalAmount.toLocaleString("en-PH", {
+        style: "currency",
+        currency: "PHP",
+      })
+    );
+  }, [formData.items]);
 
   const handleUpdate = async () => {
     if (!editingPO || !validateForm(true)) {
@@ -1075,10 +1103,15 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
               <DialogPanel className="space-y-6">
                 {/* Header */}
-                <DialogHeader className="border-b pb-4">
-                  <DialogTitle className="text-xl font-semibold tracking-tight">
+                <DialogHeader className="border-b pb-2">
+                  <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
                     Create Purchase Order
                   </DialogTitle>
+                  <DialogDescription className="text-sm text-muted-foreground">
+                    Fill in the invoice details. Fields marked with{" "}
+                    <span className="text-red-500">* </span>
+                    are required.
+                  </DialogDescription>
                 </DialogHeader>
 
                 {/* Form Content Slot (optional placeholder) */}
@@ -1113,46 +1146,13 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                           className="text-sm bg-muted cursor-not-allowed"
                         />
                       </div>
-
-                      {/* Reference Number */}
-                      <div className="flex flex-col flex-[2] min-w-[300px]">
-                        <Label htmlFor="create-reference-number">
-                          Reference Number
-                        </Label>
-                        <Input
-                          id="create-reference-number"
-                          value={formData.referenceNumber}
-                          onChange={(e) => {
-                            const value = e.target.value.toUpperCase();
-                            setFormData((prev) => ({
-                              ...prev,
-                              referenceNumber: value,
-                            }));
-                            setValidationErrors((prev) => ({
-                              ...prev,
-                              referenceNumber: "",
-                            }));
-                          }}
-                          placeholder="e.g. REF-2025-001"
-                          className={`text-sm uppercase ${
-                            validationErrors.referenceNumber
-                              ? "border-destructive"
-                              : ""
-                          }`}
-                        />
-                        {validationErrors.referenceNumber && (
-                          <p className="text-sm text-destructive">
-                            {validationErrors.referenceNumber}
-                          </p>
-                        )}
-                      </div>
                     </div>
 
                     <div className="flex flex-row flex-wrap gap-4">
                       {/* Supplier Name */}
                       <div className="flex flex-col flex-1 min-w-[200px]">
                         <Label htmlFor="create-supplier-name">
-                          Supplier Name
+                          Supplier Name <span className="text-red-500">* </span>
                         </Label>
 
                         <div className="relative">
@@ -1181,7 +1181,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                               )
                             }
                             placeholder="Search supplier name"
-                            className={`text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
+                            className={`text-sm w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
                               validationErrors.supplierName
                                 ? "border-destructive"
                                 : ""
@@ -1246,7 +1246,9 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
                       {/* Warehouse */}
                       <div className="flex flex-col flex-1 min-w-[200px]">
-                        <Label htmlFor="create-warehouse">Warehouse</Label>
+                        <Label htmlFor="create-warehouse">
+                          Warehouse <span className="text-red-500">* </span>
+                        </Label>
                         <div className="relative">
                           <Input
                             id="create-warehouse"
@@ -1273,7 +1275,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                               )
                             }
                             placeholder="Search warehouse"
-                            className={`text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
+                            className={`text-sm w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
                               validationErrors.warehouse
                                 ? "border-destructive"
                                 : ""
@@ -1335,7 +1337,40 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                           </p>
                         )}
                       </div>
-
+                    </div>
+                    <div className="flex flex-row flex-wrap gap-4">
+                      {/* Reference Number */}
+                      <div className="flex flex-col flex-[2] min-w-[300px]">
+                        <Label htmlFor="create-reference-number">
+                          Reference Number
+                        </Label>
+                        <Input
+                          id="create-reference-number"
+                          value={formData.referenceNumber}
+                          onChange={(e) => {
+                            const value = e.target.value.toUpperCase();
+                            setFormData((prev) => ({
+                              ...prev,
+                              referenceNumber: value,
+                            }));
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              referenceNumber: "",
+                            }));
+                          }}
+                          placeholder="Enter reference number"
+                          className={`text-sm ${
+                            validationErrors.referenceNumber
+                              ? "border-destructive bg-muted"
+                              : "bg-muted"
+                          }`}
+                        />
+                        {validationErrors.referenceNumber && (
+                          <p className="text-sm ">
+                            {validationErrors.referenceNumber}
+                          </p>
+                        )}
+                      </div>
                       {/* Remarks */}
                       <div className="flex flex-col flex-[2] min-w-[300px]">
                         <Label htmlFor="create-remarks">Remarks</Label>
@@ -1369,7 +1404,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                 </div>
                 {formData.supplierName && formData.warehouse && (
                   <>
-                    <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
+                    <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_20px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
                       {/* Item Code */}
                       <div className="text-xs font-semibold uppercase text-start px-2">
                         Item Code
@@ -1381,16 +1416,16 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       </div>
 
                       {/* Quantity */}
-                      <div className="text-xs font-semibold uppercase text-end px-2">
+                      <div className="text-xs font-semibold uppercase text-end">
                         Qty
                       </div>
 
                       {/* Unit of Measure */}
-                      <div className="text-xs font-semibold uppercase text-start px-2">
+                      <div className="text-xs font-semibold uppercase text-start">
                         UOM
                       </div>
 
-                      {/* Sales Price */}
+                      {/* Purchase Price */}
                       <div className="text-xs font-semibold uppercase text-end px-2">
                         Purchase Price
                       </div>
@@ -1407,7 +1442,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                     {itemsData.map((item, index) => (
                       <div
                         key={index}
-                        className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0 mb-4">
+                        className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center  border-border text-sm m-0">
                         {/* Item Code */}
                         <input
                           type="text"
@@ -1619,45 +1654,55 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
                         {/* Trash Button */}
                         <Button
-                          variant="destructive"
-                          className="w-full h-[32px] px-1 text-xs border border-border bg-red-50 hover:bg-red-100 text-red-700 rounded transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus:ring-1 focus:ring-red-400 flex items-center justify-center"
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-600 hover:text-red-800 pb-1"
                           onClick={() => handleRemoveItem(index)}
                           title="Remove item">
-                          <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     ))}
 
-                    <Button onClick={handleAddItem}>Add Item</Button>
-
-                    <div className="flex w-full justify-end mt-4 gap-6">
-                      {/* Total Quantity */}
-                      <div className="flex items-center gap-2 min-w-[180px]">
-                        <span className="text-sm font-medium">Total Qty:</span>
-                        <input
-                          type="text"
-                          id="total-quantity"
-                          value={formData.totalQuantity}
-                          readOnly
-                          disabled
-                          className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
-                        />
-                      </div>
-
-                      {/* Total Amount */}
-                      <div className="flex items-center gap-2 min-w-[180px]">
-                        <span className="text-sm font-medium">
-                          Total Amount:
-                        </span>
-                        <input
-                          type="text"
-                          id="total-amount"
-                          value={formattedTotal}
-                          readOnly
-                          disabled
-                          className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input cursor-not-allowed w-full"
-                        />
-                      </div>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleAddItem}
+                      className="w-fit text-sm">
+                      + Add Item
+                    </Button>
+                    <div className="w-full mt-8 overflow-x-auto">
+                      <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 border-t py-2 text-end">
+                        Order Summary
+                      </h3>
+                      <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                            <tr>
+                              <th className="px-4 py-2 text-left">Metric</th>
+                              <th className="px-4 py-2 text-right">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            <tr>
+                              <td className="py-2 px-4 text-muted-foreground">
+                                Total Quantity
+                              </td>
+                              <td className="py-2 px-4 text-right font-semibold text-foreground">
+                                {formData.totalQuantity}
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 px-4  text-primary">
+                                Total Amount
+                              </td>
+                              <td className="py-2 px-4 text-right font-semibold text-primary">
+                                {formattedTotal}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>{" "}
                     </div>
                   </>
                 )}
@@ -1667,7 +1712,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                     {/* Right: Cancel & Create */}
                     <div className="flex gap-2">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         onClick={() => {
                           setIsCreateDialogOpen(false);
                           resetForm();
@@ -1687,11 +1732,11 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                           }
                           className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                           aria-label="Save">
-                          💾 Save
+                          Create
                         </Button>
 
                         {/* Dropdown for More Actions */}
-                        <DropdownMenu>
+                        {/* <DropdownMenu>
                           <DropdownMenuTrigger asChild>
                             <Button
                               className="bg-muted text-foreground hover:bg-muted/80 px-3 py-2 rounded-md shadow-sm transition-colors duration-150"
@@ -1722,7 +1767,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                               🆕 Save & New
                             </DropdownMenuItem>
                           </DropdownMenuContent>
-                        </DropdownMenu>
+                        </DropdownMenu> */}
                       </div>
                     </div>
                   </div>
@@ -2075,8 +2120,15 @@ export default function PurchaseOrder({ onSuccess }: Props) {
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Purchase Orders</DialogTitle>
+          <DialogHeader className="border-b pb-2">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
+              Edit Purchase Order
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Fill in the order details. Fields marked with{" "}
+              <span className="text-red-500">* </span>
+              are required.
+            </DialogDescription>
           </DialogHeader>
 
           {/* Form Fields */}
@@ -2112,7 +2164,183 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                     className="text-sm bg-muted cursor-not-allowed"
                   />
                 </div>
+              </div>
 
+              {/* Second Row */}
+              <div className="flex flex-row flex-wrap gap-4">
+                {/* Supplier Name */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="edit-supplier-name">
+                    Supplier Name <span className="text-red-500">* </span>
+                  </Label>
+
+                  <div className="relative">
+                    <Input
+                      id="edit-supplier-name"
+                      type="text"
+                      autoComplete="off"
+                      value={formData.supplierName || ""}
+                      onClick={() => setShowSupplierSuggestions(true)}
+                      onChange={(e) => {
+                        const value = e.target.value.toUpperCase(); // ✅ no .trim()
+                        setFormData((prev) => ({
+                          ...prev,
+                          supplierName: value,
+                        }));
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          supplierName: "",
+                        }));
+                        setShowSupplierSuggestions(true);
+                      }}
+                      onBlur={() =>
+                        setTimeout(() => setShowSupplierSuggestions(false), 200)
+                      }
+                      placeholder="Search supplier name"
+                      className={`text-sm w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
+                        validationErrors.supplierName
+                          ? "border-destructive"
+                          : ""
+                      }`}
+                    />
+
+                    {/* Suggestions Dropdown */}
+                    {showSupplierSuggestions && (
+                      <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                        {(() => {
+                          const input =
+                            formData.supplierName?.trim().toUpperCase() || "";
+                          const filtered = suppliers.filter((supplier) => {
+                            const label =
+                              supplier.supplierName?.trim().toUpperCase() || "";
+                            return input === "" || label.includes(input);
+                          });
+
+                          return filtered.length > 0 ? (
+                            filtered.map((supplier) => {
+                              const label =
+                                supplier.supplierName?.trim() ||
+                                "Unnamed Supplier";
+                              const value = label.toUpperCase();
+                              return (
+                                <li
+                                  key={supplier._id || value}
+                                  className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                  onClick={() => {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      supplierName: value,
+                                    }));
+                                    setShowSupplierSuggestions(false);
+                                  }}>
+                                  {label}
+                                </li>
+                              );
+                            })
+                          ) : (
+                            <li className="px-3 py-2 text-muted-foreground">
+                              No matching supplier found
+                            </li>
+                          );
+                        })()}
+                      </ul>
+                    )}
+                  </div>
+                  {validationErrors.supplierName && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.supplierName}
+                    </p>
+                  )}
+                </div>
+
+                {/* Warehouse */}
+                <div className="flex flex-col flex-1 min-w-[200px]">
+                  <Label htmlFor="edit-warehouse">
+                    Warehouse <span className="text-red-500">* </span>
+                  </Label>
+                  <div className="relative">
+                    <Input
+                      id="edit-warehouse"
+                      type="text"
+                      autoComplete="off"
+                      value={formData.warehouse || ""}
+                      onClick={() => setShowWarehouseSuggestions(true)}
+                      onChange={(e) => {
+                        const value = e.target.value.toUpperCase(); // ✅ no .trim()
+                        setFormData((prev) => ({
+                          ...prev,
+                          warehouse: value,
+                        }));
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          warehouse: "",
+                        }));
+                        setShowWarehouseSuggestions(true);
+                      }}
+                      onBlur={() =>
+                        setTimeout(
+                          () => setShowWarehouseSuggestions(false),
+                          200
+                        )
+                      }
+                      placeholder="Search warehouse"
+                      className={`text-sm w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
+                        validationErrors.warehouse ? "border-destructive" : ""
+                      }`}
+                    />
+
+                    {/* Suggestions Dropdown */}
+                    {showWarehouseSuggestions && (
+                      <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                        {(() => {
+                          const input =
+                            formData.warehouse?.trim().toUpperCase() || "";
+                          const filtered = warehouses.filter((warehouse) => {
+                            const label =
+                              warehouse.warehouse_name?.trim().toUpperCase() ||
+                              "";
+                            return input === "" || label.includes(input);
+                          });
+
+                          return filtered.length > 0 ? (
+                            filtered.map((warehouse) => {
+                              const label =
+                                warehouse.warehouse_name?.trim() ||
+                                "Unnamed Warehouse";
+                              const value = label.toUpperCase();
+                              return (
+                                <li
+                                  key={warehouse._id || value}
+                                  className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                  onClick={() => {
+                                    setFormData((prev) => ({
+                                      ...prev,
+                                      warehouse: value,
+                                    }));
+                                    setShowWarehouseSuggestions(false);
+                                  }}>
+                                  {label}
+                                </li>
+                              );
+                            })
+                          ) : (
+                            <li className="px-3 py-2 text-muted-foreground">
+                              No matching warehouse found
+                            </li>
+                          );
+                        })()}
+                      </ul>
+                    )}
+                  </div>
+                  {validationErrors.warehouse && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.warehouse}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-row flex-wrap gap-4">
                 {/* Reference Number */}
                 <div className="flex flex-col flex-[2] min-w-[300px]">
                   <Label htmlFor="edit-reference-number">
@@ -2145,111 +2373,6 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                     </p>
                   )}
                 </div>
-              </div>
-
-              {/* Second Row */}
-              <div className="flex flex-row flex-wrap gap-4">
-                {/* Supplier Name */}
-                <div className="flex flex-col flex-1 min-w-[200px]">
-                  <Label htmlFor="edit-supplier-name">Supplier Name</Label>
-                  <Select
-                    value={formData.supplierName}
-                    onValueChange={(value) => {
-                      const normalized = value.toUpperCase().trim();
-                      setFormData((prev) => ({
-                        ...prev,
-                        supplierName: normalized,
-                      }));
-                      setValidationErrors((prev) => ({
-                        ...prev,
-                        supplierName: "",
-                      }));
-                    }}>
-                    <SelectTrigger
-                      className={`text-sm uppercase w-full ${
-                        validationErrors.supplierName
-                          ? "border-destructive"
-                          : ""
-                      }`}>
-                      {formData.supplierName || "Select Supplier"}
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.isArray(suppliers) && suppliers.length > 0 ? (
-                        suppliers.map((supplier) => {
-                          const label =
-                            supplier.supplierName?.trim() || "Unnamed Supplier";
-                          const value = label.toUpperCase();
-                          return (
-                            <SelectItem
-                              key={supplier._id || value}
-                              value={value}>
-                              {label}
-                            </SelectItem>
-                          );
-                        })
-                      ) : (
-                        <SelectItem disabled value="no-suppliers">
-                          No suppliers available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {validationErrors.supplierName && (
-                    <p className="text-sm text-destructive">
-                      {validationErrors.supplierName}
-                    </p>
-                  )}
-                </div>
-
-                {/* Warehouse */}
-                <div className="flex flex-col flex-1 min-w-[200px]">
-                  <Label htmlFor="edit-warehouse">Warehouse</Label>
-                  <Select
-                    value={formData.warehouse}
-                    onValueChange={(value) => {
-                      const normalized = value.toUpperCase().trim();
-                      setFormData((prev) => ({
-                        ...prev,
-                        warehouse: normalized,
-                      }));
-                      setValidationErrors((prev) => ({
-                        ...prev,
-                        warehouse: "",
-                      }));
-                    }}>
-                    <SelectTrigger
-                      className={`text-sm uppercase w-full ${
-                        validationErrors.warehouse ? "border-destructive" : ""
-                      }`}>
-                      {formData.warehouse || "Select Warehouse"}
-                    </SelectTrigger>
-                    <SelectContent>
-                      {Array.isArray(warehouses) && warehouses.length > 0 ? (
-                        warehouses.map((warehouse) => {
-                          const label =
-                            warehouse.warehouse_name?.trim() ||
-                            "Unnamed Warehouse";
-                          return (
-                            <SelectItem
-                              key={warehouse._id || label}
-                              value={label.toUpperCase()}>
-                              {label}
-                            </SelectItem>
-                          );
-                        })
-                      ) : (
-                        <SelectItem disabled value="no-warehouses">
-                          No warehouses available
-                        </SelectItem>
-                      )}
-                    </SelectContent>
-                  </Select>
-                  {validationErrors.warehouse && (
-                    <p className="text-sm text-destructive">
-                      {validationErrors.warehouse}
-                    </p>
-                  )}
-                </div>
 
                 {/* Remarks */}
                 <div className="flex flex-col flex-[2] min-w-[300px]">
@@ -2275,27 +2398,39 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                 </div>
               </div>
             </div>
-            <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
-              {/* Header Row */}
-              <div className="text-xs font-semibold uppercase text-center">
+            <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_20px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
+              {/* Item Code */}
+              <div className="text-xs font-semibold uppercase text-start px-2">
                 Item Code
               </div>
-              <div className="text-xs font-semibold uppercase text-center">
+
+              {/* Item Name */}
+              <div className="text-xs font-semibold uppercase text-start">
                 Item Name
               </div>
-              <div className="text-xs font-semibold uppercase text-center">
+
+              {/* Quantity */}
+              <div className="text-xs font-semibold uppercase text-end">
                 Qty
               </div>
-              <div className="text-xs font-semibold uppercase text-center">
+
+              {/* Unit of Measure */}
+              <div className="text-xs font-semibold uppercase text-start ">
                 UOM
               </div>
-              <div className="text-xs font-semibold uppercase text-center">
+
+              {/* Sales Price */}
+              <div className="text-xs font-semibold uppercase text-end px-2">
                 Purchase Price
               </div>
-              <div className="text-xs font-semibold uppercase text-center">
+
+              {/* Amount */}
+              <div className="text-xs font-semibold uppercase text-end px-2">
                 Amount
               </div>
-              <div className="text-center"></div> {/* Trash icon column */}
+
+              {/* Trash Icon Column */}
+              <div className="text-center"></div>
             </div>
           </div>
 
@@ -2305,7 +2440,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
             return (
               <div
                 key={index}
-                className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0 ${
+                className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center  border-border text-sm m-0 ${
                   isZero ? "bg-green-50 text-green-700 animate-fade-in" : ""
                 }`}>
                 {/* Item Code */}
@@ -2319,68 +2454,127 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                 />
 
                 {/* Item Name */}
-                <Select
-                  value={item.itemName}
-                  onValueChange={(value) => {
-                    const normalized = value.toUpperCase().trim();
-                    const selected = items.find(
-                      (option) =>
-                        option.itemName?.toUpperCase().trim() === normalized
-                    );
-                    if (!selected) return;
+                <div className="relative w-full">
+                  <input
+                    id={`item-name-${index}`}
+                    type="text"
+                    autoComplete="off"
+                    value={item.itemName || ""}
+                    onClick={() => setShowItemSuggestions(index)}
+                    onBlur={() =>
+                      setTimeout(() => setShowItemSuggestions(null), 200)
+                    }
+                    onChange={(e) => {
+                      const value = e.target.value.toUpperCase().trim();
 
-                    setFormData((prev) => {
-                      const updatedItems = [...prev.items];
-                      updatedItems[index] = {
-                        ...updatedItems[index],
-                        itemName: normalized,
-                        itemCode: selected.itemCode || "",
-                        unitType: selected.unitType || "",
-                        purchasePrice: selected.purchasePrice || 0,
-                        quantity: updatedItems[index]?.quantity || 1,
-                      };
+                      setItemsData((prev) => {
+                        const updated = [...prev];
+                        updated[index] = {
+                          ...updated[index],
+                          itemName: value,
+                        };
+                        return updated;
+                      });
 
-                      const { totalQuantity, total } =
-                        recalculateTotals(updatedItems);
+                      setFormData((prev) => {
+                        const updatedItems = [...prev.items];
+                        updatedItems[index] = {
+                          ...updatedItems[index],
+                          itemName: value,
+                        };
+                        return { ...prev, items: updatedItems };
+                      });
 
-                      return {
-                        ...prev,
-                        items: updatedItems,
-                        totalQuantity,
-                        total,
-                      };
-                    });
-                  }}>
-                  <SelectTrigger
-                    id={`edit-item-name-${index}`}
-                    className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 uppercase focus:outline-none focus:ring-1 focus:ring-primary ${
-                      isZero
-                        ? "bg-green-50 text-green-700 cursor-not-allowed"
-                        : ""
-                    }`}
-                    disabled={isZero}>
-                    {item.itemName || "Select Item"}
-                  </SelectTrigger>
+                      setShowItemSuggestions(index);
+                    }}
+                    placeholder="Search item name"
+                    className="text-sm uppercase w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8"
+                  />
 
-                  <SelectContent>
-                    {items.length > 0 ? (
-                      items.map((option) => {
-                        const label = option.itemName?.trim() || "Unnamed Item";
-                        return (
-                          <SelectItem
-                            key={option._id || label}
-                            value={label.toUpperCase()}>
-                            {label}
-                          </SelectItem>
-                        );
-                      })
-                    ) : (
-                      <SelectItem disabled value="no-items">
-                        No items available
-                      </SelectItem>
-                    )}
-                  </SelectContent>
-                </Select>
+                  {/* Magnifying Glass Icon */}
+                  <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+                    <svg
+                      xmlns="http://www.w3.org/2000/svg"
+                      className="h-4 w-4 text-muted-foreground"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                      strokeWidth={2}>
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
+                      />
+                    </svg>
+                  </div>
+
+                  {/* Live Suggestions */}
+                  {showItemSuggestions === index && (
+                    <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                      {items
+                        .filter((option) =>
+                          option.itemName
+                            ?.trim()
+                            .toUpperCase()
+                            .includes(item.itemName?.toUpperCase() || "")
+                        )
+                        .map((option) => {
+                          const normalized = option.itemName
+                            ?.trim()
+                            .toUpperCase();
+                          return (
+                            <li
+                              key={option._id || normalized}
+                              className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                              onClick={() => {
+                                setItemsData((prev) => {
+                                  const updated = [...prev];
+                                  updated[index] = {
+                                    ...updated[index],
+                                    itemName: normalized,
+                                    itemCode: option.itemCode || "",
+                                    unitType: option.unitType || "",
+                                    purchasePrice: option.purchasePrice || 0,
+                                  };
+                                  return updated;
+                                });
+
+                                setFormData((prev) => {
+                                  const updatedItems = [...prev.items];
+                                  updatedItems[index] = {
+                                    ...updatedItems[index],
+                                    itemName: normalized,
+                                    itemCode: option.itemCode || "",
+                                    unitType: option.unitType || "",
+                                    purchasePrice: option.purchasePrice || 0,
+                                    quantity:
+                                      updatedItems[index]?.quantity || 1,
+                                  };
+                                  return {
+                                    ...prev,
+                                    items: updatedItems,
+                                  };
+                                });
+
+                                setShowItemSuggestions(null);
+                              }}>
+                              {normalized}
+                            </li>
+                          );
+                        })}
+                      {items.filter((option) =>
+                        option.itemName
+                          ?.trim()
+                          .toUpperCase()
+                          .includes(item.itemName?.toUpperCase() || "")
+                      ).length === 0 && (
+                        <li className="px-3 py-2 text-muted-foreground">
+                          No matching items found
+                        </li>
+                      )}
+                    </ul>
+                  )}
+                </div>
 
                 {/* Quantity */}
                 <input
@@ -2406,8 +2600,8 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                   }}
                   className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 focus:outline-none focus:ring-1 focus:ring-primary ${
                     isZero
-                      ? "bg-green-50 text-green-700 cursor-not-allowed"
-                      : "bg-white"
+                      ? "bg-green-50 text-green-700 cursor-not-allowed text-end"
+                      : "bg-white text-end"
                   }`}
                   disabled={isZero}
                 />
@@ -2434,8 +2628,10 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       : ""
                   }
                   readOnly
-                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
-                    isZero ? "bg-green-50 text-green-700" : "bg-white"
+                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 text-end${
+                    isZero
+                      ? "bg-green-50 text-green-700 text-end"
+                      : "bg-white text-end"
                   }`}
                 />
 
@@ -2454,81 +2650,73 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       : ""
                   }
                   readOnly
-                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 ${
-                    isZero ? "bg-green-50 text-green-700" : "bg-white"
+                  className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 text-end${
+                    isZero
+                      ? "bg-green-50 text-green-700 text-end"
+                      : "bg-white text-end"
                   }`}
                 />
 
-                {/* Action Button */}
-                <div className="w-full h-full flex items-center justify-center border border-border border-l-0 border-t-0">
-                  {isZero ? (
-                    <div className="flex items-center gap-1">
-                      <Check className="w-4 h-4 text-green-600 animate-bounce" />
-                      <span className="text-xs font-semibold text-green-700">
-                        Posted
-                      </span>
-                    </div>
-                  ) : (
-                    <Button
-                      variant="destructive"
-                      size="icon"
-                      onClick={() => {
-                        setFormData((prev) => {
-                          const updatedItems = prev.items.filter(
-                            (_, i) => i !== index
-                          );
-                          const { totalQuantity, total } =
-                            recalculateTotals(updatedItems);
-
-                          return {
-                            ...prev,
-                            items: updatedItems,
-                            totalQuantity,
-                            total,
-                          };
-                        });
-                      }}
-                      title="Remove item">
-                      <Trash2 className="w-4 h-4" />
-                    </Button>
-                  )}
-                </div>
+                {/* Trash Button */}
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-red-600 hover:text-red-800 pb-1"
+                  onClick={() => handleRemoveItem(index)}
+                  title="Remove item">
+                  <Trash2 className="w-4 h-4" />
+                </Button>
               </div>
             );
           })}
+          {/* Left: Add Item */}
+          <Button
+            type="button"
+            variant="ghost"
+            onClick={handleAddItemEdit}
+            className="w-fit text-sm">
+            + Add Item
+          </Button>
 
-          {/* Totals */}
-          <div className="flex w-full justify-end mt-4 gap-6">
-            {/* Total Quantity */}
-            <div className="flex items-center gap-2 min-w-[180px]">
-              <span className="text-sm font-medium">Total Qty:</span>
-              <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                {formData.totalQuantity ?? 0}
-              </span>
-            </div>
-
-            {/* Total Amount */}
-            <div className="flex items-center gap-2 min-w-[180px]">
-              <span className="text-sm font-medium">Total Amount:</span>
-              <span className="text-sm font-semibold bg-muted px-3 py-2 rounded border border-input w-full text-right">
-                {formData.total?.toLocaleString("en-PH", {
-                  style: "currency",
-                  currency: "PHP",
-                })}
-              </span>
+          <div className="w-full mt-8 overflow-x-auto">
+            <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 border-t py-2 text-end">
+              Order Summary
+            </h3>
+            <div className="w-full max-w-md ml-auto my-4 bg-muted/10 rounded-md shadow-sm border border-border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Metric</th>
+                    <th className="px-4 py-2 text-right">Value</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr>
+                    <td className="py-2 px-4 text-muted-foreground">
+                      Total Quantity
+                    </td>
+                    <td className="py-2 px-4 text-right font-semibold text-foreground">
+                      {formData.totalQuantity ?? 0}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-4  text-primary">Total Amount</td>
+                    <td className="py-2 px-4 text-right font-semibold text-primary">
+                      {formattedNewTotal ?? "₱0.00"}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           </div>
 
           {/* Footer Actions */}
           <DialogFooter className="pt-4 border-t">
-            <div className="flex w-full justify-between items-center">
-              {/* Left: Add Item */}
-              <Button onClick={handleAddItemEdit}>➕ Add Item</Button>
-
+            <div className="flex w-full justify-end items-center gap-2">
               {/* Right: Cancel & Update */}
               <div className="flex gap-2">
                 <Button
-                  variant="ghost"
+                  variant="outline"
                   onClick={() => {
                     setIsEditDialogOpen(false);
                     setEditingPO(null);
@@ -2538,17 +2726,19 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                 </Button>
 
                 <div className="flex items-center gap-2">
-                  {/* Primary Update Button */}
-                  <Button
-                    onClick={handleUpdate}
-                    disabled={
-                      !formData.items.length ||
-                      formData.items.every((item) => !item.itemName?.trim())
-                    }
-                    className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150"
-                    aria-label="Update">
-                    ✏️ Update
-                  </Button>
+                  <div className="flex w-full justify-end items-center gap-2">
+                    {/* Primary Update Button */}
+                    <Button
+                      onClick={handleUpdate}
+                      disabled={
+                        !formData.items.length ||
+                        formData.items.every((item) => !item.itemName?.trim())
+                      }
+                      className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150"
+                      aria-label="Update">
+                      Save Changes
+                    </Button>
+                  </div>
                 </div>
               </div>
             </div>

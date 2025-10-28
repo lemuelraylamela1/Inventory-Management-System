@@ -956,16 +956,18 @@ export default function SalesInvoicePage({
           }
         }}>
         <DialogPanel className="max-w-5xl p-6 bg-white rounded-lg shadow-lg">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-semibold">
+          <DialogHeader className="border-b pb-2">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
               Create Sales Invoice
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Fill in the invoice details. Fields marked with * are required.
+              Fill in the invoice details. Fields marked with{" "}
+              <span className="text-red-500">* </span>
+              are required.
             </DialogDescription>
           </DialogHeader>
 
-          <Card className="shadow-none border-none">
+          <Card className="shadow-none border-none pt-4">
             <div className="space-y-6">
               {/* Invoice Metadata */}
               <fieldset className="grid grid-cols-2 gap-6">
@@ -1005,7 +1007,9 @@ export default function SalesInvoicePage({
               <div className="grid grid-cols-2 gap-6">
                 {/* Customer Name */}
                 <div className="space-y-1">
-                  <Label htmlFor="customer-name">Customer Name *</Label>
+                  <Label htmlFor="customer-name">
+                    Customer Name <span className="text-red-500">*</span>
+                  </Label>
                   <div className="relative">
                     <Input
                       id="create-customer-name"
@@ -1028,8 +1032,8 @@ export default function SalesInvoicePage({
                       onBlur={() =>
                         setTimeout(() => setShowCustomerSuggestions(false), 200)
                       }
-                      placeholder="Search customer name"
-                      className="text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                      placeholder="Search Customer name"
+                      className="text-sm  w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
                     />
                     <User className="absolute right-2 top-2 h-4 w-4 text-muted-foreground" />
 
@@ -1121,12 +1125,12 @@ export default function SalesInvoicePage({
                       placeholder={
                         formData.customer
                           ? "Type or select matching sales order"
-                          : "Select customer first"
+                          : "Select Customer first"
                       }
-                      className={`text-sm w-full ${
-                        formData.customer
-                          ? "bg-white"
-                          : "bg-muted cursor-not-allowed"
+                      className={`text-sm w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
+                        !formData.customer || !!formData.salesOrder
+                          ? "bg-muted "
+                          : "bg-white"
                       }`}
                       onChange={(e) => {
                         const input = e.target.value;
@@ -1276,11 +1280,14 @@ export default function SalesInvoicePage({
               {/* Due Date & Reference */}
               <fieldset className="grid grid-cols-2 gap-6">
                 <div>
-                  <Label htmlFor="due-date">Due Date</Label>
+                  <Label htmlFor="due-date">
+                    Due Date <span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     id="due-date"
                     type="date"
                     value={formData.dueDate || ""}
+                    min={new Date().toISOString().split("T")[0]}
                     onChange={(e) =>
                       setFormData((prev) => ({
                         ...prev,
@@ -1315,7 +1322,7 @@ export default function SalesInvoicePage({
                   onChange={(e) =>
                     setFormData({ ...formData, notes: e.target.value.trim() })
                   }
-                  placeholder="Optional notes"
+                  placeholder="Add notes"
                 />
               </div>
 
@@ -1328,7 +1335,7 @@ export default function SalesInvoicePage({
                       <div>Item Name</div>
                       <div>Description</div>
                       <div className="text-end">Qty</div>
-                      <div className="text-end">UOM</div>
+                      <div className="text-start">UOM</div>
                       <div className="text-end">Price</div>
                       <div className="text-end">Amount</div>
                     </div>
@@ -1348,7 +1355,7 @@ export default function SalesInvoicePage({
                           <div>{item.itemName || "—"}</div>
                           <div>{description}</div>
                           <div className="text-end">{item.quantity}</div>
-                          <div className="text-end">{item.unitType}</div>
+                          <div className="text-start">{item.unitType}</div>
                           <div className="text-end">
                             ₱
                             {applySequentialDiscounts(
@@ -1378,22 +1385,22 @@ export default function SalesInvoicePage({
                     <div>{/* Column 2 */}</div>
                     <div>{/* Column 3 */}</div>
 
-                    <div className="space-y-2">
-                      <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
+                    <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                      <table className="w-full border border-border rounded-lg overflow-hidden text-sm">
                         <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                          <tr>
+                          <tr className="border-b border-border">
                             <th className="px-4 py-2 text-left">Breakdown</th>
                             <th className="px-4 py-2 text-right">Amount</th>
                           </tr>
                         </thead>
                         <tbody>
-                          <tr className="border-t">
+                          <tr className="border-b border-border">
                             <td className="px-4 py-2">Gross Amount</td>
                             <td className="px-4 py-2 text-right text-muted-foreground">
                               {formData.netTotal}
                             </td>
                           </tr>
-                          <tr className="border-t bg-muted/40">
+                          <tr className="border-b border-border bg-muted/40">
                             <td className="px-4 py-2 font-medium text-primary">
                               Net Amount
                             </td>
@@ -1407,15 +1414,14 @@ export default function SalesInvoicePage({
                   </div>
                 </div>
               )}
-
-              <div className="flex justify-end">
+              <DialogFooter className=" py-4 border-t border-border flex justify-end">
                 <Button onClick={handleCreate} disabled={isCreating}>
                   {isCreating ? (
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   ) : null}
                   Create Invoice
                 </Button>
-              </div>
+              </DialogFooter>
             </div>
           </Card>
         </DialogPanel>
@@ -1607,13 +1613,13 @@ export default function SalesInvoicePage({
               </div>
 
               {/* Financial Summary */}
-              <div className="grid grid-cols-4 gap-4">
+              <div className="grid grid-cols-4 gap-4 pb-4">
                 <div>{/* Column 1 */}</div>
                 <div>{/* Column 2 */}</div>
                 <div>{/* Column 3 */}</div>
 
-                <div className="space-y-2">
-                  <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
+                <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                  <table className="w-full border border-border rounded-lg overflow-hidden text-sm">
                     <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
                       <tr>
                         <th className="px-4 py-2 text-left">Breakdown</th>

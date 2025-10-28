@@ -12,6 +12,7 @@ import {
   CalendarDays,
   Loader2,
   ArrowRightCircle,
+  Download,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import {
@@ -24,7 +25,7 @@ import {
 } from "../ui/table";
 import {
   Dialog,
-  DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogPanel,
@@ -1792,10 +1793,15 @@ export default function SalesOrder({ onSuccess }: Props) {
 
               <DialogPanel className="max-h-[80vh] overflow-y-auto px-6 py-4">
                 {/* Header */}
-                <DialogHeader className="border-b pb-4">
-                  <DialogTitle className="text-xl font-semibold tracking-tight">
+                <DialogHeader className="border-b pb-2">
+                  <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
                     Create Sales Order
                   </DialogTitle>
+                  <DialogDescription className="text-sm text-muted-foreground">
+                    Fill in the order details. Fields marked with{" "}
+                    <span className="text-red-500">* </span>
+                    are required.
+                  </DialogDescription>
                 </DialogHeader>
 
                 {/* Form Content Slot (optional placeholder) */}
@@ -1838,7 +1844,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                       {/* Customer Name */}
                       <div className="flex flex-col flex-1 min-w-[240px]">
                         <Label htmlFor="create-customer-name">
-                          Customer Name
+                          Customer Name<span className="text-red-500">*</span>
                         </Label>
                         <div className="relative">
                           <Input
@@ -1869,8 +1875,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                                 200
                               )
                             }
-                            placeholder="Search customer name"
-                            className={`text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
+                            placeholder="Search Customer name"
+                            className={`text-sm w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
                               validationErrors.customer
                                 ? "border-destructive"
                                 : ""
@@ -1989,7 +1995,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                       {/* Delivery Date */}
                       <div className="flex flex-col flex-1 min-w-[240px]">
                         <Label htmlFor="create-deliveryDate">
-                          Delivery Date
+                          Delivery Date <span className="text-red-500">*</span>
                         </Label>
                         <Input
                           type="date"
@@ -2010,8 +2016,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                           placeholder="Enter delivery date"
                           className={`text-sm pr-2 appearance-none bg-[url('data:image/svg+xml;utf8,<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>')] bg-no-repeat bg-right bg-[length:1.25rem_1.25rem] ${
                             validationErrors.deliveryDate
-                              ? "border-destructive"
-                              : ""
+                              ? "border-destructive bg-muted"
+                              : "bg-muted"
                           }`}
                         />
                         {validationErrors.deliveryDate && (
@@ -2031,12 +2037,15 @@ export default function SalesOrder({ onSuccess }: Props) {
                           type="text"
                           value={formData.salesPerson || ""}
                           readOnly
+                          placeholder="Select Customer"
                           className="text-sm w-full px-2 py-1 border border-border bg-muted text-muted-foreground"
                         />
                       </div>
                       {/* Warehouse */}
                       <div className="flex flex-col flex-1 min-w-[200px]">
-                        <Label htmlFor="create-warehouse">Warehouse</Label>
+                        <Label htmlFor="create-warehouse">
+                          Warehouse <span className="text-red-500">*</span>
+                        </Label>
                         <div className="relative">
                           <Input
                             id="create-warehouse"
@@ -2062,8 +2071,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                                 200
                               )
                             }
-                            placeholder="Search warehouse"
-                            className={`text-sm uppercase w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
+                            placeholder="Search Warehouse"
+                            className={`text-sm  w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
                               validationErrors.warehouse
                                 ? "border-destructive"
                                 : ""
@@ -2136,7 +2145,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                     </div>
                     <div className="flex flex-col flex-[2] min-w-[300px]">
                       <Label htmlFor="create-shippingAddress">
-                        Shipping Address
+                        Shipping Address <span className="text-red-500">*</span>
                       </Label>
                       <Textarea
                         id="create-shippingAddress"
@@ -2197,7 +2206,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                 </div>
                 {formData.warehouse && (
                   <>
-                    <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
+                    <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_20px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
                       {/* Item Code */}
                       <div className="text-xs font-semibold uppercase text-start px-2">
                         Item Code
@@ -2209,12 +2218,12 @@ export default function SalesOrder({ onSuccess }: Props) {
                       </div>
 
                       {/* Quantity */}
-                      <div className="text-xs font-semibold uppercase text-end px-2">
+                      <div className="text-xs font-semibold uppercase text-end">
                         Qty
                       </div>
 
                       {/* Unit of Measure */}
-                      <div className="text-xs font-semibold uppercase text-start px-2">
+                      <div className="text-xs font-semibold uppercase text-start">
                         UOM
                       </div>
 
@@ -2255,7 +2264,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                         {itemsData.map((item, index) => (
                           <div
                             key={index}
-                            className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
+                            className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center  border-border text-sm m-0">
                             {/* Item Code */}
                             <input
                               type="text"
@@ -2491,11 +2500,12 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                             {/* Trash Button */}
                             <Button
-                              variant="destructive"
-                              className="w-full h-[32px] px-1 text-xs border border-border bg-red-50 hover:bg-red-100 text-red-700 rounded transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus:ring-1 focus:ring-red-400 flex items-center justify-center"
+                              variant="ghost"
+                              size="icon"
+                              className="text-red-600 hover:text-red-800 pb-1"
                               onClick={() => handleRemoveItem(index)}
                               title="Remove item">
-                              <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
+                              <Trash2 className="w-4 h-4" />
                             </Button>
                           </div>
                         ))}
@@ -2503,14 +2513,20 @@ export default function SalesOrder({ onSuccess }: Props) {
                     )}
 
                     {/* Left: Add Item */}
-                    <Button onClick={handleAddItem}>Add Item</Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      onClick={handleAddItem}
+                      className="w-fit text-sm">
+                      + Add Item
+                    </Button>
 
                     <div className="w-full mt-8 overflow-x-auto">
-                      <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 border-b pb-2">
+                      <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 border-t py-2 text-end">
                         Order Summary
                       </h3>
 
-                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 mt-8">
+                      <div className="grid grid-cols-1 md:grid-cols-4 gap-6 my-4">
                         {/* Placeholder for Column 1 */}
                         <div className="hidden md:block" />
 
@@ -2518,112 +2534,119 @@ export default function SalesOrder({ onSuccess }: Props) {
                         <div className="hidden md:block" />
 
                         {/* Third Column: Metrics */}
-                        <table className="w-full border border-border rounded-lg overflow-hidden text-sm">
-                          <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                            <tr>
-                              <th className="px-4 py-2 text-left">Metric</th>
-                              <th className="px-4 py-2 text-right">Value</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr className="border-t">
-                              <td className="px-4 py-2">Total Quantity</td>
-                              <td className="px-4 py-2 text-right">
-                                {formData.items.reduce(
-                                  (sum, item) =>
-                                    sum + Number(item.quantity || 0),
-                                  0
-                                )}
-                              </td>
-                            </tr>
-                            <tr className="border-t">
-                              <td className="px-4 py-2">Total Weight</td>
-                              <td className="px-4 py-2 text-right">
-                                {formattedWeight}
-                              </td>
-                            </tr>
-                            <tr className="border-t">
-                              <td className="px-4 py-2">Total CBM</td>
-                              <td className="px-4 py-2 text-right">
-                                {formattedCBM}
-                              </td>
-                            </tr>
-                            <tr className="border-t">
-                              <td className="px-4 py-2">UOM</td>
-                              <td className="px-4 py-2 text-right">
-                                {Array.from(
-                                  new Set(
-                                    formData.items.map((item) =>
-                                      item.unitType?.trim().toUpperCase()
+                        <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                          <table className="w-full border border-border rounded-lg overflow-hidden text-sm">
+                            <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                              <tr>
+                                <th className="px-4 py-2 text-left">Metric</th>
+                                <th className="px-4 py-2 text-right">Value</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-t">
+                                <td className="px-4 py-2">Total Quantity</td>
+                                <td className="px-4 py-2 text-right">
+                                  {formData.items.reduce(
+                                    (sum, item) =>
+                                      sum + Number(item.quantity || 0),
+                                    0
+                                  )}
+                                </td>
+                              </tr>
+                              <tr className="border-t">
+                                <td className="px-4 py-2">Total Weight</td>
+                                <td className="px-4 py-2 text-right">
+                                  {formattedWeight}
+                                </td>
+                              </tr>
+                              <tr className="border-t">
+                                <td className="px-4 py-2">Total CBM</td>
+                                <td className="px-4 py-2 text-right">
+                                  {formattedCBM}
+                                </td>
+                              </tr>
+                              <tr className="border-t">
+                                <td className="px-4 py-2">UOM</td>
+                                <td className="px-4 py-2 text-right">
+                                  {Array.from(
+                                    new Set(
+                                      formData.items.map((item) =>
+                                        item.unitType?.trim().toUpperCase()
+                                      )
                                     )
                                   )
-                                )
-                                  .filter(Boolean)
-                                  .join(", ")}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
+                                    .filter(Boolean)
+                                    .join(", ")}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
 
                         {/* Fourth Column: Financials */}
-                        <table className="w-full border border-border rounded-lg overflow-hidden text-sm">
-                          <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                            <tr>
-                              <th className="px-4 py-2 text-left">Breakdown</th>
-                              <th className="px-4 py-2 text-right">Amount</th>
-                            </tr>
-                          </thead>
-                          <tbody>
-                            <tr className="border-t">
-                              <td className="px-4 py-2">Gross Amount</td>
-                              <td className="px-4 py-2 text-right">
-                                {formattedTotal}
-                              </td>
-                            </tr>
-                            {/* First row: label + first discount */}
-                            <tr className="border-t bg-muted/10">
-                              <td className="px-4 py-2 font-medium text-muted-foreground">
-                                Discounts (%)
-                              </td>
-                              <td className="px-4 py-2 text-right text-foreground text-sm">
-                                {typeof formData.discountBreakdown?.[0]
-                                  ?.rate === "number"
-                                  ? `${parseFloat(
-                                      (
-                                        formData.discountBreakdown[0].rate * 100
-                                      ).toFixed(2)
-                                    )}%`
-                                  : "0.00%"}
-                              </td>
-                            </tr>
+                        <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                          <table className="w-full border border-border rounded-lg overflow-hidden text-sm">
+                            <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                              <tr>
+                                <th className="px-4 py-2 text-left">
+                                  Breakdown
+                                </th>
+                                <th className="px-4 py-2 text-right">Amount</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              <tr className="border-t">
+                                <td className="px-4 py-2">Gross Amount</td>
+                                <td className="px-4 py-2 text-right">
+                                  {formattedTotal}
+                                </td>
+                              </tr>
+                              {/* First row: label + first discount */}
+                              <tr className="border-t bg-muted/10">
+                                <td className="px-4 py-2 font-medium text-muted-foreground">
+                                  Discounts (%)
+                                </td>
+                                <td className="px-4 py-2 text-right text-foreground text-sm">
+                                  {typeof formData.discountBreakdown?.[0]
+                                    ?.rate === "number"
+                                    ? `${parseFloat(
+                                        (
+                                          formData.discountBreakdown[0].rate *
+                                          100
+                                        ).toFixed(2)
+                                      )}%`
+                                    : "0.00%"}
+                                </td>
+                              </tr>
 
-                            {formData.discountBreakdown
-                              .slice(1)
-                              .map((step, index) => (
-                                <tr
-                                  key={index}
-                                  className="border-t bg-muted/10">
-                                  <td className="px-4 py-2"></td>
-                                  <td className="px-4 py-2 text-right text-foreground text-sm">
-                                    {typeof step.rate === "number"
-                                      ? `${parseFloat(
-                                          (step.rate * 100).toFixed(2)
-                                        )}%`
-                                      : "0.00%"}
-                                  </td>
-                                </tr>
-                              ))}
+                              {formData.discountBreakdown
+                                .slice(1)
+                                .map((step, index) => (
+                                  <tr
+                                    key={index}
+                                    className="border-t bg-muted/10">
+                                    <td className="px-4 py-2"></td>
+                                    <td className="px-4 py-2 text-right text-foreground text-sm">
+                                      {typeof step.rate === "number"
+                                        ? `${parseFloat(
+                                            (step.rate * 100).toFixed(2)
+                                          )}%`
+                                        : "0.00%"}
+                                    </td>
+                                  </tr>
+                                ))}
 
-                            <tr className="border-t">
-                              <td className="px-4 py-2 font-medium text-primary">
-                                Net Amount
-                              </td>
-                              <td className="px-4 py-2 text-right font-bold text-primary">
-                                {formattedNetTotal}
-                              </td>
-                            </tr>
-                          </tbody>
-                        </table>
+                              <tr className="border-t">
+                                <td className="px-4 py-2 font-medium text-primary">
+                                  Net Amount
+                                </td>
+                                <td className="px-4 py-2 text-right font-bold text-primary">
+                                  {formattedNetTotal}
+                                </td>
+                              </tr>
+                            </tbody>
+                          </table>
+                        </div>
                       </div>
                     </div>
                   </>
@@ -2633,7 +2656,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                   <div className="flex w-full justify-end items-center gap-2">
                     {/* Cancel Button */}
                     <Button
-                      variant="ghost"
+                      variant="outline"
                       onClick={() => {
                         setIsCreateDialogOpen(false);
                         resetForm();
@@ -2652,11 +2675,11 @@ export default function SalesOrder({ onSuccess }: Props) {
                         }
                         className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                         aria-label="Save">
-                        💾 Save
+                        Create
                       </Button>
 
                       {/* Dropdown for More Actions */}
-                      <DropdownMenu>
+                      {/* <DropdownMenu>
                         <DropdownMenuTrigger asChild>
                           <Button
                             className="bg-muted text-foreground hover:bg-muted/80 px-3 py-2 rounded-md shadow-sm transition-colors duration-150"
@@ -2687,7 +2710,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                             🆕 Save & New
                           </DropdownMenuItem>
                         </DropdownMenuContent>
-                      </DropdownMenu>
+                      </DropdownMenu> */}
                     </div>
                   </div>
                 </DialogFooter>
@@ -2898,6 +2921,23 @@ export default function SalesOrder({ onSuccess }: Props) {
                               </AlertDialog>
                             </>
                           )}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Export as PDF"
+                            aria-label={`Export SO ${so.soNumber} to PDF`}
+                            onClick={() =>
+                              handleExportPDF(so.items, {
+                                soNumber: so.soNumber,
+                                customer: so.customer,
+                                salesPerson: so.salesPerson,
+                                warehouse: so.warehouse,
+                                status: so.status,
+                                notes: so.notes,
+                              })
+                            }>
+                            <Download className="w-4 h-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>
@@ -2959,10 +2999,15 @@ export default function SalesOrder({ onSuccess }: Props) {
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogPanel className="max-h-[80vh] overflow-y-auto px-6 py-4">
           {/* Header */}
-          <DialogHeader className="border-b pb-4">
-            <DialogTitle className="text-xl font-semibold tracking-tight">
+          <DialogHeader className="border-b pb-2">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
               Edit Sales Order
             </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Fill in the order details. Fields marked with{" "}
+              <span className="text-red-500">* </span>
+              are required.
+            </DialogDescription>
           </DialogHeader>
 
           {/* Form Content Slot (optional placeholder) */}
@@ -3145,7 +3190,9 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                 {/* Delivery Date */}
                 <div className="flex flex-col flex-1 min-w-[240px]">
-                  <Label htmlFor="edit-deliveryDate">Delivery Date</Label>
+                  <Label htmlFor="edit-deliveryDate">
+                    Delivery Date<span className="text-red-500">*</span>
+                  </Label>
                   <Input
                     type="date"
                     id="edit-deliveryDate"
@@ -3164,7 +3211,9 @@ export default function SalesOrder({ onSuccess }: Props) {
                     }}
                     placeholder="Enter delivery date"
                     className={`text-sm pr-2 appearance-none bg-[url('data:image/svg+xml;utf8,<svg fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg"><path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path></svg>')] bg-no-repeat bg-right bg-[length:1.25rem_1.25rem] ${
-                      validationErrors.deliveryDate ? "border-destructive" : ""
+                      validationErrors.deliveryDate
+                        ? "border-destructive muted"
+                        : "bg-muted"
                     }`}
                   />
                   {validationErrors.deliveryDate && (
@@ -3190,7 +3239,9 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                 {/* Warehouse */}
                 <div className="flex flex-col flex-1 min-w-[200px]">
-                  <Label htmlFor="edit-warehouse">Warehouse</Label>
+                  <Label htmlFor="edit-warehouse">
+                    Warehouse<span className="text-red-500">*</span>
+                  </Label>
                   <div className="relative">
                     <Input
                       id="edit-warehouse"
@@ -3283,7 +3334,9 @@ export default function SalesOrder({ onSuccess }: Props) {
 
               {/* Shipping Address */}
               <div className="flex flex-col flex-[2] min-w-[300px]">
-                <Label htmlFor="edit-shippingAddress">Shipping Address</Label>
+                <Label htmlFor="edit-shippingAddress">
+                  Shipping Address<span className="text-red-500">*</span>
+                </Label>
                 <Textarea
                   id="edit-shippingAddress"
                   value={formData.shippingAddress}
@@ -3342,24 +3395,24 @@ export default function SalesOrder({ onSuccess }: Props) {
           </div>
           {formData.warehouse && (
             <>
-              <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
+              <div className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_20px] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
                 {/* Item Code */}
                 <div className="text-xs font-semibold uppercase text-start px-2">
                   Item Code
                 </div>
 
                 {/* Item Name */}
-                <div className="text-xs font-semibold uppercase text-start px-2">
+                <div className="text-xs font-semibold uppercase text-start">
                   Item Name
                 </div>
 
                 {/* Quantity */}
-                <div className="text-xs font-semibold uppercase text-end px-2">
+                <div className="text-xs font-semibold uppercase text-end">
                   Qty
                 </div>
 
                 {/* Unit of Measure */}
-                <div className="text-xs font-semibold uppercase text-start px-2">
+                <div className="text-xs font-semibold uppercase text-start ">
                   UOM
                 </div>
 
@@ -3401,7 +3454,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                     itemsData.map((item, index) => (
                       <div
                         key={index}
-                        className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-t border-border text-sm m-0">
+                        className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-border text-sm m-0">
                         {/* Item Code */}
                         <input
                           type="text"
@@ -3624,11 +3677,12 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                         {/* Trash Button */}
                         <Button
-                          variant="destructive"
-                          className="w-full h-[32px] px-1 text-xs border border-border bg-red-50 hover:bg-red-100 text-red-700 rounded transition-all duration-200 ease-in-out hover:scale-105 focus:outline-none focus:ring-1 focus:ring-red-400 flex items-center justify-center"
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-600 hover:text-red-800 pb-1"
                           onClick={() => handleRemoveItem(index)}
                           title="Remove item">
-                          <Trash2 className="w-4 h-4 transition-transform duration-200 group-hover:rotate-12" />
+                          <Trash2 className="w-4 h-4" />
                         </Button>
                       </div>
                     ))}
@@ -3636,107 +3690,135 @@ export default function SalesOrder({ onSuccess }: Props) {
               )}
 
               {/* Left: Add Item */}
-              <Button onClick={handleAddItem}>Add Item</Button>
+              <Button
+                type="button"
+                variant="ghost"
+                onClick={handleAddItem}
+                className="w-fit text-sm">
+                + Add Item
+              </Button>
 
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6 px-6 mt-6">
-                {/* Column 1: Spacer */}
-                <div className="hidden md:block" />
+              <div className="w-full mt-8 overflow-x-auto">
+                <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 border-t py-2 text-end">
+                  Order Summary
+                </h3>
 
-                {/* Column 2: Spacer */}
-                <div className="hidden md:block" />
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 my-4">
+                  {/* Placeholder for Column 1 */}
+                  <div className="hidden md:block" />
 
-                {/* Column 3: Metrics */}
-                <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
-                  <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                    <tr>
-                      <th className="px-4 py-2 text-left">Metric</th>
-                      <th className="px-4 py-2 text-right">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Total Quantity</td>
-                      <td className="px-4 py-2 text-right">
-                        {formData.totalQuantity}
-                      </td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Total Weight</td>
-                      <td className="px-4 py-2 text-right">
-                        {formattedWeight}
-                      </td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Total CBM</td>
-                      <td className="px-4 py-2 text-right">{formattedCBM}</td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">UOM</td>
-                      <td className="px-4 py-2 text-right">
-                        {Array.from(
-                          new Set(
-                            formData.items.map((item) =>
-                              item.unitType?.trim().toUpperCase()
+                  {/* Placeholder for Column 2 */}
+                  <div className="hidden md:block" />
+
+                  {/* Third Column: Metrics */}
+                  <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                        <tr>
+                          <th className="px-4 py-2 text-left">Metric</th>
+                          <th className="px-4 py-2 text-right">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t">
+                          <td className="px-4 py-2">Total Quantity</td>
+                          <td className="px-4 py-2 text-right">
+                            {formData.items.reduce(
+                              (sum, item) => sum + Number(item.quantity || 0),
+                              0
+                            )}
+                          </td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-4 py-2">Total Weight</td>
+                          <td className="px-4 py-2 text-right">
+                            {formattedWeight}
+                          </td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-4 py-2">Total CBM</td>
+                          <td className="px-4 py-2 text-right">
+                            {formattedCBM}
+                          </td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-4 py-2">UOM</td>
+                          <td className="px-4 py-2 text-right">
+                            {Array.from(
+                              new Set(
+                                formData.items.map((item) =>
+                                  item.unitType?.trim().toUpperCase()
+                                )
+                              )
                             )
-                          )
-                        )
-                          .filter(Boolean)
-                          .join(", ")}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                              .filter(Boolean)
+                              .join(", ")}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
 
-                {/* Column 4: Financials */}
-                <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
-                  <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                    <tr>
-                      <th className="px-4 py-2 text-left">Breakdown</th>
-                      <th className="px-4 py-2 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Gross Amount</td>
-                      <td className="px-4 py-2 text-right">{formattedTotal}</td>
-                    </tr>
-                    <tr className="border-t bg-muted/10">
-                      <td className="px-4 py-2 font-medium text-muted-foreground">
-                        Discounts (%)
-                      </td>
-                      <td className="px-4 py-2 text-right text-foreground text-sm">
-                        {typeof formData.discountBreakdown?.[0]?.rate ===
-                        "number"
-                          ? `${parseFloat(
-                              (
-                                formData.discountBreakdown[0].rate * 100
-                              ).toFixed(2)
-                            )}%`
-                          : "0%"}
-                      </td>
-                    </tr>
+                  {/* Fourth Column: Financials */}
+                  <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                        <tr>
+                          <th className="px-4 py-2 text-left">Breakdown</th>
+                          <th className="px-4 py-2 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t">
+                          <td className="px-4 py-2">Gross Amount</td>
+                          <td className="px-4 py-2 text-right">
+                            {formattedTotal}
+                          </td>
+                        </tr>
+                        {/* First row: label + first discount */}
+                        <tr className="border-t bg-muted/10">
+                          <td className="px-4 py-2 font-medium text-muted-foreground">
+                            Discounts (%)
+                          </td>
+                          <td className="px-4 py-2 text-right text-foreground text-sm">
+                            {typeof formData.discountBreakdown?.[0]?.rate ===
+                            "number"
+                              ? `${parseFloat(
+                                  (
+                                    formData.discountBreakdown[0].rate * 100
+                                  ).toFixed(2)
+                                )}%`
+                              : "0.00%"}
+                          </td>
+                        </tr>
 
-                    {formData.discountBreakdown.slice(1).map((step, index) => (
-                      <tr key={index} className="border-t bg-muted/10">
-                        <td className="px-4 py-2"></td>
-                        <td className="px-4 py-2 text-right text-foreground text-sm">
-                          {typeof step.rate === "number"
-                            ? `${parseFloat((step.rate * 100).toFixed(2))}%`
-                            : "0%"}
-                        </td>
-                      </tr>
-                    ))}
+                        {formData.discountBreakdown
+                          .slice(1)
+                          .map((step, index) => (
+                            <tr key={index} className="border-t bg-muted/10">
+                              <td className="px-4 py-2"></td>
+                              <td className="px-4 py-2 text-right text-foreground text-sm">
+                                {typeof step.rate === "number"
+                                  ? `${parseFloat(
+                                      (step.rate * 100).toFixed(2)
+                                    )}%`
+                                  : "0.00%"}
+                              </td>
+                            </tr>
+                          ))}
 
-                    <tr className="border-t">
-                      <td className="px-4 py-2 font-medium text-primary">
-                        Net Amount
-                      </td>
-                      <td className="px-4 py-2 text-right font-bold text-primary">
-                        {formattedNetTotal}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                        <tr className="border-t">
+                          <td className="px-4 py-2 font-medium text-primary">
+                            Net Amount
+                          </td>
+                          <td className="px-4 py-2 text-right font-bold text-primary">
+                            {formattedNetTotal}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
             </>
           )}
@@ -3744,7 +3826,7 @@ export default function SalesOrder({ onSuccess }: Props) {
             <div className="flex w-full justify-end items-center gap-2">
               {/* Cancel Button */}
               <Button
-                variant="ghost"
+                variant="outline"
                 onClick={() => {
                   setIsEditDialogOpen(false);
                   resetForm();
@@ -3763,11 +3845,11 @@ export default function SalesOrder({ onSuccess }: Props) {
                   }
                   className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                   aria-label="Save changes">
-                  💾 Save Changes
+                  Save Changes
                 </Button>
 
                 {/* Dropdown for More Actions */}
-                <DropdownMenu>
+                {/* <DropdownMenu>
                   <DropdownMenuTrigger asChild>
                     <Button
                       className="bg-muted text-foreground hover:bg-muted/80 px-3 py-2 rounded-md shadow-sm transition-colors duration-150"
@@ -3784,9 +3866,9 @@ export default function SalesOrder({ onSuccess }: Props) {
                       Additional actions
                     </DropdownMenuLabel>
 
-                    <DropdownMenuSeparator />
+                    <DropdownMenuSeparator /> */}
 
-                    {/* <DropdownMenuItem
+                {/* <DropdownMenuItem
             onClick={handleSaveAndDuplicate}
             disabled={
               !formData.items.length ||
@@ -3796,8 +3878,8 @@ export default function SalesOrder({ onSuccess }: Props) {
           >
             📄 Save & Duplicate
           </DropdownMenuItem> */}
-                  </DropdownMenuContent>
-                </DropdownMenu>
+                {/* </DropdownMenuContent>
+                </DropdownMenu> */}
               </div>
             </div>
           </DialogFooter>
@@ -3948,108 +4030,128 @@ export default function SalesOrder({ onSuccess }: Props) {
               </div>
 
               {/* Summary Section - 4 Column Grid with Spacers */}
-              <div className="grid grid-cols-1 md:grid-cols-4 gap-6  mt-6">
-                <div className="hidden md:block" />
-                <div className="hidden md:block" />
+              <div className="w-full mt-8 overflow-x-auto">
+                <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 border-t py-2 text-end">
+                  Order Summary
+                </h3>
 
-                {/* Metrics */}
-                <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
-                  <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                    <tr>
-                      <th className="px-4 py-2 text-left">Metric</th>
-                      <th className="px-4 py-2 text-right">Value</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Total Quantity</td>
-                      <td className="px-4 py-2 text-right">
-                        {formData.totalQuantity}
-                      </td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Total Weight</td>
-                      <td className="px-4 py-2 text-right">
-                        {formData.formattedWeight}
-                      </td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Total CBM</td>
-                      <td className="px-4 py-2 text-right">
-                        {formData.formattedCBM}
-                      </td>
-                    </tr>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">UOM</td>
-                      <td className="px-4 py-2 text-right">
-                        {Array.from(
-                          new Set(
-                            formData.items.map((item) =>
-                              item.unitType?.trim().toUpperCase()
+                <div className="grid grid-cols-1 md:grid-cols-4 gap-6 my-4">
+                  {/* Placeholder for Column 1 */}
+                  <div className="hidden md:block" />
+
+                  {/* Placeholder for Column 2 */}
+                  <div className="hidden md:block" />
+
+                  {/* Third Column: Metrics */}
+                  <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                        <tr>
+                          <th className="px-4 py-2 text-left">Metric</th>
+                          <th className="px-4 py-2 text-right">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t">
+                          <td className="px-4 py-2">Total Quantity</td>
+                          <td className="px-4 py-2 text-right">
+                            {formData.items.reduce(
+                              (sum, item) => sum + Number(item.quantity || 0),
+                              0
+                            )}
+                          </td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-4 py-2">Total Weight</td>
+                          <td className="px-4 py-2 text-right">
+                            {formattedWeight}
+                          </td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-4 py-2">Total CBM</td>
+                          <td className="px-4 py-2 text-right">
+                            {formattedCBM}
+                          </td>
+                        </tr>
+                        <tr className="border-t">
+                          <td className="px-4 py-2">UOM</td>
+                          <td className="px-4 py-2 text-right">
+                            {Array.from(
+                              new Set(
+                                formData.items.map((item) =>
+                                  item.unitType?.trim().toUpperCase()
+                                )
+                              )
                             )
-                          )
-                        )
-                          .filter(Boolean)
-                          .join(", ")}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                              .filter(Boolean)
+                              .join(", ")}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
 
-                {/* Financials */}
-                <table className="w-full border border-border rounded-md overflow-hidden text-sm bg-card shadow-sm">
-                  <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                    <tr>
-                      <th className="px-4 py-2 text-left">Breakdown</th>
-                      <th className="px-4 py-2 text-right">Amount</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    <tr className="border-t">
-                      <td className="px-4 py-2">Gross Amount</td>
-                      <td className="px-4 py-2 text-right">
-                        {formData.formattedTotal}
-                      </td>
-                    </tr>
-                    <tr className="border-t bg-muted/10">
-                      <td className="px-4 py-2 font-medium text-muted-foreground">
-                        Discounts (%)
-                      </td>
-                      <td className="px-4 py-2 text-right text-foreground text-sm">
-                        {typeof formData.discountBreakdown?.[0]?.rate ===
-                        "number"
-                          ? `${parseFloat(
-                              (
-                                formData.discountBreakdown[0].rate * 100
-                              ).toFixed(2)
-                            )}%`
-                          : "0%"}
-                      </td>
-                    </tr>
+                  {/* Fourth Column: Financials */}
+                  <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                        <tr>
+                          <th className="px-4 py-2 text-left">Breakdown</th>
+                          <th className="px-4 py-2 text-right">Amount</th>
+                        </tr>
+                      </thead>
+                      <tbody>
+                        <tr className="border-t">
+                          <td className="px-4 py-2">Gross Amount</td>
+                          <td className="px-4 py-2 text-right">
+                            {formattedTotal}
+                          </td>
+                        </tr>
+                        {/* First row: label + first discount */}
+                        <tr className="border-t bg-muted/10">
+                          <td className="px-4 py-2 font-medium text-muted-foreground">
+                            Discounts (%)
+                          </td>
+                          <td className="px-4 py-2 text-right text-foreground text-sm">
+                            {typeof formData.discountBreakdown?.[0]?.rate ===
+                            "number"
+                              ? `${parseFloat(
+                                  (
+                                    formData.discountBreakdown[0].rate * 100
+                                  ).toFixed(2)
+                                )}%`
+                              : "0.00%"}
+                          </td>
+                        </tr>
 
-                    {formData.discountBreakdown.slice(1).map((step, index) => (
-                      <tr key={index} className="border-t bg-muted/10">
-                        <td className="px-4 py-2"></td>
-                        <td className="px-4 py-2 text-right text-foreground text-sm">
-                          {typeof step.rate === "number"
-                            ? `${parseFloat((step.rate * 100).toFixed(2))}%`
-                            : "0%"}
-                        </td>
-                      </tr>
-                    ))}
+                        {formData.discountBreakdown
+                          .slice(1)
+                          .map((step, index) => (
+                            <tr key={index} className="border-t bg-muted/10">
+                              <td className="px-4 py-2"></td>
+                              <td className="px-4 py-2 text-right text-foreground text-sm">
+                                {typeof step.rate === "number"
+                                  ? `${parseFloat(
+                                      (step.rate * 100).toFixed(2)
+                                    )}%`
+                                  : "0.00%"}
+                              </td>
+                            </tr>
+                          ))}
 
-                    <tr className="border-t">
-                      <td className="px-4 py-2 font-medium text-primary">
-                        Net Amount
-                      </td>
-                      <td className="px-4 py-2 text-right font-bold text-primary">
-                        {formData.formattedNetTotal}
-                      </td>
-                    </tr>
-                  </tbody>
-                </table>
+                        <tr className="border-t">
+                          <td className="px-4 py-2 font-medium text-primary">
+                            Net Amount
+                          </td>
+                          <td className="px-4 py-2 text-right font-bold text-primary">
+                            {formattedNetTotal}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                </div>
               </div>
-
               {/* Footer */}
               <DialogFooter className="py-4 border-t border-border flex justify-end">
                 <Button
