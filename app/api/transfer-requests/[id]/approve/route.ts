@@ -82,6 +82,7 @@ async function processTransferItem({
           outQty: quantity,
           currentOnhand: sourceFinal,
           particulars: `Transferred to ${requestingWarehouse}`,
+          activity: "TRANSFER",
           date: new Date().toISOString(),
           receivedAt: new Date(),
         },

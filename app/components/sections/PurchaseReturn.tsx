@@ -553,126 +553,135 @@ export default function PurchaseReturn({ onSuccess }: Props) {
     setIsEditDialogOpen(true);
   };
 
-  const handleUpdate = async () => {
-    if (!editingReturn || !validateForm(true)) {
-      console.warn("Validation failed or editingReturn is missing:", {
-        editingReturn,
-      });
-      return;
-    }
+  // const handleUpdate = async () => {
+  //   if (!editingReturn || !validateForm(true)) {
+  //     console.warn("Validation failed or editingReturn is missing:", {
+  //       editingReturn,
+  //     });
+  //     return;
+  //   }
 
-    const normalizedItems = formData.items.map((item) => ({
-      itemCode: item.itemCode?.trim().toUpperCase() || "",
-      itemName: item.itemName?.trim().toUpperCase() || "UNNAMED",
-      unitType: item.unitType?.trim().toUpperCase() || "",
-      purchasePrice: Number(item.purchasePrice),
-      quantity: Number(item.quantity),
-      amount: Number(item.quantity) * Number(item.purchasePrice),
-    }));
+  //   const normalizedItems = formData.items.map((item) => ({
+  //     itemCode: item.itemCode?.trim().toUpperCase() || "",
+  //     itemName: item.itemName?.trim().toUpperCase() || "UNNAMED",
+  //     unitType: item.unitType?.trim().toUpperCase() || "",
+  //     purchasePrice: Number(item.purchasePrice),
+  //     quantity: Number(item.quantity),
+  //     amount: Number(item.quantity) * Number(item.purchasePrice),
+  //   }));
 
-    const payload = {
-      prNumber: formData.prNumber.trim().toUpperCase(),
-      supplierName: formData.supplierName.trim().toUpperCase(),
-      reason: formData.reason.trim(),
-      notes: formData.notes?.trim() || "",
-      status: allowedStatuses.includes(
-        formData.status?.trim().toUpperCase() as PurchaseReturnType["status"]
-      )
-        ? (formData.status
-            ?.trim()
-            .toUpperCase() as PurchaseReturnType["status"])
-        : "RETURNED",
-      items: normalizedItems,
+  //   const payload = {
+  //     prNumber: formData.prNumber.trim().toUpperCase(),
+  //     supplierName: formData.supplierName.trim().toUpperCase(),
+  //     reason: formData.reason.trim(),
+  //     notes: formData.notes?.trim() || "",
+  //     status: allowedStatuses.includes(
+  //       formData.status?.trim().toUpperCase() as PurchaseReturnType["status"]
+  //     )
+  //       ? (formData.status
+  //           ?.trim()
+  //           .toUpperCase() as PurchaseReturnType["status"])
+  //       : "RETURNED",
+  //     items: normalizedItems,
+  //   };
+
+  //   console.log("🔄 Sending update payload:", payload);
+
+  //   try {
+  //     const res = await fetch(`/api/purchase-returns/${editingReturn._id}`, {
+  //       method: "PUT",
+  //       headers: {
+  //         "Content-Type": "application/json",
+  //       },
+  //       body: JSON.stringify(payload),
+  //     });
+
+  //     console.log("📡 Response status:", res.status);
+  //     const text = await res.text();
+  //     console.log("📨 Raw response body:", text);
+
+  //     if (!res.ok) {
+  //       console.error("❌ Update failed:", res.status, text);
+  //       alert(`Update failed: ${text}`);
+  //       return;
+  //     }
+
+  //     let updatedReturn: PurchaseReturnType;
+  //     try {
+  //       updatedReturn = JSON.parse(text);
+  //     } catch (parseErr) {
+  //       console.error("⚠️ Failed to parse JSON:", parseErr, text);
+  //       alert("Unexpected server response. Please try again.");
+  //       return;
+  //     }
+
+  //     console.log("✅ Parsed updated return:", updatedReturn);
+
+  //     setPurchaseReturns((prev) =>
+  //       prev.map((ret) => (ret._id === updatedReturn._id ? updatedReturn : ret))
+  //     );
+  //   } catch (err) {
+  //     console.error("🔥 Network or unexpected error:", err);
+  //     alert("Something went wrong while updating the purchase return.");
+  //     return;
+  //   }
+
+  //   // Reset form and close dialog
+  //   setEditingReturn(null);
+  //   setFormData({
+  //     returnNumber: "",
+  //     prNumber: "",
+  //     supplierName: "",
+  //     reason: "",
+  //     notes: "",
+  //     status: "RETURNED",
+  //     items: [],
+  //     receiptQty: 0,
+  //     qtyLeft: 0,
+  //   });
+
+  //   setValidationErrors(defaultValidationErrors);
+  //   setIsEditDialogOpen(false);
+  // };
+  // const handleDelete = async (returnId: string) => {
+  //   if (!returnId || typeof returnId !== "string") {
+  //     console.warn("Invalid return ID:", returnId);
+  //     toast.error("Invalid purchase return ID");
+  //     return;
+  //   }
+
+  //   try {
+  //     const res = await fetch(`/api/purchase-returns/${returnId}`, {
+  //       method: "DELETE",
+  //     });
+
+  //     if (!res.ok) {
+  //       const error = await res.json();
+  //       throw new Error(error?.error || "Failed to delete purchase return");
+  //     }
+
+  //     // Remove from local state
+  //     setPurchaseReturns((prev) => prev.filter((ret) => ret._id !== returnId));
+
+  //     console.log("✅ Deleted purchase return:", returnId);
+  //     toast.success(`Purchase return #${returnId} deleted`);
+  //   } catch (error) {
+  //     console.error("❌ Error deleting purchase return:", error);
+  //     toast.error(`Failed to delete return #${returnId}`);
+  //   }
+  // };
+
+  const handleView = (ret: PurchaseReturnResponse) => {
+    const normalized: PurchaseReturnType = {
+      ...ret,
+      items: ret.items.map((item) => ({
+        ...item,
+        amount: item.amount ?? item.quantity * item.purchasePrice,
+      })),
+      createdAt: ret.createdAt ?? new Date().toISOString(),
     };
 
-    console.log("🔄 Sending update payload:", payload);
-
-    try {
-      const res = await fetch(`/api/purchase-returns/${editingReturn._id}`, {
-        method: "PUT",
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
-
-      console.log("📡 Response status:", res.status);
-      const text = await res.text();
-      console.log("📨 Raw response body:", text);
-
-      if (!res.ok) {
-        console.error("❌ Update failed:", res.status, text);
-        alert(`Update failed: ${text}`);
-        return;
-      }
-
-      let updatedReturn: PurchaseReturnType;
-      try {
-        updatedReturn = JSON.parse(text);
-      } catch (parseErr) {
-        console.error("⚠️ Failed to parse JSON:", parseErr, text);
-        alert("Unexpected server response. Please try again.");
-        return;
-      }
-
-      console.log("✅ Parsed updated return:", updatedReturn);
-
-      setPurchaseReturns((prev) =>
-        prev.map((ret) => (ret._id === updatedReturn._id ? updatedReturn : ret))
-      );
-    } catch (err) {
-      console.error("🔥 Network or unexpected error:", err);
-      alert("Something went wrong while updating the purchase return.");
-      return;
-    }
-
-    // Reset form and close dialog
-    setEditingReturn(null);
-    setFormData({
-      returnNumber: "",
-      prNumber: "",
-      supplierName: "",
-      reason: "",
-      notes: "",
-      status: "RETURNED",
-      items: [],
-      receiptQty: 0,
-      qtyLeft: 0,
-    });
-
-    setValidationErrors(defaultValidationErrors);
-    setIsEditDialogOpen(false);
-  };
-  const handleDelete = async (returnId: string) => {
-    if (!returnId || typeof returnId !== "string") {
-      console.warn("Invalid return ID:", returnId);
-      toast.error("Invalid purchase return ID");
-      return;
-    }
-
-    try {
-      const res = await fetch(`/api/purchase-returns/${returnId}`, {
-        method: "DELETE",
-      });
-
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error?.error || "Failed to delete purchase return");
-      }
-
-      // Remove from local state
-      setPurchaseReturns((prev) => prev.filter((ret) => ret._id !== returnId));
-
-      console.log("✅ Deleted purchase return:", returnId);
-      toast.success(`Purchase return #${returnId} deleted`);
-    } catch (error) {
-      console.error("❌ Error deleting purchase return:", error);
-      toast.error(`Failed to delete return #${returnId}`);
-    }
-  };
-
-  const handleView = (ret: PurchaseReturnType) => {
-    setViewingReturn(ret);
+    setViewingReturn(normalized);
     setIsViewDialogOpen(true);
   };
 
@@ -1876,7 +1885,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                         <TableCell>{ret.prNumber || "—"}</TableCell>
                         <TableCell>
                           <span
-                            className={`inline-block text-sm font-medium px-2 py-1 rounded-full ${
+                            className={`inline-block text-sm font-medium  py-1 rounded-full ${
                               ret.status === "RETURNED"
                                 ? "inline-flex items-center gap-1 text-green-600"
                                 : ret.status === "APPROVED"
@@ -1891,54 +1900,18 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                           </span>
                         </TableCell>
                         <TableCell>
-                          {/* <div className="flex gap-1">
+                          <div className="flex gap-1">
                             <Button
                               variant="ghost"
                               size="sm"
                               onClick={() => handleView(ret)}
-                              title="View Details">
-                              <Eye className="w-4 h-4" />
+                              title="View Details"
+                              className="flex items-center justify-center px-2 py-1 hover:bg-muted/20 transition"
+                              aria-label="View Purchase Return Details">
+                              <Eye className="w-4 h-4 text-muted-foreground" />
                             </Button>
-                            <Button
-                              variant="ghost"
-                              size="sm"
-                              onClick={() => handleEdit(ret)}
-                              title="Edit Purchase Return">
-                              <Edit className="w-4 h-4" />
-                            </Button>
-                            <AlertDialog>
-                              <AlertDialogTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  title="Delete Purchase Return"
-                                  className="text-red-600 hover:text-red-700">
-                                  <Trash2 className="w-4 h-4" />
-                                </Button>
-                              </AlertDialogTrigger>
-                              <AlertDialogContent>
-                                <AlertDialogHeader>
-                                  <AlertDialogTitle>
-                                    Delete Purchase Return
-                                  </AlertDialogTitle>
-                                  <AlertDialogDescription>
-                                    Are you sure you want to delete Return&nbsp;
-                                    <span className="font-semibold">
-                                      {ret.returnNumber}
-                                    </span>
-                                    ? This action cannot be undone.
-                                  </AlertDialogDescription>
-                                </AlertDialogHeader>
-                                <AlertDialogFooter>
-                                  <AlertDialogCancel>Cancel</AlertDialogCancel>
-                                  <AlertDialogAction
-                                    onClick={() => handleDelete(ret._id)}>
-                                    Delete
-                                  </AlertDialogAction>
-                                </AlertDialogFooter>
-                              </AlertDialogContent>
-                            </AlertDialog>
-                            <DropdownMenu>
+
+                            {/* <DropdownMenu>
                               <DropdownMenuTrigger asChild>
                                 <Button
                                   variant="ghost"
@@ -1966,8 +1939,8 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                                   Export as PDF
                                 </DropdownMenuItem>
                               </DropdownMenuContent>
-                            </DropdownMenu>
-                          </div> */}
+                            </DropdownMenu> */}
+                          </div>
                         </TableCell>
                       </TableRow>
                     )

@@ -12,6 +12,7 @@ import {
   Filter,
   CalendarDays,
   Loader2,
+  Download,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import {
@@ -1963,8 +1964,48 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                           {po.status.toUpperCase() || "—"}
                         </span>
                       </TableCell>
+
                       <TableCell>
                         <div className="flex gap-1">
+                          {po.status !== "COMPLETED" && (
+                            <>
+                              <AlertDialog>
+                                <AlertDialogTrigger asChild>
+                                  <Button
+                                    variant="ghost"
+                                    size="sm"
+                                    className="text-green-600  hover:text-green-600">
+                                    <CheckCircle className="w-4 h-4" />
+                                  </Button>
+                                </AlertDialogTrigger>
+                                <AlertDialogContent>
+                                  <AlertDialogHeader>
+                                    <AlertDialogTitle>
+                                      Confirm Completion
+                                    </AlertDialogTitle>
+                                    <AlertDialogDescription>
+                                      Are you sure you want to mark this
+                                      purchase order as{" "}
+                                      <strong>COMPLETED</strong>? This action
+                                      cannot be undone.
+                                    </AlertDialogDescription>
+                                  </AlertDialogHeader>
+                                  <AlertDialogFooter>
+                                    <AlertDialogCancel>
+                                      Cancel
+                                    </AlertDialogCancel>
+                                    <AlertDialogAction
+                                      onClick={() =>
+                                        handleTagAsComplete(po._id)
+                                      }>
+                                      Confirm
+                                    </AlertDialogAction>
+                                  </AlertDialogFooter>
+                                </AlertDialogContent>
+                              </AlertDialog>
+                            </>
+                          )}
+
                           {/* Always show View button */}
                           <Button
                             variant="ghost"
@@ -2022,44 +2063,23 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                             </>
                           )}
 
-                          {/* Always show Export dropdown */}
-                          <DropdownMenu>
-                            <DropdownMenuTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="More actions">
-                                <MoreVertical className="w-4 h-4" />
-                              </Button>
-                            </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="w-40">
-                              <DropdownMenuLabel>
-                                Export Options
-                              </DropdownMenuLabel>
-                              <DropdownMenuSeparator />
-                              <DropdownMenuItem
-                                onClick={() =>
-                                  handleExportPDF(items, {
-                                    poNumber: po.poNumber,
-                                    referenceNumber: po.referenceNumber,
-                                    supplierName: po.supplierName,
-                                    warehouse: po.warehouse,
-                                    status: po.status,
-                                    remarks: po.remarks,
-                                  })
-                                }>
-                                <FileText className="w-4 h-4 mr-2 text-red-600" />
-                                Export as PDF
-                              </DropdownMenuItem>
-                              <DropdownMenuItem
-                                onClick={() => handleTagAsComplete(po._id)}
-                                disabled={po.status === "COMPLETED"}
-                                className="text-green-600">
-                                <CheckCircle className="w-4 h-4 mr-2" />
-                                Tag as Completed
-                              </DropdownMenuItem>
-                            </DropdownMenuContent>
-                          </DropdownMenu>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Export as PDF"
+                            aria-label={`Export SO ${po.poNumber} to PDF`}
+                            onClick={() =>
+                              handleExportPDF(items, {
+                                poNumber: po.poNumber,
+                                referenceNumber: po.referenceNumber,
+                                supplierName: po.supplierName,
+                                warehouse: po.warehouse,
+                                status: po.status,
+                                remarks: po.remarks,
+                              })
+                            }>
+                            <Download className="w-4 h-4" />
+                          </Button>
                         </div>
                       </TableCell>
                     </TableRow>

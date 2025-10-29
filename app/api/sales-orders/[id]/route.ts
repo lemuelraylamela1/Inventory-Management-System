@@ -160,7 +160,6 @@ export async function PATCH(
       );
     }
 
-    // ✅ Trigger inventory logic only if status changed to COMPLETED
     if (previousOrder?.status !== "COMPLETED" && order.status === "COMPLETED") {
       const warehouseCode = order.warehouse?.trim().toUpperCase();
       const soNumber = order.soNumber;
@@ -180,16 +179,25 @@ export async function PATCH(
             continue;
           }
 
-          // 📉 Deduct from InventoryMain
+          // 📉 Deduct from InventoryMain with fallback
           try {
-            await InventoryMain.updateOne(
-              { itemCode, warehouse: warehouseCode },
-              { $inc: { quantity: -quantity } },
-              { upsert: false }
-            );
-            console.log(
-              `📉 InventoryMain reduced for ${itemCode} in ${warehouseCode}: -${quantity}`
-            );
+            const mainDoc = await InventoryMain.findOne({
+              itemCode,
+              warehouse: warehouseCode,
+            });
+            if (!mainDoc) {
+              console.warn(
+                `⚠️ InventoryMain not found for ${itemCode} in ${warehouseCode}`
+              );
+            } else {
+              const currentQty = Number(mainDoc.quantity) || 0;
+              const newQty = Math.max(currentQty - quantity, 0);
+              mainDoc.quantity = newQty;
+              await mainDoc.save();
+              console.log(
+                `📉 InventoryMain updated for ${itemCode}: ${currentQty} → ${newQty}`
+              );
+            }
           } catch (err) {
             console.error(
               `❌ InventoryMain update failed for ${itemCode}:`,
@@ -197,7 +205,7 @@ export async function PATCH(
             );
           }
 
-          // 📦 Log to Inventory tracker
+          // 📦 Log to Inventory tracker with correct currentOnhand
           try {
             const inventoryDoc = await Inventory.findOne({
               warehouse: warehouseCode,
@@ -232,16 +240,23 @@ export async function PATCH(
               });
               console.log(`🆕 Created inventory tracker for ${warehouseCode}`);
             } else {
-              inventoryDoc.items.push(newEntry);
-
-              const totalOnhand = inventoryDoc.items
+              const previousOnhand = inventoryDoc.items
                 .filter((i: InventoryItem) => i.itemCode === itemCode)
-                .reduce((sum: number, i: InventoryItem) => sum + i.quantity, 0);
+                .reduce((sum: number, i: InventoryItem) => {
+                  const inQty = Number(i.inQty) || 0;
+                  const outQty = Number(i.outQty) || 0;
+                  return sum + (inQty - outQty);
+                }, 0);
 
-              inventoryDoc.items[inventoryDoc.items.length - 1].currentOnhand =
-                totalOnhand;
+              const currentOnhand = previousOnhand - quantity;
+              newEntry.currentOnhand = isNaN(currentOnhand) ? 0 : currentOnhand;
+
+              inventoryDoc.items.push(newEntry);
               await inventoryDoc.save();
-              console.log(`📤 Logged sale for ${itemCode} in ${warehouseCode}`);
+
+              console.log(
+                `📤 Logged sale for ${itemCode} in ${warehouseCode} | previousOnhand=${previousOnhand}, deducted=${quantity}, currentOnhand=${newEntry.currentOnhand}`
+              );
             }
           } catch (err) {
             console.error(

@@ -291,14 +291,14 @@ export default function InventoryTracker() {
                   <TableCell>
                     {item.activity ? (
                       <span
-                        className={`inline-block rounded-full px-2 py-1 text-xs font-semibold ${
+                        className={`inline-block rounded-full  py-1   ${
                           item.activity === "PURCHASE"
-                            ? "bg-green-100 text-green-700"
-                            : item.activity === "SOLD"
-                            ? "bg-red-100 text-red-700"
+                            ? "inline-flex items-center gap-1 text-green-600"
+                            : item.activity === "SALE"
+                            ? "inline-flex items-center gap-1 text-red-600"
                             : item.activity === "RETURNED"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-gray-100 text-gray-700"
+                            ? "inline-flex items-center gap-1 text-blue-600"
+                            : "inline-flex items-center gap-1 text-yellow-600"
                         }`}>
                         {item.activity}
                       </span>

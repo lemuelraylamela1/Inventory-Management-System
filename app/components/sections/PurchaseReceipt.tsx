@@ -12,6 +12,7 @@ import {
   Filter,
   Loader2,
   CalendarDays,
+  Download,
 } from "lucide-react";
 import { Textarea } from "../ui/textarea";
 import {
@@ -24,7 +25,7 @@ import {
 } from "../ui/table";
 import {
   Dialog,
-  DialogContent,
+  DialogDescription,
   DialogFooter,
   DialogHeader,
   DialogPanel,
@@ -1210,10 +1211,15 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
 
               <DialogPanel className="space-y-6">
                 {/* Header */}
-                <DialogHeader className="border-b pb-4">
-                  <DialogTitle className="text-xl font-semibold tracking-tight">
+                <DialogHeader className="border-b pb-2">
+                  <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
                     Create Purchase Receipts
                   </DialogTitle>
+                  <DialogDescription className="text-sm text-muted-foreground">
+                    Fill in the receipt details. Fields marked with{" "}
+                    <span className="text-red-500">* </span>
+                    are required.
+                  </DialogDescription>
                 </DialogHeader>
 
                 {/* Form Content Slot (optional placeholder) */}
@@ -1250,7 +1256,9 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                     </div>
                     <div className="flex flex-row flex-wrap gap-4">
                       <div className="flex flex-col flex-1 min-w-[200px]">
-                        <Label htmlFor="supplier-search">Supplier</Label>
+                        <Label htmlFor="supplier-search">
+                          Supplier <span className="text-red-500">* </span>
+                        </Label>
 
                         <div className="relative">
                           <Input
@@ -1374,7 +1382,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                           id="create-supplier-invoice-num"
                           value={formData.supplierInvoiceNum || ""}
                           readOnly // ✅ Prevent manual editing
-                          placeholder="Auto-generated e.g. SI001"
+                          placeholder="Auto-generated"
                           className={`text-sm uppercase rounded-md border px-3 py-2 shadow-sm bg-muted cursor-not-allowed focus:outline-none transition ${
                             validationErrors.supplierInvoiceNum
                               ? "border-destructive ring-destructive/30"
@@ -1390,7 +1398,9 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                     </div>
                     <div className="flex flex-row flex-wrap gap-4">
                       <div className="flex flex-col flex-1 min-w-[200px]">
-                        <Label htmlFor="po-search">PO Number</Label>
+                        <Label htmlFor="po-search">
+                          PO Number <span className="text-red-500">* </span>
+                        </Label>
 
                         <div className="relative">
                           <Input
@@ -1553,12 +1563,12 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                 </div>
 
                 {formData.poNumber[0] && (
-                  <div className="mt-4 border rounded-md overflow-hidden">
+                  <div className="mt-4  rounded-md overflow-hidden">
                     <div className="overflow-auto max-h-96">
                       {/* Header */}
-                      <div className="grid w-full grid-cols-[40px_1fr_1fr_1fr_1fr_1fr_1fr] gap-4 border-b px-0 py-2 bg-primary text-primary-foreground sticky top-0 z-10">
-                        <div className="flex items-center justify-end min-w-[40px]">
-                          <input
+                      <div className="grid w-full grid-cols-[20px_1fr_1fr_1fr_1fr_1fr_1fr] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
+                        <div className="flex items-start justify-center px-2 min-w-[40px] ">
+                          <Input
                             type="checkbox"
                             checked={
                               Object.keys(selectedItems).length > 0 &&
@@ -1587,22 +1597,22 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                             className="form-checkbox h-4 w-4 text-primary focus:ring-2 focus:ring-primary/50 hover:scale-105 transition-transform"
                           />
                         </div>
-                        <div className="text-xs font-semibold uppercase text-left">
+                        <div className="text-xs font-semibold uppercase text-start px-4">
                           Item Code
                         </div>
-                        <div className="text-xs font-semibold uppercase text-left">
+                        <div className="text-xs font-semibold uppercase text-left px-4">
                           Item Name
                         </div>
-                        <div className="text-xs font-semibold uppercase text-left">
+                        <div className="text-xs font-semibold uppercase text-end">
                           Qty
                         </div>
                         <div className="text-xs font-semibold uppercase text-left">
                           UOM
                         </div>
-                        <div className="text-xs font-semibold uppercase text-left">
+                        <div className="text-xs font-semibold uppercase text-end px-2">
                           Purchase Price
                         </div>
-                        <div className="text-xs font-semibold uppercase text-left">
+                        <div className="text-xs font-semibold uppercase text-end px-2">
                           Amount
                         </div>
                       </div>
@@ -1623,7 +1633,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                           return (
                             <div
                               key={index}
-                              className={`grid grid-cols-[40px_1fr_1fr_1fr_1fr_1fr_1fr] border-t border-border text-sm px-3 py-2 items-center ${
+                              className={`grid grid-cols-[40px_1fr_1fr_1fr_1fr_1fr_1fr] items-center  border-border border-b-1 text-sm m-0 ${
                                 isZero
                                   ? "bg-green-50 text-green-700 animate-fade-in"
                                   : selectedItems[index]
@@ -1631,7 +1641,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                   : "hover:bg-muted/10"
                               }`}>
                               {/* Checkbox or Posted Badge */}
-                              <div className="flex items-center justify-center px-2 min-w-[40px]">
+                              <div className="flex items-start justify-start px-2 min-w-[40px]">
                                 {isZero ? (
                                   <div className="flex items-center gap-1 text-green-600">
                                     <Check className="w-4 h-4 animate-bounce" />
@@ -1652,17 +1662,17 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                               </div>
 
                               {/* Item Code */}
-                              <div className="flex items-center uppercase text-sm font-medium">
+                              <div className="flex items-center uppercase text-sm ">
                                 {item.itemCode || "-"}
                               </div>
 
                               {/* Item Name */}
-                              <div className="uppercase border-l border-border px-2 flex items-center text-sm font-medium">
+                              <div className="uppercase border-l border-border px-2 flex items-center text-sm ">
                                 {item.itemName || "-"}
                               </div>
 
                               {/* Quantity Input */}
-                              <div className="uppercase border-l border-border px-2 flex items-center text-sm font-medium">
+                              <div>
                                 <input
                                   type="number"
                                   min={1}
@@ -1680,7 +1690,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                                     }));
                                   }}
                                   disabled={isZero}
-                                  className={`w-full px-2 py-1 border border-border rounded-md text-right focus:outline-none focus:ring-2 focus:ring-primary ${
+                                  className={`w-full px-2 py-1 border border-border border-l border-y-0 border-r-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary text-end ${
                                     isZero
                                       ? "bg-green-50 text-green-700 cursor-not-allowed"
                                       : "bg-background"
@@ -1690,12 +1700,12 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                               </div>
 
                               {/* Unit Type */}
-                              <div className="uppercase border-l border-border px-2 flex items-center text-sm font-medium">
+                              <div className="uppercase border-l border-border px-2 flex items-center text-sm ">
                                 {item.unitType || "-"}
                               </div>
 
                               {/* Purchase Price */}
-                              <div className="uppercase border-l border-border px-2 flex items-center text-sm font-medium">
+                              <div className="text-right uppercase border-l border-border px-2 flex items-center text-sm justify-end">
                                 {item.purchasePrice !== undefined ? (
                                   item.purchasePrice.toLocaleString("en-PH", {
                                     style: "currency",
@@ -1732,12 +1742,90 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                   </div>
                 )}
 
+                {/* Summary Section */}
+                {formData.poNumber[0] && (
+                  <div className="w-full max-w-md ml-auto mt-4 bg-muted/10 rounded-md shadow-sm border border-border">
+                    <table className="w-full text-sm">
+                      <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                        <tr>
+                          <th className="px-4 py-2 text-left">Metric</th>
+                          <th className="px-4 py-2 text-right">Value</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-border">
+                        <tr>
+                          <td className="py-2 px-4 text-muted-foreground">
+                            Total Quantity
+                          </td>
+                          <td className="py-2 px-4 text-right font-semibold text-foreground">
+                            {(() => {
+                              const matchedPO = purchaseOrders.find(
+                                (po) =>
+                                  po.poNumber.trim().toUpperCase() ===
+                                  formData.poNumber[0]
+                              );
+                              if (!matchedPO || !Array.isArray(matchedPO.items))
+                                return 0;
+
+                              return matchedPO.items.reduce(
+                                (sum, item, index) => {
+                                  return selectedItems[index]
+                                    ? sum +
+                                        (editableItems[index] ??
+                                          item.quantity ??
+                                          0)
+                                    : sum;
+                                },
+                                0
+                              );
+                            })()}
+                          </td>
+                        </tr>
+                        <tr>
+                          <td className="py-2 px-4 text-primary">
+                            Total Amount
+                          </td>
+                          <td className="py-2 px-4 text-right font-semibold text-primary">
+                            {(() => {
+                              const matchedPO = purchaseOrders.find(
+                                (po) =>
+                                  po.poNumber.trim().toUpperCase() ===
+                                  formData.poNumber[0]
+                              );
+                              if (!matchedPO || !Array.isArray(matchedPO.items))
+                                return "₱0.00";
+
+                              const total = matchedPO.items.reduce(
+                                (sum, item, index) => {
+                                  return selectedItems[index]
+                                    ? sum +
+                                        (item.purchasePrice ?? 0) *
+                                          (editableItems[index] ??
+                                            item.quantity ??
+                                            0)
+                                    : sum;
+                                },
+                                0
+                              );
+
+                              return total.toLocaleString("en-PH", {
+                                style: "currency",
+                                currency: "PHP",
+                              });
+                            })()}
+                          </td>
+                        </tr>
+                      </tbody>
+                    </table>
+                  </div>
+                )}
+
                 {/* Footer Actions */}
                 <DialogFooter className="pt-4 border-t">
                   <div className="flex w-full justify-end items-center">
                     <div className="flex gap-2 items-center">
                       <Button
-                        variant="ghost"
+                        variant="outline"
                         onClick={() => {
                           setIsCreateDialogOpen(false);
                           resetForm();
@@ -1749,7 +1837,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                       <Button
                         onClick={handleCreate}
                         disabled={isDisabled}
-                        className={`mt-4 bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 ${
+                        className={` bg-primary text-white hover:bg-primary/90 rounded-md shadow-sm transition-colors duration-150 ${
                           isDisabled ? "opacity-50 cursor-not-allowed" : ""
                         }`}>
                         Create
@@ -1928,17 +2016,21 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                           })}
                         </TableCell>
                         <TableCell>
-                          <span
-                            className={`inline-block text-sm font-medium px-2 py-1 rounded-full
-                              ${
-                                receipt.status === "OPEN"
-                                  ? "inline-flex items-center gap-1 text-blue-600"
-                                  : receipt.status === "RECEIVED"
-                                  ? "inline-flex items-center gap-1 text-green-600"
-                                  : "inline-flex items-center gap-1 text-yellow-600"
-                              }`}>
-                            {receipt.status?.toUpperCase() || "—"}
-                          </span>
+                          {receipt.status === "OPEN" ? (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => handlePostReceipt(receipt)}
+                              className="text-blue-700 border-blue-300 hover:bg-blue-50">
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              {receipt.status}
+                            </Button>
+                          ) : (
+                            <span className="text-green-700 flex items-center">
+                              <CheckCircle className="w-4 h-4 mr-1" />
+                              {receipt.status}
+                            </span>
+                          )}
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-1">
@@ -1996,52 +2088,25 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                               </AlertDialogContent>
                             </AlertDialog>
 
-                            <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  title="More actions">
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-
-                              <DropdownMenuContent align="end" className="w-40">
-                                <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-
-                                {/* ✅ POST Button */}
-                                <DropdownMenuItem
-                                  onClick={() => handlePostReceipt(receipt)}
-                                  disabled={receipt.status === "RECEIVED"}
-                                  className={
-                                    receipt.status === "RECEIVED"
-                                      ? "opacity-50 cursor-not-allowed"
-                                      : ""
-                                  }>
-                                  <CheckCircle className="w-4 h-4 mr-2 text-green-600" />
-                                  Post Receipt
-                                </DropdownMenuItem>
-
-                                {/* Optional: Export PDF */}
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleExportPDF(receipt.items, {
-                                      prNumber: receipt.prNumber,
-                                      supplierInvoiceNum:
-                                        receipt.supplierInvoiceNum,
-                                      supplierName: receipt.supplierName,
-                                      warehouse: receipt.warehouse,
-                                      status: receipt.status,
-                                      remarks: receipt.remarks,
-                                      poNumbers: receipt.poNumber, // assuming this is an array
-                                    })
-                                  }>
-                                  <FileText className="w-4 h-4 mr-2 text-red-600" />
-                                  Export as PDF
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu>
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              title="Export as PDF"
+                              aria-label={`Export SO ${receipt.prNumber} to PDF`}
+                              onClick={() =>
+                                handleExportPDF(receipt.items, {
+                                  prNumber: receipt.prNumber,
+                                  supplierInvoiceNum:
+                                    receipt.supplierInvoiceNum,
+                                  supplierName: receipt.supplierName,
+                                  warehouse: receipt.warehouse,
+                                  status: receipt.status,
+                                  remarks: receipt.remarks,
+                                  poNumbers: receipt.poNumber, // assuming this is an array
+                                })
+                              }>
+                              <Download className="w-4 h-4" />
+                            </Button>
                           </div>
                         </TableCell>
                       </TableRow>
@@ -2103,8 +2168,16 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogPanel className="max-w-2xl max-h-[80vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>Edit Purchase Receipts</DialogTitle>
+          {/* Header */}
+          <DialogHeader className="border-b pb-2">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
+              Edit Purchase Receipts
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Fill in the receipt details. Fields marked with{" "}
+              <span className="text-red-500">* </span>
+              are required.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4">
@@ -2141,7 +2214,9 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
               <div className="flex flex-row flex-wrap gap-4">
                 <div className="flex flex-col flex-1 min-w-[200px]">
                   <div className="flex flex-col flex-1 min-w-[200px]">
-                    <Label htmlFor="po-search">PO Number</Label>
+                    <Label htmlFor="po-search">
+                      PO Number <span className="text-red-500">* </span>
+                    </Label>
 
                     <div className="relative">
                       <Input
@@ -2280,17 +2355,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                   <Input
                     id="create-supplier-invoice-num"
                     value={formData.supplierInvoiceNum}
-                    onChange={(e) => {
-                      const value = e.target.value.toUpperCase();
-                      setFormData((prev) => ({
-                        ...prev,
-                        supplierInvoiceNum: value,
-                      }));
-                      setValidationErrors((prev) => ({
-                        ...prev,
-                        supplierInvoiceNum: "",
-                      }));
-                    }}
+                    readOnly
                     placeholder="e.g. INV-2025-001"
                     className={`text-sm uppercase rounded-md border px-3 py-2 shadow-sm focus:outline-none focus:ring-2 focus:ring-primary transition ${
                       validationErrors.supplierInvoiceNum
@@ -2298,6 +2363,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                         : "border-input"
                     }`}
                   />
+
                   {validationErrors.supplierInvoiceNum && (
                     <p className="text-sm text-destructive mt-1">
                       {validationErrors.supplierInvoiceNum}
@@ -2356,7 +2422,8 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
             <div className="mt-4 border rounded-md overflow-hidden">
               <div className="overflow-auto max-h-96">
                 {/* Header */}
-                <div className="grid w-full grid-cols-[40px_1fr_1fr_1fr_1fr_1fr_1fr] gap-4 border-b px-0 py-2 bg-primary text-primary-foreground sticky top-0 z-10">
+                <div className="grid w-full grid-cols-[40px_1fr_1fr_1fr_1fr_1fr_1fr] gap-4 border-b  py-2 bg-primary text-primary-foreground sticky top-0 z-10">
+                  {/* Bulk Checkbox */}
                   <div className="flex items-center justify-end min-w-[40px]">
                     <input
                       type="checkbox"
@@ -2365,7 +2432,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                         Object.values(selectedItems).every(Boolean)
                       }
                       onChange={(e) => {
-                        const checked = e.target.checked;
+                        const checked = (e.target as HTMLInputElement).checked;
                         const matchedPO = purchaseOrders.find(
                           (po) =>
                             po.poNumber.trim().toUpperCase() ===
@@ -2387,6 +2454,8 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                       className="form-checkbox h-4 w-4 text-primary focus:ring-2 focus:ring-primary/50 hover:scale-105 transition-transform"
                     />
                   </div>
+
+                  {/* Column Headers */}
                   {[
                     "Item Code",
                     "Item Name",
@@ -2397,7 +2466,11 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                   ].map((label) => (
                     <div
                       key={label}
-                      className="text-xs font-semibold uppercase text-left">
+                      className={`text-xs font-semibold uppercase px-2 ${
+                        ["Qty", "Purchase Price", "Amount"].includes(label)
+                          ? "text-right"
+                          : "text-left"
+                      }`}>
                       {label}
                     </div>
                   ))}
@@ -2454,17 +2527,17 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                         </div>
 
                         {/* Item Code */}
-                        <div className="flex items-center uppercase font-medium">
+                        <div className="flex items-center uppercase ">
                           {item.itemCode || "-"}
                         </div>
 
                         {/* Item Name */}
-                        <div className="border-l border-border px-2 flex items-center uppercase font-medium">
+                        <div className="border-l border-border px-2 flex items-center uppercase ">
                           {item.itemName || "-"}
                         </div>
 
                         {/* Quantity Input */}
-                        <div className="border-l border-border px-2 flex items-center">
+                        <div>
                           <input
                             type="number"
                             min={1}
@@ -2482,7 +2555,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                               }));
                             }}
                             disabled={isZero}
-                            className={`w-full px-2 py-1 border border-border rounded-md text-right focus:outline-none focus:ring-2 focus:ring-primary ${
+                            className={`w-full px-2 py-1 border border-border border-l border-b-0 border-r-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary text-end ${
                               isZero
                                 ? "bg-green-50 text-green-700 cursor-not-allowed"
                                 : "bg-background"
@@ -2492,12 +2565,12 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                         </div>
 
                         {/* Unit Type */}
-                        <div className="border-l border-border px-2 flex items-center uppercase font-medium">
+                        <div className="border-l border-border px-2 flex items-center uppercase ">
                           {item.unitType || "-"}
                         </div>
 
                         {/* Purchase Price */}
-                        <div className="border-l border-border px-2 flex items-center uppercase font-medium">
+                        <div className="border-l border-border px-2 flex items-center uppercase justify-end">
                           {item.purchasePrice !== undefined ? (
                             item.purchasePrice.toLocaleString("en-PH", {
                               style: "currency",
@@ -2509,7 +2582,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                         </div>
 
                         {/* Amount */}
-                        <div className="text-right border-l border-border px-2 font-medium">
+                        <div className="text-right border-l border-border px-2 ">
                           {item.purchasePrice && item.quantity ? (
                             amount.toLocaleString("en-PH", {
                               style: "currency",
@@ -2524,6 +2597,50 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                   });
                 })()}
               </div>
+            </div>
+          )}
+
+          {Array.isArray(formData.items) && formData.items.length > 0 && (
+            <div className="w-full max-w-md ml-auto my-4 bg-muted/10 rounded-md shadow-sm border border-border">
+              <table className="w-full text-sm">
+                <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                  <tr>
+                    <th className="px-4 py-2 text-left">Metric</th>
+                    <th className="px-4 py-2 text-right">Value</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-border">
+                  <tr>
+                    <td className="py-2 px-4 text-muted-foreground">
+                      Total Quantity
+                    </td>
+                    <td className="py-2 px-4 text-right font-semibold text-foreground">
+                      {formData.items.reduce((sum, item, index) => {
+                        return selectedItems[index]
+                          ? sum + (editableItems[index] ?? item.quantity ?? 0)
+                          : sum;
+                      }, 0)}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2 px-4 text-primary">Total Amount</td>
+                    <td className="py-2 px-4 text-right font-semibold text-primary">
+                      {formData.items
+                        .reduce((sum, item, index) => {
+                          return selectedItems[index]
+                            ? sum +
+                                (item.purchasePrice ?? 0) *
+                                  (editableItems[index] ?? item.quantity ?? 0)
+                            : sum;
+                        }, 0)
+                        .toLocaleString("en-PH", {
+                          style: "currency",
+                          currency: "PHP",
+                        })}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
             </div>
           )}
 
@@ -2548,7 +2665,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                 }
                 className="bg-primary text-white hover:bg-primary/90 px-4 py-2 rounded-md shadow-sm transition-colors duration-150 disabled:opacity-50 disabled:cursor-not-allowed"
                 aria-label="Update Receipt">
-                ✏️ Update
+                Save Changes
               </Button>
             </div>
           </DialogFooter>
