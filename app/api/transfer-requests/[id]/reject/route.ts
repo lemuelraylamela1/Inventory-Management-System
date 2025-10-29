@@ -2,10 +2,8 @@ import { NextResponse } from "next/server";
 import connectMongoDB from "@/libs/mongodb";
 import { TransferRequestModel } from "@/models/transferRequest";
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     await connectMongoDB();
     const { id } = params;

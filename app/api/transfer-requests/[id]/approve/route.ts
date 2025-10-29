@@ -4,6 +4,7 @@ import { TransferRequestModel } from "@/models/transferRequest";
 import InventoryMain from "@/models/inventoryMain";
 import Inventory from "@/models/inventory";
 import Item from "@/models/item";
+import { InventoryItem } from "../../../../components/sections/type";
 
 async function processTransferItem({
   itemCode,
@@ -19,7 +20,7 @@ async function processTransferItem({
   requestingWarehouse: string;
 }) {
   const itemDoc = await Item.findOne({ itemCode });
-  const itemName = itemDoc?.itemName ?? "Unnamed Item";
+  const itemName = itemDoc?.itemName ?? "UNNAMED ITEM";
   const category = itemDoc?.category ?? "UNCATEGORIZED";
 
   if (!itemDoc) {
@@ -29,79 +30,123 @@ async function processTransferItem({
   // 🔻 Deduct from source warehouse
   await InventoryMain.updateOne(
     { itemCode, warehouse: sourceWarehouse },
-    { $inc: { quantity: -quantity } }
+    { $inc: { quantity: -quantity } },
+    { upsert: true }
   );
 
-  // ✅ Get updated source quantity
-  const sourceFinal =
-    (await InventoryMain.findOne({ itemCode, warehouse: sourceWarehouse }))
-      ?.quantity ?? 0;
-
   // 📦 Transfer to requesting warehouse
-  const destinationExists = await InventoryMain.findOne({
-    itemCode,
-    warehouse: requestingWarehouse,
-  });
-
-  if (destinationExists) {
-    await InventoryMain.updateOne(
-      { itemCode, warehouse: requestingWarehouse },
-      { $inc: { quantity } }
-    );
-  } else {
-    await InventoryMain.updateOne(
-      { itemCode, warehouse: requestingWarehouse },
-      {
-        $set: {
-          itemCode,
-          itemName,
-          unitType,
-          quantity,
-          warehouse: requestingWarehouse,
-        },
-      },
-      { upsert: true }
-    );
-  }
-
-  // ✅ Get updated destination quantity
-  const destinationFinal =
-    (await InventoryMain.findOne({ itemCode, warehouse: requestingWarehouse }))
-      ?.quantity ?? quantity;
-
-  // 🧾 Append audit entry to inventory tracker
-  await Inventory.updateOne(
-    { warehouse: sourceWarehouse },
+  await InventoryMain.updateOne(
+    { itemCode, warehouse: requestingWarehouse },
     {
-      $push: {
-        items: {
-          itemCode,
-          itemName,
-          category,
-          unitType,
-          outQty: quantity,
-          currentOnhand: sourceFinal,
-          particulars: `Transferred to ${requestingWarehouse}`,
-          activity: "TRANSFER",
-          date: new Date().toISOString(),
-          receivedAt: new Date(),
-        },
+      $inc: { quantity },
+      $setOnInsert: {
+        itemCode,
+        itemName,
+        unitType,
+        warehouse: requestingWarehouse,
       },
     },
     { upsert: true }
   );
 
+  // ✅ Fetch updated destination quantity AFTER transfer
+  const destinationMainDoc = await InventoryMain.findOne({
+    itemCode,
+    warehouse: requestingWarehouse,
+  });
+  const updatedDestinationQuantity = Number(destinationMainDoc?.quantity) || 0;
+
+  // 🧾 Log destination-side tracker entry
+  const destinationTrackerEntry = {
+    itemCode,
+    itemName,
+    category,
+    unitType,
+    inQty: quantity,
+    outQty: 0,
+    currentOnhand: updatedDestinationQuantity,
+    particulars: `Received from ${sourceWarehouse}`,
+    activity: "TRANSFER",
+    date: new Date().toISOString(),
+    receivedAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const destinationInventoryDoc = await Inventory.findOne({
+    warehouse: requestingWarehouse,
+  });
+
+  if (!destinationInventoryDoc) {
+    await Inventory.create({
+      warehouse: requestingWarehouse,
+      items: [destinationTrackerEntry],
+      remarks: `Auto-created from transfer from ${sourceWarehouse}`,
+    });
+    console.log(`🆕 Created inventory tracker for ${requestingWarehouse}`);
+  } else {
+    destinationInventoryDoc.items.push(destinationTrackerEntry);
+    await destinationInventoryDoc.save();
+    console.log(`📥 Logged receipt for ${itemCode} in ${requestingWarehouse}`);
+  }
+
+  // ✅ Fetch updated source quantity AFTER deduction
+  const sourceMainDoc = await InventoryMain.findOne({
+    itemCode,
+    warehouse: sourceWarehouse,
+  });
+  const updatedSourceQuantity = Number(sourceMainDoc?.quantity) || 0;
+
+  console.log(
+    `📦 Updated InventoryMain quantity for ${itemCode} in ${sourceWarehouse}: ${updatedSourceQuantity}`
+  );
+
+  // 🧾 Log source-side tracker entry
+  const sourceTrackerEntry = {
+    itemCode,
+    itemName,
+    category,
+    unitType,
+    inQty: 0,
+    outQty: quantity,
+    currentOnhand: updatedSourceQuantity,
+    particulars: `Transferred to ${requestingWarehouse}`,
+    activity: "TRANSFER",
+    date: new Date().toISOString(),
+    receivedAt: new Date(),
+    createdAt: new Date(),
+    updatedAt: new Date(),
+  };
+
+  const sourceInventoryDoc = await Inventory.findOne({
+    warehouse: sourceWarehouse,
+  });
+
+  if (!sourceInventoryDoc) {
+    await Inventory.create({
+      warehouse: sourceWarehouse,
+      items: [sourceTrackerEntry],
+      remarks: `Auto-created from transfer to ${requestingWarehouse}`,
+    });
+    console.log(`🆕 Created inventory tracker for ${sourceWarehouse}`);
+  } else {
+    sourceInventoryDoc.items.push(sourceTrackerEntry);
+    await sourceInventoryDoc.save();
+    console.log(`📤 Logged transfer for ${itemCode} in ${sourceWarehouse}`);
+  }
+
   return {
     itemCode,
-    source: sourceFinal,
-    destination: destinationFinal,
+    source: updatedSourceQuantity,
+    destination: updatedDestinationQuantity,
   };
 }
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   try {
     await connectMongoDB();
     const { id } = params;

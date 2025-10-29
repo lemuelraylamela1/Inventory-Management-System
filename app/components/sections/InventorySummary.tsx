@@ -367,7 +367,10 @@ export default function InventorySummary() {
                       <TableRow
                         key={`${item.itemCode}-${item.warehouse}-${index}`}
                         className={index % 2 === 0 ? "bg-muted/20" : ""}>
-                        <TableCell>{item.itemName}</TableCell>
+                        <TableCell style={{ textTransform: "uppercase" }}>
+                          {item.itemName}
+                        </TableCell>
+
                         <TableCell>{item.category}</TableCell>
                         <TableCell>{item.warehouse}</TableCell>
                         <TableCell className="text-right">

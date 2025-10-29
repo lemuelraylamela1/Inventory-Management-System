@@ -2,10 +2,8 @@ import { NextResponse } from "next/server";
 import connectMongoDB from "@/libs/mongodb";
 import PurchaseReturn from "@/models/purchaseReturn";
 
-export async function GET(
-  request: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(request: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await connectMongoDB();
 
   try {

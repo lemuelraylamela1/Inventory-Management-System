@@ -967,9 +967,7 @@ export default function TransferRequestPage() {
             <div className="grid grid-cols-2 gap-4">
               {/* Source Warehouse */}
               <div>
-                <Label className="text-sm font-medium">
-                  Request from Warehouse
-                </Label>
+                <Label className="text-sm font-medium">Source Warehouse</Label>
                 <div className="relative">
                   <Input
                     type="text"
