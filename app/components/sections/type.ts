@@ -207,6 +207,8 @@ export type InventoryItem = {
   receivedAt?: Date;
   updatedAt?: Date;
   createdAt?: Date;
+  inQty?: number;
+  outQty?: number;
 };
 
 export type InventoryType = {
