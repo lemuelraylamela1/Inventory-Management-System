@@ -23,7 +23,7 @@ import {
   UserCheck,
   Shapes,
   FileText,
-  Package2,
+  Banknote,
   DollarSign,
   UserCircle,
   Truck,
@@ -103,6 +103,7 @@ export function Sidebar({
   ];
 
   const maintenanceItems = [
+    { id: "account-class", label: "Account Class", icon: Banknote },
     { id: "bank", label: "Bank", icon: Building2 },
     { id: "customer", label: "Customer", icon: Users },
     { id: "customer-type", label: "Customer Type", icon: UserCheck },

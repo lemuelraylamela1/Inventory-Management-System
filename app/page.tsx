@@ -30,6 +30,7 @@ import InventorySummary from "./components/sections/InventorySummary";
 import InventoryTracker from "./components/sections/InventoryTracker";
 import TransferRequest from "./components/sections/TransferRequest";
 import TransferApproved from "./components/sections/TransferApproved";
+import AccountClass from "./components/sections/AccountClass";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -64,6 +65,8 @@ export default function App() {
             showImportExport={true}
           />
         );
+      case "account-class":
+        return <AccountClass />;
       case "bank":
         return <Bank />;
       case "customer":
