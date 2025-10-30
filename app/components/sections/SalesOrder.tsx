@@ -549,17 +549,35 @@ export default function SalesOrder({ onSuccess }: Props) {
       discountBreakdown: "",
     };
 
-    // Required: customer
+    // 🔹 Required: customer
     if (!formData.customer.trim()) {
       errors.customer = "Customer is required";
     }
 
-    // Required: warehouse
+    // 🔹 Required: warehouse
     if (!formData.warehouse.trim()) {
       errors.warehouse = "Warehouse is required";
     }
 
-    // Validate items[]
+    // 🔹 Required: shippingAddress
+    if (!formData.shippingAddress?.trim()) {
+      errors.shippingAddress = "Shipping address is required";
+    }
+
+    // 🔹 Required: deliveryDate
+    if (!formData.deliveryDate) {
+      errors.deliveryDate = "Delivery date is required";
+    } else {
+      const delivery = new Date(formData.deliveryDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+
+      if (delivery < today) {
+        errors.deliveryDate = "Delivery date cannot be in the past";
+      }
+    }
+
+    // 🔹 Validate items[]
     const itemErrors = formData.items.map((item, index) => {
       const itemError: Record<string, string> = {};
 
