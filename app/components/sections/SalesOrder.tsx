@@ -189,7 +189,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       itemName: "",
       unitType: "",
       price: 0,
-      quantity: 1,
+      quantity: 0,
       amount: 0,
     },
   ]);
@@ -994,7 +994,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       .map((item) => {
         const key = item.itemName?.trim().toUpperCase();
         const price = salesPriceMap[key] ?? 0;
-        const quantity = Math.max(Number(item.quantity) || 1, 1);
+        const quantity = Math.max(Number(item.quantity) || 0, 0);
 
         return {
           _id: item._id ?? crypto.randomUUID(),
@@ -1531,7 +1531,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       itemName: "",
       unitType: "",
       price: 0,
-      quantity: 1,
+      quantity: 0,
       amount: 0,
     };
 
@@ -2517,6 +2517,11 @@ export default function SalesOrder({ onSuccess }: Props) {
                       type="button"
                       variant="ghost"
                       onClick={handleAddItem}
+                      disabled={
+                        formData.items.length > 0 &&
+                        (!formData.items.at(-1)?.itemCode ||
+                          Number(formData.items.at(-1)?.quantity) <= 0)
+                      }
                       className="w-fit text-sm">
                       + Add Item
                     </Button>
@@ -3596,12 +3601,13 @@ export default function SalesOrder({ onSuccess }: Props) {
                         {/* Quantity */}
                         <input
                           type="number"
-                          min={1}
+                          min={0}
                           max={
                             inventoryItems.find(
                               (inv) => inv.itemCode === item.itemCode
                             )?.quantity ?? 9999
                           }
+                          disabled={!item.itemName}
                           value={item.quantity}
                           onChange={(e) => {
                             const raw = Number(e.target.value);
@@ -3627,7 +3633,11 @@ export default function SalesOrder({ onSuccess }: Props) {
                               return { ...prev, items: updatedItems };
                             });
                           }}
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary text-end"
+                          className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary text-end ${
+                            !item.itemName
+                              ? "cursor-not-allowed opacity-50"
+                              : ""
+                          }`}
                         />
 
                         {/* Unit Type */}
@@ -3694,6 +3704,11 @@ export default function SalesOrder({ onSuccess }: Props) {
                 type="button"
                 variant="ghost"
                 onClick={handleAddItem}
+                disabled={
+                  formData.items.length > 0 &&
+                  (!formData.items.at(-1)?.itemCode ||
+                    Number(formData.items.at(-1)?.quantity) <= 0)
+                }
                 className="w-fit text-sm">
                 + Add Item
               </Button>

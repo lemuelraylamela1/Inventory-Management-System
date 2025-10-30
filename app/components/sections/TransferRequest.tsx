@@ -9,7 +9,7 @@ import {
 } from "./type";
 import {
   Dialog,
-  DialogTrigger,
+  DialogDescription,
   DialogPanel,
   DialogHeader,
   DialogTitle,
@@ -88,6 +88,8 @@ export default function TransferRequestPage() {
   const [showSourceSuggestions, setShowSourceSuggestions] = useState(false);
   const [showDestinationSuggestions, setShowDestinationSuggestions] =
     useState(false);
+  const [destinationTouched, setDestinationTouched] = useState(false);
+
   const [results, setResults] = useState<string[]>([]);
   // const [showSuggestions, setShowSuggestions] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
@@ -113,28 +115,43 @@ export default function TransferRequestPage() {
   const [isCreating, setIsCreating] = useState(false);
 
   const [formData, setFormData] = useState<Omit<TransferRequest, "_id">>({
-    requestNo: "", // ✅ Add this
+    requestNo: "",
     requestingWarehouse: "",
     sourceWarehouse: "",
     transactionDate: "",
     status: "PENDING",
     transferDate: "",
     preparedBy: "",
-    items: [{ itemCode: "", quantity: 1, unitType: "" }],
+    items: [{ itemCode: "", quantity: 0, unitType: "" }],
   });
 
   const getInitialFormData = (): TransferRequest => ({
-    requestNo: "", // ✅ now included
+    requestNo: "",
     status: "PENDING",
     requestingWarehouse: "",
     sourceWarehouse: "",
-    transactionDate: "",
+    transactionDate: new Date().toISOString(), // ✅ always fresh
     transferDate: "",
     reference: "",
     notes: "",
     preparedBy: "",
     items: [{ itemCode: "", quantity: 1, unitType: "" }],
   });
+
+  const handleCloseDialog = () => {
+    setFormData(getInitialFormData());
+    setIsCreateDialogOpen(false);
+  };
+
+  const handleDialogOpenChange = (isOpen: boolean) => {
+    if (!isOpen) {
+      // Dialog is closing — reset everything
+      setFormData(getInitialFormData());
+      setShowSourceSuggestions(false); // ✅ close source suggestions
+      setShowDestinationSuggestions(false); // ✅ close destination suggestions
+    }
+    setIsCreateDialogOpen(isOpen);
+  };
 
   const fetchTransferRequests = async () => {
     if (isFirstFetch.current) {
@@ -165,15 +182,6 @@ export default function TransferRequestPage() {
   }, []);
 
   useEffect(() => {
-    if (isCreateDialogOpen) {
-      setFormData((prev) => ({
-        ...prev,
-        transactionDate: new Date().toISOString(), // ✅ ISO format for payload
-      }));
-    }
-  }, [isCreateDialogOpen]);
-
-  useEffect(() => {
     if (!isEditDialogOpen) {
       setFormData(getInitialFormData());
     }
@@ -186,6 +194,7 @@ export default function TransferRequestPage() {
   }, [isViewDialogOpen]);
 
   const handleCreate = async () => {
+    getInitialFormData();
     setIsCreating(true);
 
     try {
@@ -194,7 +203,7 @@ export default function TransferRequestPage() {
         .filter((item) => Number(item.quantity) > 0)
         .map((item) => ({
           itemCode: item.itemCode.trim().toUpperCase(),
-          quantity: Math.max(Number(item.quantity) || 1, 1),
+          quantity: Math.max(Number(item.quantity) || 0, 0),
           unitType: item.unitType.trim().toUpperCase(),
         }));
 
@@ -242,8 +251,7 @@ export default function TransferRequestPage() {
       if (res.ok) {
         toast.success(`Transfer Request #${data.request.requestNo} created`);
         fetchTransferRequests();
-        setIsCreateDialogOpen(false);
-        setFormData(getInitialFormData()); // ✅ Modular reset
+        handleCloseDialog();
       } else {
         console.error("❌ Create failed:", data.error);
       }
@@ -253,6 +261,7 @@ export default function TransferRequestPage() {
       setIsCreating(false);
     }
   };
+
   const normalizeTransferRequestItems = (
     items: TransferRequestItem[]
   ): TransferRequestItem[] =>
@@ -265,6 +274,8 @@ export default function TransferRequestPage() {
       }));
 
   const handleEdit = (transferRequest: TransferRequest) => {
+    setShowSourceSuggestions(false); // ✅ close source suggestions
+    setShowDestinationSuggestions(false); // ✅ close destination suggestions
     const hydratedItems = normalizeTransferRequestItems(transferRequest.items);
 
     setFormData({
@@ -579,6 +590,14 @@ export default function TransferRequestPage() {
     }
   };
 
+  // const handleDialogOpenChange = (isOpen: boolean) => {
+  //   if (!isOpen) {
+  //     // Dialog is closing — reset form
+  //     setFormData(getInitialFormData());
+  //   }
+  //   setIsCreateDialogOpen(isOpen);
+  // };
+
   // const toggleSelectAll = () => {
   //   const visibleIds = paginatedRequests
   //     .map((req) => req._id)
@@ -726,8 +745,8 @@ export default function TransferRequestPage() {
                   </TableHead>
                   <TableHead>Transaction Date</TableHead>
                   <TableHead>Request No</TableHead>
-                  <TableHead>Requesting Warehouse</TableHead>
-                  <TableHead>Source Warehouse</TableHead>
+                  <TableHead>From Warehouse</TableHead>
+                  <TableHead>To Warehouse</TableHead>
                   <TableHead>Prepared By</TableHead>
                   <TableHead>Status</TableHead>
                   <TableHead className="text-right">Actions</TableHead>
@@ -798,8 +817,8 @@ export default function TransferRequestPage() {
                           : "—"}
                       </TableCell>
                       <TableCell>{req.requestNo ?? "—"}</TableCell>
-                      <TableCell>{req.requestingWarehouse ?? "—"}</TableCell>
                       <TableCell>{req.sourceWarehouse ?? "—"}</TableCell>
+                      <TableCell>{req.requestingWarehouse ?? "—"}</TableCell>
                       <TableCell>{req.preparedBy ?? "—"}</TableCell>
                       <TableCell>
                         {req.status === "APPROVED" ? (
@@ -932,10 +951,17 @@ export default function TransferRequestPage() {
         </CardContent>
       </Card>
       {/* Create Dialog */}
-      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+      <Dialog open={isCreateDialogOpen} onOpenChange={handleDialogOpenChange}>
         <DialogPanel className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle>Create Transfer Request</DialogTitle>
+          <DialogHeader className="border-b pb-2">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
+              Create Transfer Request
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Fill in the request details. Fields marked with{" "}
+              <span className="text-red-500">* </span>
+              are required.
+            </DialogDescription>
           </DialogHeader>
 
           <div className="grid gap-6 py-4">
@@ -967,7 +993,9 @@ export default function TransferRequestPage() {
             <div className="grid grid-cols-2 gap-4">
               {/* Source Warehouse */}
               <div>
-                <Label className="text-sm font-medium">Source Warehouse</Label>
+                <Label className="text-sm font-medium">
+                  From Warehouse <span className="text-red-500">* </span>
+                </Label>
                 <div className="relative">
                   <Input
                     type="text"
@@ -1032,7 +1060,7 @@ export default function TransferRequestPage() {
               {/* Destination Warehouse */}
               <div>
                 <Label className="text-sm font-medium">
-                  Destination Warehouse
+                  To Warehouse <span className="text-red-500">* </span>
                 </Label>
                 <div className="relative">
                   <Input
@@ -1123,7 +1151,9 @@ export default function TransferRequestPage() {
               </div>
 
               <div>
-                <Label className="text-sm font-medium">Transfer Date</Label>
+                <Label className="text-sm font-medium">
+                  Transfer Date <span className="text-red-500">* </span>
+                </Label>
                 <Input
                   type="date"
                   value={
@@ -1306,7 +1336,7 @@ export default function TransferRequestPage() {
                           max={maxQty}
                           value={item.quantity}
                           onChange={(e) => {
-                            const raw = Number(e.target.value) || 1;
+                            const raw = Number(e.target.value) || 0;
                             const clamped = Math.max(raw, 1);
                             const updated = [...formData.items];
                             updated[index].quantity = Math.min(clamped, maxQty);
@@ -1356,12 +1386,17 @@ export default function TransferRequestPage() {
               <Button
                 variant="outline"
                 size="sm"
+                disabled={
+                  formData.items.length === 0 ||
+                  !formData.items.at(-1)?.itemCode || // no itemCode selected
+                  Number(formData.items.at(-1)?.quantity) <= 0 // quantity is zero or invalid
+                }
                 onClick={() =>
                   setFormData((prev) => ({
                     ...prev,
                     items: [
                       ...prev.items,
-                      { itemCode: "", quantity: 1, unitType: "" },
+                      { itemCode: "", quantity: 0, unitType: "" },
                     ],
                   }))
                 }>
@@ -1374,7 +1409,12 @@ export default function TransferRequestPage() {
             <DialogClose asChild>
               <Button variant="outline">Cancel</Button>
             </DialogClose>
-            <Button onClick={handleCreate} disabled={isCreating}>
+            <Button
+              onClick={handleCreate}
+              disabled={
+                isCreating ||
+                !formData.items.some((item) => Number(item.quantity) > 0)
+              }>
               {isCreating && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               {isCreating ? "Creating…" : "Create Request"}
             </Button>
@@ -1384,10 +1424,15 @@ export default function TransferRequestPage() {
       {/* Edit Dialog */}
       <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
         <DialogPanel className="max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2 text-lg font-semibold">
+          <DialogHeader className="border-b pb-2">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
               Edit Transfer Request
             </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Fill in the request details. Fields marked with{" "}
+              <span className="text-red-500">* </span>
+              are required.
+            </DialogDescription>
           </DialogHeader>
 
           {/* 🧭 Transaction Metadata */}
@@ -1398,75 +1443,10 @@ export default function TransferRequestPage() {
               </Label>
               <Input value={formData.requestNo ?? ""} readOnly disabled />
             </div>
-
             <div className="space-y-1">
               <div className="space-y-1 relative">
                 <Label className="text-sm font-medium text-muted-foreground">
-                  Request from Warehouse
-                </Label>
-                <Input
-                  type="text"
-                  autoComplete="off"
-                  value={formData.requestingWarehouse}
-                  onChange={(e) => {
-                    const value = e.target.value.toUpperCase();
-                    setFormData((prev) => ({
-                      ...prev,
-                      requestingWarehouse: value,
-                    }));
-                    setShowDestinationSuggestions(true);
-                  }}
-                  onFocus={() => setShowDestinationSuggestions(true)}
-                  onBlur={() =>
-                    setTimeout(() => setShowDestinationSuggestions(false), 200)
-                  }
-                  placeholder="Search warehouse"
-                />
-
-                {showDestinationSuggestions && (
-                  <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
-                    {(() => {
-                      const input = formData.requestingWarehouse
-                        .trim()
-                        .toUpperCase();
-                      const filtered = warehouses.filter((w) =>
-                        w.warehouse_name?.trim().toUpperCase().includes(input)
-                      );
-
-                      return filtered.length > 0 ? (
-                        filtered.map((w) => {
-                          const label =
-                            w.warehouse_name?.trim() || "Unnamed Warehouse";
-                          const value = label.toUpperCase();
-                          return (
-                            <li
-                              key={w._id || value}
-                              className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                              onMouseDown={() => {
-                                setFormData((prev) => ({
-                                  ...prev,
-                                  requestingWarehouse: value,
-                                }));
-                                setShowDestinationSuggestions(false);
-                              }}>
-                              {label}
-                            </li>
-                          );
-                        })
-                      ) : (
-                        <li className="px-3 py-2 text-muted-foreground">
-                          No matching warehouse found
-                        </li>
-                      );
-                    })()}
-                  </ul>
-                )}
-              </div>
-            </div>
-            <div className="space-y-1">
-              <div className="space-y-1 relative">
-                <Label className="text-sm font-medium text-muted-foreground">
-                  Destination Warehouse
+                  From Warehouse <span className="text-red-500">* </span>
                 </Label>
                 <Input
                   type="text"
@@ -1528,6 +1508,77 @@ export default function TransferRequestPage() {
               </div>
             </div>
             <div className="space-y-1">
+              <div className="space-y-1 relative">
+                <Label className="text-sm font-medium text-muted-foreground">
+                  To Warehouse <span className="text-red-500">* </span>
+                </Label>
+                <Input
+                  type="text"
+                  autoComplete="off"
+                  value={formData.requestingWarehouse}
+                  onChange={(e) => {
+                    const value = e.target.value.toUpperCase();
+                    setFormData((prev) => ({
+                      ...prev,
+                      requestingWarehouse: value,
+                    }));
+
+                    if (destinationTouched) {
+                      setShowDestinationSuggestions(true);
+                    }
+                  }}
+                  onFocus={() => {
+                    setDestinationTouched(true);
+                    setShowDestinationSuggestions(true);
+                  }}
+                  onBlur={() =>
+                    setTimeout(() => setShowDestinationSuggestions(false), 200)
+                  }
+                  placeholder="Search warehouse"
+                />
+
+                {showDestinationSuggestions && (
+                  <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                    {(() => {
+                      const input = formData.requestingWarehouse
+                        .trim()
+                        .toUpperCase();
+                      const filtered = warehouses.filter((w) =>
+                        w.warehouse_name?.trim().toUpperCase().includes(input)
+                      );
+
+                      return filtered.length > 0 ? (
+                        filtered.map((w) => {
+                          const label =
+                            w.warehouse_name?.trim() || "Unnamed Warehouse";
+                          const value = label.toUpperCase();
+                          return (
+                            <li
+                              key={w._id || value}
+                              className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                              onMouseDown={() => {
+                                setFormData((prev) => ({
+                                  ...prev,
+                                  requestingWarehouse: value,
+                                }));
+                                setShowDestinationSuggestions(false);
+                              }}>
+                              {label}
+                            </li>
+                          );
+                        })
+                      ) : (
+                        <li className="px-3 py-2 text-muted-foreground">
+                          No matching warehouse found
+                        </li>
+                      );
+                    })()}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-1">
               <Label className="text-sm font-medium text-muted-foreground">
                 Transaction Date
               </Label>
@@ -1547,7 +1598,7 @@ export default function TransferRequestPage() {
 
             <div className="space-y-1">
               <Label className="text-sm font-medium text-muted-foreground">
-                Transfer Date
+                Transfer Date <span className="text-red-500">* </span>
               </Label>
               <Input
                 type="date"
@@ -1778,7 +1829,7 @@ export default function TransferRequestPage() {
                   ...prev,
                   items: [
                     ...prev.items,
-                    { itemCode: "", quantity: 1, unitType: "" },
+                    { itemCode: "", quantity: 0, unitType: "" },
                   ],
                 }))
               }>
@@ -1794,8 +1845,12 @@ export default function TransferRequestPage() {
             </DialogClose>
             <Button
               onClick={handleUpdate}
-              disabled={isUpdating}
+              disabled={
+                isCreating ||
+                !formData.items.some((item) => Number(item.quantity) > 0)
+              }
               className="flex items-center gap-1">
+              {isUpdating && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
               {isUpdating ? "Updating…" : "Update"}
             </Button>
           </DialogFooter>
@@ -1879,15 +1934,15 @@ export default function TransferRequestPage() {
             </div>
           </div>
 
-          {/* 🏢 Supplier & Warehouse Info */}
+          {/* Warehouse Info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
             <div className="text-sm space-y-1">
               <p>
                 <span className="font-medium text-muted-foreground">
-                  Requesting Warehouse:
+                  From Warehouse:
                 </span>{" "}
                 <span className="text-foreground font-semibold">
-                  {formData.requestingWarehouse ?? "—"}
+                  {formData.sourceWarehouse ?? "—"}
                 </span>
               </p>
               <p>
@@ -1903,10 +1958,10 @@ export default function TransferRequestPage() {
             <div className="text-sm space-y-1">
               <p>
                 <span className="font-medium text-muted-foreground">
-                  Source Warehouse:
+                  To Warehouse:
                 </span>{" "}
                 <span className="text-foreground font-semibold">
-                  {formData.sourceWarehouse ?? "—"}
+                  {formData.requestingWarehouse ?? "—"}
                 </span>
               </p>
               <p>
