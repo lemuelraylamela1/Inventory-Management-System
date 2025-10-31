@@ -357,3 +357,23 @@ export type TransferApprovalInput = Omit<
   TransferApproval,
   "_id" | "approvedDate"
 >;
+
+export type AccountCode = {
+  _id?: string;
+  accountCode: string;
+  accountName: string;
+  salesAccount: string;
+  purchaseAccount: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type Bank = {
+  _id?: string;
+  bankAccountName: string;
+  bankAccountCode: string;
+  bankAccountNumber: string;
+  status: "ACTIVE" | "INACTIVE";
+  createdAt?: string;
+  updatedAt?: string;
+};
