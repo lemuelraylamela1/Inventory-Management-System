@@ -377,3 +377,16 @@ export type Bank = {
   createdAt?: string;
   updatedAt?: string;
 };
+
+export type AtcCode = {
+  _id?: string;
+  atcCode: string;
+  taxRate: number;
+  taxCode: string;
+  description?: string;
+  ewt?: number;
+  cwt?: number;
+  status: "ACTIVE" | "INACTIVE";
+  createdAt?: string;
+  updatedAt?: string;
+};

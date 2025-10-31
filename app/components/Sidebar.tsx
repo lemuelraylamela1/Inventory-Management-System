@@ -39,6 +39,7 @@ import {
   Undo2,
   CheckCircle,
   Tags,
+  CodeSquare,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -106,6 +107,7 @@ export function Sidebar({
   const maintenanceItems = [
     { id: "account-class", label: "Account Class", icon: Banknote },
     { id: "account-codes", label: "Account Code", icon: Tags },
+    { id: "atc-codes", label: "ATC Codes", icon: CodeSquare },
     { id: "bank", label: "Bank", icon: Building2 },
     { id: "customer", label: "Customer", icon: Users },
     { id: "customer-type", label: "Customer Type", icon: UserCheck },

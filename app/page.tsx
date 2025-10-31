@@ -32,6 +32,7 @@ import TransferRequest from "./components/sections/TransferRequest";
 import TransferApproved from "./components/sections/TransferApproved";
 import AccountClass from "./components/sections/AccountClass";
 import AccountCodes from "./components/sections/AccountCodes";
+import AtcCodes from "./components/sections/AtcCodes";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -70,6 +71,8 @@ export default function App() {
         return <AccountClass />;
       case "account-codes":
         return <AccountCodes />;
+      case "atc-codes":
+        return <AtcCodes />;
       case "bank":
         return <Bank />;
       case "customer":
