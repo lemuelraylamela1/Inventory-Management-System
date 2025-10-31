@@ -419,7 +419,114 @@ export default function SalesInvoicePage({
     }, base);
   }
 
+  const [validationErrors, setValidationErrors] = useState<
+    Record<
+      keyof Omit<SalesInvoice, "_id" | "createdAt" | "updatedAt" | "items">,
+      string
+    >
+  >({
+    invoiceNo: "",
+    invoiceDate: "",
+    customer: "",
+    customerRef: "",
+    salesPerson: "",
+    salesOrder: "",
+    amount: "",
+    balance: "",
+    status: "",
+    reference: "",
+    TIN: "",
+    terms: "",
+    address: "",
+    dueDate: "",
+    notes: "",
+  });
+
+  const validateForm = (): boolean => {
+    const errors: Record<
+      keyof Omit<SalesInvoice, "_id" | "createdAt" | "updatedAt" | "items">,
+      string
+    > = {
+      invoiceNo: "",
+      invoiceDate: "",
+      customer: "",
+      customerRef: "",
+      salesPerson: "",
+      salesOrder: "",
+      amount: "",
+      balance: "",
+      status: "",
+      reference: "",
+      TIN: "",
+      terms: "",
+      address: "",
+      dueDate: "",
+      notes: "",
+    };
+
+    let hasError = false;
+
+    if (!formData.customer?.trim()) {
+      errors.customer = "Customer is required.";
+      hasError = true;
+    }
+
+    if (!formData.invoiceDate) {
+      errors.invoiceDate = "Invoice date is required.";
+      hasError = true;
+    }
+
+    // 🔹 Required: salesOrder
+    if (!formData.salesOrder?.trim()) {
+      errors.salesOrder = "Sales Order is required.";
+      hasError = true;
+    }
+
+    if (!formData.dueDate) {
+      errors.dueDate = "Due date is required.";
+      hasError = true;
+    } else {
+      const due = new Date(formData.dueDate);
+      const today = new Date();
+      today.setHours(0, 0, 0, 0);
+      if (due < today) {
+        errors.dueDate = "Due date cannot be in the past.";
+        hasError = true;
+      }
+    }
+
+    if (!formData.soItems || formData.soItems.length === 0) {
+      errors.amount = "At least one item is required.";
+      hasError = true;
+    }
+
+    const itemErrors = formData.soItems.map((item) => {
+      const itemError: Record<string, string> = {};
+      if (!item.itemName?.trim()) {
+        itemError.itemName = "Item name is required.";
+        hasError = true;
+      }
+      if (Number(item.quantity) <= 0) {
+        itemError.quantity = "Quantity must be greater than 0.";
+        hasError = true;
+      }
+      if (Number(item.price) < 0) {
+        itemError.price = "Price must be zero or greater.";
+        hasError = true;
+      }
+      return itemError;
+    });
+
+    // Optional: set item-level errors
+    // setItemValidationErrors(itemErrors);
+
+    setValidationErrors(errors);
+    return !hasError;
+  };
+
   const handleCreate = async () => {
+    if (!validateForm()) return;
+
     setIsCreating(true);
 
     try {
@@ -1033,10 +1140,18 @@ export default function SalesInvoicePage({
                         setTimeout(() => setShowCustomerSuggestions(false), 200)
                       }
                       placeholder="Search Customer name"
-                      className="text-sm  w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary"
+                      className={`text-sm w-full px-2 py-1 border focus:outline-none focus:ring-1 ${
+                        validationErrors.customer
+                          ? "border-destructive focus:ring-destructive"
+                          : "border-border focus:ring-primary"
+                      }`}
                     />
                     <User className="absolute right-2 top-2 h-4 w-4 text-muted-foreground" />
-
+                    {validationErrors.customer && (
+                      <p className="text-xs text-destructive mt-1">
+                        {validationErrors.customer}
+                      </p>
+                    )}
                     {showCustomerSuggestions && (
                       <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
                         {(() => {
@@ -1127,9 +1242,13 @@ export default function SalesInvoicePage({
                           ? "Type or select matching sales order"
                           : "Select Customer first"
                       }
-                      className={`text-sm w-full px-2 py-1 border border-border focus:outline-none focus:ring-1 focus:ring-primary ${
+                      className={`text-sm w-full px-2 py-1 border focus:outline-none focus:ring-1 ${
+                        validationErrors.salesOrder
+                          ? "border-destructive focus:ring-destructive"
+                          : "border-border focus:ring-primary"
+                      } ${
                         !formData.customer || !!formData.salesOrder
-                          ? "bg-muted "
+                          ? "bg-muted"
                           : "bg-white"
                       }`}
                       onChange={(e) => {
@@ -1141,12 +1260,22 @@ export default function SalesInvoicePage({
                           soItems: [],
                         }));
                         setShowSalesOrderSuggestions(true);
+                        setValidationErrors((prev) => ({
+                          ...prev,
+                          salesOrder: "", // ✅ clear error on change
+                        }));
                       }}
                       onFocus={() => {
                         if (formData.customer)
                           setShowSalesOrderSuggestions(true);
                       }}
                     />
+
+                    {validationErrors.salesOrder && (
+                      <p className="text-xs text-destructive mt-1">
+                        {validationErrors.salesOrder}
+                      </p>
+                    )}
 
                     {formData.customer &&
                       showSalesOrderSuggestions &&
@@ -1165,7 +1294,6 @@ export default function SalesInvoicePage({
                                 .toUpperCase();
                               const isUnused =
                                 !normalizedUsedSoNumbers.includes(normalizedSO);
-
                               return inputMatch && isCompleted && isUnused;
                             })
                             .map((so) => {
@@ -1287,15 +1415,29 @@ export default function SalesInvoicePage({
                     id="due-date"
                     type="date"
                     value={formData.dueDate || ""}
-                    min={new Date().toISOString().split("T")[0]}
-                    onChange={(e) =>
+                    min={new Date().toISOString().split("T")[0]} // ✅ Prevent past dates
+                    onChange={(e) => {
+                      const value = e.target.value;
                       setFormData((prev) => ({
                         ...prev,
-                        dueDate: e.target.value,
-                      }))
-                    }
-                    className="text-sm"
+                        dueDate: value,
+                      }));
+                      setValidationErrors((prev) => ({
+                        ...prev,
+                        dueDate: "", // ✅ Clear error on change
+                      }));
+                    }}
+                    className={`text-sm w-full px-2 py-1 border focus:outline-none focus:ring-1 ${
+                      validationErrors.dueDate
+                        ? "border-destructive focus:ring-destructive"
+                        : "border-border focus:ring-primary"
+                    }`}
                   />
+                  {validationErrors.dueDate && (
+                    <p className="text-xs text-destructive mt-1">
+                      {validationErrors.dueDate}
+                    </p>
+                  )}
                 </div>
 
                 <div>
@@ -1341,7 +1483,7 @@ export default function SalesInvoicePage({
                     </div>
 
                     {/* Rows */}
-                    {formData.soItems.map((item, idx) => {
+                    {formData.soItems.map((item: SalesOrderItem, idx) => {
                       const key = item.itemName?.trim().toUpperCase();
                       const description =
                         item.description?.trim() || descriptionMap[key] || "—";
@@ -1415,7 +1557,9 @@ export default function SalesInvoicePage({
                 </div>
               )}
               <DialogFooter className=" py-4 border-t border-border flex justify-end">
-                <Button onClick={handleCreate} disabled={isCreating}>
+                <Button
+                  onClick={handleCreate}
+                  disabled={isCreating || formData.salesOrder.length === 0}>
                   {isCreating ? (
                     <Loader2 className="w-4 h-4 animate-spin mr-2" />
                   ) : null}
