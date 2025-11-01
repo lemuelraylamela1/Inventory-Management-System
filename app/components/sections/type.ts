@@ -239,7 +239,7 @@ export type SalesOrderItem = {
   _id?: string;
   itemName: string;
   description?: string;
-  quantity: number;
+  quantity: number | null;
   unitType: string;
   price: number;
   amount: number;

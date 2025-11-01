@@ -16,7 +16,7 @@ const ItemSchema = new Schema<SalesOrderItem>(
   {
     itemName: { type: String, required: true, trim: true, uppercase: true },
     description: { type: String, trim: true },
-    quantity: { type: Number, required: true, min: 1 },
+    quantity: { type: Number, required: true, min: 0 },
     unitType: { type: String, trim: true, uppercase: true },
     price: { type: Number, required: true, min: 0 },
     amount: { type: Number, required: true, min: 0 },
