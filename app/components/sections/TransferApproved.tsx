@@ -70,7 +70,7 @@ import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
 import { Checkbox } from "../ui/checkbox";
 
-import { TransferApproval } from "@/models/transferApprove";
+import { TransferApproval } from "./type";
 import { TransferRequest } from "@/models/transferRequest";
 import { TransferRequestItem } from "./type";
 

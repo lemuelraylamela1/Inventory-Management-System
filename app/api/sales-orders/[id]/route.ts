@@ -114,9 +114,9 @@ export async function PATCH(
         normalizedItems.some(
           (item) =>
             typeof item.itemName !== "string" ||
-            isNaN(item.quantity) ||
-            isNaN(item.price) ||
-            isNaN(item.amount)
+            isNaN(item.quantity ?? NaN) ||
+            isNaN(item.price ?? NaN) ||
+            isNaN(item.amount ?? NaN)
         )));
 
   if (isInvalid) {
@@ -141,7 +141,7 @@ export async function PATCH(
     updatePayload.items = normalizedItems;
     updatePayload.total = normalizedItems.reduce((sum, i) => sum + i.amount, 0);
     updatePayload.totalQuantity = normalizedItems.reduce(
-      (sum, i) => sum + i.quantity,
+      (sum, i) => sum + sum + (i.quantity ?? 0),
       0
     );
   }
