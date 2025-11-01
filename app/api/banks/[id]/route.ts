@@ -4,8 +4,9 @@ import Bank from "@/models/bank";
 
 export async function GET(
   _: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   await connectMongoDB();
 
   try {
@@ -23,8 +24,9 @@ export async function GET(
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   await connectMongoDB();
   const body = await req.json();
 
@@ -45,8 +47,9 @@ export async function PATCH(
 
 export async function DELETE(
   _: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   await connectMongoDB();
 
   try {
