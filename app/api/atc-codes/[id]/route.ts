@@ -3,13 +3,16 @@ import connectMongoDB from "@/libs/mongodb";
 import AtcCode from "../../../../models/atcCode";
 
 // GET single ATC Code by ID
-// export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
-//   const params = await props.params;
-//   await connectMongoDB();
-//   const code = await AtcCode.findById(params.id);
-//   if (!code) return NextResponse.json({ error: "Not found" }, { status: 404 });
-//   return NextResponse.json(code);
-// }
+export async function GET(
+  _: Request,
+  props: { params: Promise<{ id: string }> }
+) {
+  const params = await props.params;
+  await connectMongoDB();
+  const code = await AtcCode.findById(params.id);
+  if (!code) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  return NextResponse.json(code);
+}
 
 // PATCH update ATC Code
 export async function PATCH(
