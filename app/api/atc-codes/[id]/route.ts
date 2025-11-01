@@ -3,18 +3,20 @@ import connectMongoDB from "@/libs/mongodb";
 import AtcCode from "../../../../models/atcCode";
 
 // GET single ATC Code by ID
-export async function GET(_: Request, { params }: { params: { id: string } }) {
-  await connectMongoDB();
-  const code = await AtcCode.findById(params.id);
-  if (!code) return NextResponse.json({ error: "Not found" }, { status: 404 });
-  return NextResponse.json(code);
-}
+// export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
+//   const params = await props.params;
+//   await connectMongoDB();
+//   const code = await AtcCode.findById(params.id);
+//   if (!code) return NextResponse.json({ error: "Not found" }, { status: 404 });
+//   return NextResponse.json(code);
+// }
 
 // PATCH update ATC Code
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   await connectMongoDB();
   const updates = await req.json();
   const updated = await AtcCode.findByIdAndUpdate(params.id, updates, {
@@ -28,8 +30,9 @@ export async function PATCH(
 // DELETE ATC Code
 export async function DELETE(
   _: Request,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   await connectMongoDB();
   const deleted = await AtcCode.findByIdAndDelete(params.id);
   if (!deleted)
