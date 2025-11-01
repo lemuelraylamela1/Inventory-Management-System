@@ -662,7 +662,7 @@ export default function SalesOrder({ onSuccess }: Props) {
 
     const total = normalizedItems.reduce((sum, item) => sum + item.amount, 0);
     const totalQuantity = normalizedItems.reduce(
-      (sum, item) => sum + item.quantity,
+      (sum, item) => sum + (item.quantity ?? 0),
       0
     );
 
@@ -1565,12 +1565,12 @@ export default function SalesOrder({ onSuccess }: Props) {
     const updatedItems = itemsData.filter((_, i) => i !== index);
 
     const totalQuantity = updatedItems.reduce(
-      (sum, item) => sum + item.quantity,
+      (sum, item) => sum + (item.quantity ?? 0),
       0
     );
 
     const totalAmount = updatedItems.reduce(
-      (sum, item) => sum + item.amount || item.quantity * item.price,
+      (sum, item) => sum + item.amount || (item.quantity ?? 0) * item.price,
       0
     );
 
@@ -1628,6 +1628,23 @@ export default function SalesOrder({ onSuccess }: Props) {
     }
   };
 
+  function updateQuantity(index: number, value: number | null) {
+    setItemsData((prev) => {
+      const updated = [...prev];
+      updated[index].quantity = value;
+      return updated;
+    });
+
+    setFormData((prev) => {
+      const updatedItems = [...prev.items];
+      updatedItems[index] = {
+        ...updatedItems[index],
+        quantity: value,
+      };
+      return { ...prev, items: updatedItems };
+    });
+  }
+
   const handleExportPDF = (
     items: SalesOrderItem[],
     soMeta: {
@@ -1682,11 +1699,10 @@ export default function SalesOrder({ onSuccess }: Props) {
       )}`,
     ]);
 
-    // ➕ Totals Row
-    const totalQty = items.reduce((sum, i) => sum + i.quantity, 0);
+    const totalQty = items.reduce((sum, i) => sum + (i.quantity ?? 0), 0);
 
     const totalAmt = items.reduce(
-      (sum, i) => sum + (i.amount ?? i.quantity * i.price),
+      (sum, i) => sum + (i.amount ?? (i.quantity ?? 0) * i.price),
       0
     );
 
@@ -2427,43 +2443,45 @@ export default function SalesOrder({ onSuccess }: Props) {
                             </div>
 
                             {/* Quantity */}
-                            <input
-                              type="number"
-                              min={1}
-                              max={
-                                inventoryItems.find(
-                                  (inv) => inv.itemCode === item.itemCode
-                                )?.quantity ?? 9999
+                            <Input
+                              type="text"
+                              inputMode="decimal"
+                              pattern="^\d*\.?\d*$"
+                              value={
+                                item.itemName
+                                  ? item.quantity !== null &&
+                                    item.quantity !== undefined
+                                    ? item.quantity.toString()
+                                    : ""
+                                  : ""
                               }
-                              value={item.itemName ? item.quantity : 0}
                               disabled={!item.itemName}
                               onChange={(e) => {
-                                const raw = Number(e.target.value);
-                                const maxQty =
-                                  inventoryItems.find(
-                                    (inv) => inv.itemCode === item.itemCode
-                                  )?.quantity ?? 9999;
+                                const value = e.target.value;
 
-                                const value = Math.min(
-                                  Math.max(raw, 1),
-                                  maxQty
-                                ); // clamp between 1 and maxQty
+                                // Allow empty string → treat as null
+                                if (value === "") {
+                                  updateQuantity(index, null);
+                                  return;
+                                }
 
-                                setItemsData((prev) => {
-                                  const updated = [...prev];
-                                  updated[index].quantity = value;
-                                  return updated;
-                                });
-
-                                setFormData((prev) => {
-                                  const updatedItems = [...prev.items];
-                                  updatedItems[index] = {
-                                    ...updatedItems[index],
-                                    quantity: value,
-                                  };
-                                  return { ...prev, items: updatedItems };
-                                });
+                                // Only allow valid numeric input
+                                if (/^\d*\.?\d*$/.test(value)) {
+                                  const parsed = parseFloat(value);
+                                  if (!isNaN(parsed)) {
+                                    const maxQty =
+                                      inventoryItems.find(
+                                        (inv) => inv.itemCode === item.itemCode
+                                      )?.quantity ?? 9999;
+                                    const clamped = Math.min(
+                                      Math.max(parsed, 1),
+                                      maxQty
+                                    );
+                                    updateQuantity(index, clamped);
+                                  }
+                                }
                               }}
+                              placeholder="e.g. 5"
                               className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 text-end bg-white focus:outline-none focus:ring-1 focus:ring-primary ${
                                 !item.itemName
                                   ? "bg-muted text-muted-foreground cursor-not-allowed"
@@ -3618,39 +3636,44 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                         {/* Quantity */}
                         <input
-                          type="number"
-                          min={0}
-                          max={
-                            inventoryItems.find(
-                              (inv) => inv.itemCode === item.itemCode
-                            )?.quantity ?? 9999
+                          type="text"
+                          inputMode="decimal"
+                          pattern="^\d*\.?\d*$"
+                          value={
+                            item.itemName
+                              ? item.quantity !== null &&
+                                item.quantity !== undefined
+                                ? item.quantity.toString()
+                                : ""
+                              : ""
                           }
                           disabled={!item.itemName}
-                          value={item.quantity}
                           onChange={(e) => {
-                            const raw = Number(e.target.value);
-                            const maxQty =
-                              inventoryItems.find(
-                                (inv) => inv.itemCode === item.itemCode
-                              )?.quantity ?? 9999;
+                            const value = e.target.value;
 
-                            const value = Math.min(Math.max(raw, 1), maxQty); // clamp between 1 and maxQty
+                            // Allow empty string → treat as null
+                            if (value === "") {
+                              updateQuantity(index, null);
+                              return;
+                            }
 
-                            setItemsData((prev) => {
-                              const updated = [...prev];
-                              updated[index].quantity = value;
-                              return updated;
-                            });
-
-                            setFormData((prev) => {
-                              const updatedItems = [...prev.items];
-                              updatedItems[index] = {
-                                ...updatedItems[index],
-                                quantity: value,
-                              };
-                              return { ...prev, items: updatedItems };
-                            });
+                            // Only allow valid numeric input
+                            if (/^\d*\.?\d*$/.test(value)) {
+                              const parsed = parseFloat(value);
+                              if (!isNaN(parsed)) {
+                                const maxQty =
+                                  inventoryItems.find(
+                                    (inv) => inv.itemCode === item.itemCode
+                                  )?.quantity ?? 9999;
+                                const clamped = Math.min(
+                                  Math.max(parsed, 1),
+                                  maxQty
+                                );
+                                updateQuantity(index, clamped);
+                              }
+                            }
                           }}
+                          placeholder="e.g. 5"
                           className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary text-end ${
                             !item.itemName
                               ? "cursor-not-allowed opacity-50"
