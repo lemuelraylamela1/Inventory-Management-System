@@ -699,10 +699,10 @@ export default function TransferApproved() {
               <div className="text-sm space-y-1">
                 <p>
                   <span className="font-medium text-muted-foreground">
-                    Requesting Warehouse:
+                    From Warehouse:
                   </span>{" "}
                   <span className="text-foreground font-semibold">
-                    {viewedRequest.requestingWarehouse ?? "—"}
+                    {viewedRequest.sourceWarehouse ?? "—"}
                   </span>
                 </p>
                 <p>
@@ -718,10 +718,10 @@ export default function TransferApproved() {
               <div className="text-sm space-y-1">
                 <p>
                   <span className="font-medium text-muted-foreground">
-                    Source Warehouse:
+                    To Warehouse:
                   </span>{" "}
                   <span className="text-foreground font-semibold">
-                    {viewedRequest.sourceWarehouse ?? "—"}
+                    {viewedRequest.requestingWarehouse ?? "—"}
                   </span>
                 </p>
                 <p>

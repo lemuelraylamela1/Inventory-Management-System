@@ -32,7 +32,11 @@ export function LoginForm({ onLogin }: LoginFormProps) {
       password: " ",
       role: "admin" as const,
     },
-    { email: "user@inventory.com", password: "user123", role: "user" as const },
+    {
+      email: "joy@gmail.com",
+      password: "joypanget",
+      role: "admin" as const,
+    },
   ];
 
   const handleSubmit = async (e: React.FormEvent) => {
