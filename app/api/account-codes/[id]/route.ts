@@ -2,29 +2,28 @@ import { NextRequest, NextResponse } from "next/server";
 import connectMongoDB from "../../../../libs/mongodb";
 import AccountCode from "@/models/accountCodes";
 
-export async function GET(
-  _: NextRequest,
-  { params }: { params: { id: string } }
-) {
-  await connectMongoDB();
+// export async function GET(_: NextRequest, props: { params: Promise<{ id: string }> }) {
+//   const params = await props.params;
+//   await connectMongoDB();
 
-  try {
-    const code = await AccountCode.findById(params.id);
-    if (!code)
-      return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json(code, { status: 200 });
-  } catch (error) {
-    return NextResponse.json(
-      { error: "Failed to fetch account code", details: error },
-      { status: 500 }
-    );
-  }
-}
+//   try {
+//     const code = await AccountCode.findById(params.id);
+//     if (!code)
+//       return NextResponse.json({ error: "Not found" }, { status: 404 });
+//     return NextResponse.json(code, { status: 200 });
+//   } catch (error) {
+//     return NextResponse.json(
+//       { error: "Failed to fetch account code", details: error },
+//       { status: 500 }
+//     );
+//   }
+// }
 
 export async function PATCH(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   await connectMongoDB();
   const body = await req.json();
 
@@ -45,8 +44,9 @@ export async function PATCH(
 
 export async function DELETE(
   _: NextRequest,
-  { params }: { params: { id: string } }
+  props: { params: Promise<{ id: string }> }
 ) {
+  const params = await props.params;
   await connectMongoDB();
 
   try {
