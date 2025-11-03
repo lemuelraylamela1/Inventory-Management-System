@@ -390,3 +390,17 @@ export type AtcCode = {
   createdAt?: string;
   updatedAt?: string;
 };
+
+export type ChartOfAccount = {
+  _id: string;
+  accountCode: string;
+  accountName: string;
+  accountClass: string;
+  status: "ACTIVE" | "INACTIVE";
+  accountType: string;
+  fsPresentation: string;
+  parentAccountTitle?: string;
+  accountNature: string;
+  createdAt: Date;
+  updatedAt: Date;
+};

@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { ScrollArea } from "../ui/scroll-area";
 import {
   Card,
@@ -108,8 +108,33 @@ export default function Bank() {
   //   fetchBanks();
   // }, []);
 
+  const resetForm = () => {
+    setFormData({});
+  };
+
+  useEffect(() => {
+    if (!isCreateDialogOpen) {
+      setFormData({});
+    }
+  }, [isCreateDialogOpen]);
+
+  useEffect(() => {
+    if (!isEditDialogOpen) {
+      setFormData({});
+    }
+  }, [isEditDialogOpen]);
+
+  useEffect(() => {
+    if (!isViewDialogOpen) {
+      setFormData({});
+    }
+  }, [isViewDialogOpen]);
+
+  const isFirstFetch = useRef(true);
+
   const refreshBankList = async () => {
-    setIsLoading(true);
+    if (isFirstFetch.current) setIsLoading(true);
+
     try {
       const res = await fetch("/api/banks");
       const data = await res.json();
@@ -117,12 +142,21 @@ export default function Bank() {
     } catch (err) {
       console.error("Failed to fetch bank accounts", err);
     } finally {
-      setIsLoading(false);
+      if (isFirstFetch.current) {
+        setIsLoading(false);
+        isFirstFetch.current = false;
+      }
     }
   };
 
   useEffect(() => {
-    refreshBankList();
+    refreshBankList(); // Initial fetch
+
+    const interval = setInterval(() => {
+      refreshBankList();
+    }, 1000); // 1 second
+
+    return () => clearInterval(interval); // Cleanup on unmount
   }, []);
 
   const handleCreate = async (formData: Partial<Bank>) => {

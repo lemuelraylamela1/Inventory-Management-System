@@ -554,6 +554,10 @@ export default function SalesOrder({ onSuccess }: Props) {
       errors.customer = "Customer is required";
     }
 
+    if (!formData.salesPerson.trim()) {
+      errors.salesPerson = "Sales Person is required! Select customer first";
+    }
+
     // 🔹 Required: warehouse
     if (!formData.warehouse.trim()) {
       errors.warehouse = "Warehouse is required";
@@ -1654,6 +1658,12 @@ export default function SalesOrder({ onSuccess }: Props) {
       warehouse: string;
       status: string;
       notes?: string;
+      transactionDate?: string;
+      purchaseOrder?: string;
+      terms?: string;
+      customerAddress?: string;
+      customerContact?: string;
+      customerTIN?: string;
     }
   ) => {
     if (!items?.length) {
@@ -1662,36 +1672,75 @@ export default function SalesOrder({ onSuccess }: Props) {
     }
 
     const doc = new jsPDF();
-    const title = "Sales Order Summary";
+    const marginX = 14;
+    const lineHeight = 6;
 
-    // 🧾 Summary Section
-    const summaryLines = [
-      `SO Number: ${soMeta.soNumber}`,
-      `Customer: ${soMeta.customer}`,
-      `Sales Person: ${soMeta.salesPerson}`,
-      `Warehouse: ${soMeta.warehouse}`,
-      `Status: ${soMeta.status}`,
-      `Notes: ${soMeta.notes?.trim() || "—"}`,
-    ];
+    // 🧱 Outer Border
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const borderMargin = 10;
 
-    doc.setFontSize(16);
-    doc.text(title, 14, 20);
+    doc.setDrawColor(0); // black
+    doc.setLineWidth(0.5);
+    doc.rect(
+      borderMargin,
+      borderMargin,
+      pageWidth - borderMargin * 2,
+      pageHeight - borderMargin * 2
+    );
 
+    // 🏢 Company Header
+    doc.setFontSize(12);
+    doc.setFont("helvetica", "bold");
+    doc.text("NCM MARKETING CORPORATION", marginX, 20);
+    doc.setFontSize(9);
+    doc.setFont("helvetica", "normal");
+    doc.text("Freeman Compound, #10 Nardatu St., Caloocan City", marginX, 26);
+    doc.text("Tel: 1234567890 | Email: info@ncmcorp.com", marginX, 32);
+
+    // 📋 Transaction Metadata
+    const metaY = 40;
     doc.setFontSize(10);
-    summaryLines.forEach((line, i) => {
-      doc.text(line, 14, 28 + i * 6);
-    });
+    doc.text(`DATE: ${soMeta.transactionDate || "—"}`, marginX, metaY);
+    doc.text(`PR #: ${soMeta.soNumber}`, marginX + 100, metaY);
+    doc.text(
+      `PO #: ${soMeta.purchaseOrder || "—"}`,
+      marginX,
+      metaY + lineHeight
+    );
+    doc.text(
+      `WAREHOUSE: ${soMeta.warehouse}`,
+      marginX + 100,
+      metaY + lineHeight
+    );
+    doc.text(`TERMS: ${soMeta.terms || "—"}`, marginX, metaY + lineHeight * 2);
 
-    const tableStartY = 28 + summaryLines.length * 6 + 10;
+    // 🧍 Customer Info
+    const customerY = metaY + lineHeight * 4;
+    doc.text(`ORDER FROM: ${soMeta.customer}`, marginX, customerY);
+    doc.text(
+      `ADDRESS: ${soMeta.customerAddress || "—"}`,
+      marginX,
+      customerY + lineHeight
+    );
+    doc.text(
+      `CONTACT #: ${soMeta.customerContact || "—"}`,
+      marginX,
+      customerY + lineHeight * 2
+    );
+    doc.text(
+      `TIN: ${soMeta.customerTIN || "—"}`,
+      marginX,
+      customerY + lineHeight * 3
+    );
 
-    // 📊 Table Data
-    const tableHead = [
-      ["Item Code", "Item Name", "UOM", "Price", "Qty", "Amount"],
-    ];
-    const tableBody = items.map((item) => [
-      item.itemCode ?? "—",
-      item.itemName ?? "—",
+    // 📦 Table
+    const tableStartY = customerY + lineHeight * 5;
+    const tableHead = [["#", "UOM", "Item Name", "Price", "Qty", "Amount"]];
+    const tableBody = items.map((item, i) => [
+      `${i + 1}`,
       item.unitType ?? "—",
+      item.itemName ?? "—",
       `₱${(item.price ?? 0).toFixed(2)}`,
       `${item.quantity ?? 0}`,
       `₱${(item.amount ?? (item.quantity ?? 0) * (item.price ?? 0)).toFixed(
@@ -1700,7 +1749,6 @@ export default function SalesOrder({ onSuccess }: Props) {
     ]);
 
     const totalQty = items.reduce((sum, i) => sum + (i.quantity ?? 0), 0);
-
     const totalAmt = items.reduce(
       (sum, i) => sum + (i.amount ?? (i.quantity ?? 0) * i.price),
       0
@@ -1715,7 +1763,6 @@ export default function SalesOrder({ onSuccess }: Props) {
       `₱${totalAmt.toFixed(2)}`,
     ]);
 
-    // 🧷 Render Table
     autoTable(doc, {
       startY: tableStartY,
       head: tableHead,
@@ -1723,7 +1770,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       styles: {
         fontSize: 9,
         halign: "center",
-        cellPadding: 4,
+        cellPadding: 3,
       },
       headStyles: {
         fillColor: [41, 98, 255],
@@ -1735,16 +1782,27 @@ export default function SalesOrder({ onSuccess }: Props) {
       },
     });
 
-    // 🕒 Timestamp Footer
+    // 💰 Financial Summary
+    const finalY = doc.lastAutoTable?.finalY ?? 100;
+    doc.setFontSize(10);
+    doc.text(`VATable Sales: ₱${totalAmt.toFixed(2)}`, marginX, finalY + 10);
+    doc.text(`VAT-Exempt Sales: ₱0.00`, marginX, finalY + 16);
+    doc.text(`Total Amount: ₱${totalAmt.toFixed(2)}`, marginX, finalY + 22);
+
+    // 🖊️ Footer
+    doc.text("Prepared by:", marginX, finalY + 35);
+    doc.text("Approved by:", marginX + 100, finalY + 35);
+    doc.line(marginX, finalY + 40, marginX + 60, finalY + 40);
+    doc.line(marginX + 100, finalY + 40, marginX + 160, finalY + 40);
+
     doc.setFontSize(8);
-    const finalY = doc.lastAutoTable?.finalY ?? 100; // fallback Y if undefined
     doc.text(
       `Generated on: ${new Date().toLocaleString("en-PH")}`,
-      14,
-      finalY + 10
+      marginX,
+      finalY + 50
     );
 
-    // 📁 Save PDF
+    // 💾 Save
     const safeNumber = soMeta.soNumber.replace(/[^\w\-]/g, "_");
     doc.save(`SO-${safeNumber}.pdf`);
     toast.success("PDF exported successfully");
@@ -2072,8 +2130,17 @@ export default function SalesOrder({ onSuccess }: Props) {
                           value={formData.salesPerson || ""}
                           readOnly
                           placeholder="Select Customer"
-                          className="text-sm w-full px-2 py-1 border border-border bg-muted text-muted-foreground"
+                          className={`text-sm w-full px-2 py-1 border ${
+                            validationErrors.salesPerson
+                              ? "border-destructive"
+                              : "border-border"
+                          } bg-muted text-muted-foreground`}
                         />
+                        {validationErrors.salesPerson && (
+                          <p className="text-sm text-destructive">
+                            {validationErrors.salesPerson}
+                          </p>
+                        )}
                       </div>
                       {/* Warehouse */}
                       <div className="flex flex-col flex-1 min-w-[200px]">
@@ -3274,8 +3341,17 @@ export default function SalesOrder({ onSuccess }: Props) {
                     type="text"
                     value={formData.salesPerson || ""}
                     readOnly
-                    className="text-sm w-full px-2 py-1 border border-border bg-muted text-muted-foreground"
+                    className={`text-sm w-full px-2 py-1 border ${
+                      validationErrors.salesPerson
+                        ? "border-destructive"
+                        : "border-border"
+                    } bg-muted text-muted-foreground`}
                   />
+                  {validationErrors.salesPerson && (
+                    <p className="text-sm text-destructive">
+                      {validationErrors.salesPerson}
+                    </p>
+                  )}
                 </div>
 
                 {/* Warehouse */}

@@ -277,3 +277,42 @@ export async function PATCH(
     );
   }
 }
+
+// ✅ DELETE /api/sales-orders/[id]
+export async function DELETE(
+  request: NextRequest,
+  context: { params: Promise<{ id: string }> }
+) {
+  await connectMongoDB();
+  const { id } = await context.params;
+  const trimmedId = id?.trim();
+
+  if (!trimmedId || !Types.ObjectId.isValid(trimmedId)) {
+    return NextResponse.json(
+      { error: "Invalid sales order ID" },
+      { status: 400 }
+    );
+  }
+
+  try {
+    const deleted = await SalesOrderModel.findByIdAndDelete(trimmedId);
+    if (!deleted) {
+      return NextResponse.json(
+        { error: "Sales order not found" },
+        { status: 404 }
+      );
+    }
+
+    console.log(`🗑️ Deleted sales order ${trimmedId}`);
+    return NextResponse.json(
+      { message: "Sales order deleted" },
+      { status: 200 }
+    );
+  } catch (err) {
+    console.error("❌ Error deleting sales order:", err);
+    return NextResponse.json(
+      { error: "Failed to delete sales order" },
+      { status: 500 }
+    );
+  }
+}

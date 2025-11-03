@@ -40,6 +40,7 @@ import {
   CheckCircle,
   Tags,
   CodeSquare,
+  BarChart2,
 } from "lucide-react";
 
 interface SidebarProps {
@@ -109,6 +110,7 @@ export function Sidebar({
     { id: "account-codes", label: "Account Code", icon: Tags },
     { id: "atc-codes", label: "ATC Codes", icon: CodeSquare },
     { id: "bank", label: "Bank", icon: Building2 },
+    { id: "chart-of-account", label: "Chart of Account", icon: BarChart2 },
     { id: "customer", label: "Customer", icon: Users },
     { id: "customer-type", label: "Customer Type", icon: UserCheck },
     { id: "item-class", label: "Item Class", icon: Shapes },

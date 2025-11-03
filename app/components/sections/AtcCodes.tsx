@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from "react";
+import { useEffect, useState, useMemo, useRef } from "react";
 import { ScrollArea } from "../ui/scroll-area";
 import {
   Card,
@@ -95,8 +95,11 @@ export default function AtcCodes() {
     currentPage * rowsPerPage
   );
 
+  const isFirstFetch = useRef(true);
+
   const refreshAtcCodeList = async () => {
-    setIsLoading(true);
+    if (isFirstFetch.current) setIsLoading(true);
+
     try {
       const res = await fetch("/api/atc-codes");
       const data = await res.json();
@@ -104,13 +107,44 @@ export default function AtcCodes() {
     } catch (err) {
       console.error("Failed to fetch ATC codes", err);
     } finally {
-      setIsLoading(false);
+      if (isFirstFetch.current) {
+        setIsLoading(false);
+        isFirstFetch.current = false;
+      }
     }
   };
 
   useEffect(() => {
-    refreshAtcCodeList();
+    refreshAtcCodeList(); // Initial fetch
+
+    const interval = setInterval(() => {
+      refreshAtcCodeList();
+    }, 1000); // 1 second
+
+    return () => clearInterval(interval); // Cleanup on unmount
   }, []);
+
+  const resetForm = () => {
+    setFormData({});
+  };
+
+  useEffect(() => {
+    if (!isCreateDialogOpen) {
+      setFormData({});
+    }
+  }, [isCreateDialogOpen]);
+
+  useEffect(() => {
+    if (!isEditDialogOpen) {
+      setFormData({});
+    }
+  }, [isEditDialogOpen]);
+
+  useEffect(() => {
+    if (!isViewDialogOpen) {
+      setFormData({});
+    }
+  }, [isViewDialogOpen]);
 
   const handleCreate = async (formData: Partial<AtcCode>) => {
     const payload: Partial<AtcCode> = {
