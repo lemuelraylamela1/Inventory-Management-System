@@ -2,7 +2,8 @@ import { NextResponse } from "next/server";
 import connectMongoDB from "@/libs/mongodb";
 import ChartOfAccount from "@/models/chartOfAccount";
 
-export async function GET(_: Request, { params }: { params: { id: string } }) {
+export async function GET(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await connectMongoDB();
   const account = await ChartOfAccount.findById(params.id);
   if (!account)
@@ -10,10 +11,8 @@ export async function GET(_: Request, { params }: { params: { id: string } }) {
   return NextResponse.json(account);
 }
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await connectMongoDB();
   const updates = await req.json();
 
@@ -32,10 +31,8 @@ export async function PATCH(
   }
 }
 
-export async function DELETE(
-  _: Request,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(_: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await connectMongoDB();
   try {
     const deleted = await ChartOfAccount.findByIdAndDelete(params.id);
