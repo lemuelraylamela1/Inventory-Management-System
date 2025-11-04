@@ -254,6 +254,7 @@ export type DiscountStep = {
   rate: number;
   amount: number;
   remaining: number;
+  type?: string;
 };
 
 // 🔹 Full SalesOrder document (from DB)
@@ -277,6 +278,9 @@ export type SalesOrder = {
   formattedCBM: string;
   formattedTotal: string;
   formattedNetTotal: string;
+  freightCharges?: number;
+  otherCharges?: number;
+  pesoDiscounts?: number;
   creationDate: string;
   createdAt?: string;
   updatedAt?: string;
@@ -289,6 +293,33 @@ export type SalesOrderInput = Omit<
   SalesOrder,
   "_id" | "soNumber" | "createdAt" | "updatedAt"
 >;
+
+export interface SalesOrderMeta {
+  soNumber: string;
+  customer: string;
+  salesPerson: string;
+  warehouse: string;
+  transactionDate: string;
+  deliveryDate?: string;
+  shippingAddress?: string;
+  notes?: string;
+  status: "PENDING" | "TO PREPARE" | "COMPLETED" | "CANCELLED";
+  items: SalesOrderItem[];
+  discounts?: string[];
+  discountBreakdown: DiscountStep[];
+  total: number;
+  totalQuantity: number;
+  formattedWeight: string;
+  formattedCBM: string;
+  formattedTotal: string;
+  formattedNetTotal: string;
+  freightCharges?: number;
+  otherCharges?: number;
+  pesoDiscounts?: number;
+  creationDate: string;
+  createdAt?: string;
+  updatedAt?: string;
+}
 
 export type SalesInvoice = {
   _id: string;

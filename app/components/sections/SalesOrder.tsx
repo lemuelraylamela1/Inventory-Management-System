@@ -93,6 +93,8 @@ import type {
   InventoryItem,
   ItemType,
   CustomerType,
+  DiscountStep,
+  SalesOrderMeta,
 } from "./type";
 
 import {
@@ -252,6 +254,9 @@ export default function SalesOrder({ onSuccess }: Props) {
     formattedNetTotal: "",
     discounts: "",
     discountBreakdown: "",
+    freightCharges: "",
+    otherCharges: "",
+    pesoDiscounts: "",
   });
 
   useEffect(() => {
@@ -547,6 +552,9 @@ export default function SalesOrder({ onSuccess }: Props) {
       formattedNetTotal: "",
       discounts: "",
       discountBreakdown: "",
+      freightCharges: "",
+      otherCharges: "",
+      pesoDiscounts: "",
     };
 
     // 🔹 Required: customer
@@ -998,7 +1006,10 @@ export default function SalesOrder({ onSuccess }: Props) {
     formattedTotal: "",
     formattedNetTotal: "",
     discounts: "",
-    discountBreakdown: "", // ✅ Required for type completeness
+    discountBreakdown: "",
+    freightCharges: "",
+    otherCharges: "",
+    pesoDiscounts: "",
   };
 
   const allowedStatuses: SalesOrder["status"][] = [
@@ -1310,15 +1321,18 @@ export default function SalesOrder({ onSuccess }: Props) {
       shippingAddress: "",
       notes: "",
       status: "",
-      creationDate: "",
       total: "",
       totalQuantity: "",
+      creationDate: "",
       formattedWeight: "",
       formattedCBM: "",
       formattedTotal: "",
       formattedNetTotal: "",
       discounts: "",
-      discountBreakdown: "", // ✅ Optional: only if you validate it
+      discountBreakdown: "",
+      freightCharges: "",
+      otherCharges: "",
+      pesoDiscounts: "",
     });
   };
 
@@ -1649,165 +1663,6 @@ export default function SalesOrder({ onSuccess }: Props) {
     });
   }
 
-  const handleExportPDF = (
-    items: SalesOrderItem[],
-    soMeta: {
-      soNumber: string;
-      customer: string;
-      salesPerson: string;
-      warehouse: string;
-      status: string;
-      notes?: string;
-      transactionDate?: string;
-      purchaseOrder?: string;
-      terms?: string;
-      customerAddress?: string;
-      customerContact?: string;
-      customerTIN?: string;
-    }
-  ) => {
-    if (!items?.length) {
-      toast.error("No items to export");
-      return;
-    }
-
-    const doc = new jsPDF();
-    const marginX = 14;
-    const lineHeight = 6;
-
-    // 🧱 Outer Border
-    const pageWidth = doc.internal.pageSize.getWidth();
-    const pageHeight = doc.internal.pageSize.getHeight();
-    const borderMargin = 10;
-
-    doc.setDrawColor(0); // black
-    doc.setLineWidth(0.5);
-    doc.rect(
-      borderMargin,
-      borderMargin,
-      pageWidth - borderMargin * 2,
-      pageHeight - borderMargin * 2
-    );
-
-    // 🏢 Company Header
-    doc.setFontSize(12);
-    doc.setFont("helvetica", "bold");
-    doc.text("NCM MARKETING CORPORATION", marginX, 20);
-    doc.setFontSize(9);
-    doc.setFont("helvetica", "normal");
-    doc.text("Freeman Compound, #10 Nardatu St., Caloocan City", marginX, 26);
-    doc.text("Tel: 1234567890 | Email: info@ncmcorp.com", marginX, 32);
-
-    // 📋 Transaction Metadata
-    const metaY = 40;
-    doc.setFontSize(10);
-    doc.text(`DATE: ${soMeta.transactionDate || "—"}`, marginX, metaY);
-    doc.text(`PR #: ${soMeta.soNumber}`, marginX + 100, metaY);
-    doc.text(
-      `PO #: ${soMeta.purchaseOrder || "—"}`,
-      marginX,
-      metaY + lineHeight
-    );
-    doc.text(
-      `WAREHOUSE: ${soMeta.warehouse}`,
-      marginX + 100,
-      metaY + lineHeight
-    );
-    doc.text(`TERMS: ${soMeta.terms || "—"}`, marginX, metaY + lineHeight * 2);
-
-    // 🧍 Customer Info
-    const customerY = metaY + lineHeight * 4;
-    doc.text(`ORDER FROM: ${soMeta.customer}`, marginX, customerY);
-    doc.text(
-      `ADDRESS: ${soMeta.customerAddress || "—"}`,
-      marginX,
-      customerY + lineHeight
-    );
-    doc.text(
-      `CONTACT #: ${soMeta.customerContact || "—"}`,
-      marginX,
-      customerY + lineHeight * 2
-    );
-    doc.text(
-      `TIN: ${soMeta.customerTIN || "—"}`,
-      marginX,
-      customerY + lineHeight * 3
-    );
-
-    // 📦 Table
-    const tableStartY = customerY + lineHeight * 5;
-    const tableHead = [["#", "UOM", "Item Name", "Price", "Qty", "Amount"]];
-    const tableBody = items.map((item, i) => [
-      `${i + 1}`,
-      item.unitType ?? "—",
-      item.itemName ?? "—",
-      `₱${(item.price ?? 0).toFixed(2)}`,
-      `${item.quantity ?? 0}`,
-      `₱${(item.amount ?? (item.quantity ?? 0) * (item.price ?? 0)).toFixed(
-        2
-      )}`,
-    ]);
-
-    const totalQty = items.reduce((sum, i) => sum + (i.quantity ?? 0), 0);
-    const totalAmt = items.reduce(
-      (sum, i) => sum + (i.amount ?? (i.quantity ?? 0) * i.price),
-      0
-    );
-
-    tableBody.push([
-      "",
-      "",
-      "",
-      "Total",
-      `${totalQty}`,
-      `₱${totalAmt.toFixed(2)}`,
-    ]);
-
-    autoTable(doc, {
-      startY: tableStartY,
-      head: tableHead,
-      body: tableBody,
-      styles: {
-        fontSize: 9,
-        halign: "center",
-        cellPadding: 3,
-      },
-      headStyles: {
-        fillColor: [41, 98, 255],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245],
-      },
-    });
-
-    // 💰 Financial Summary
-    const finalY = doc.lastAutoTable?.finalY ?? 100;
-    doc.setFontSize(10);
-    doc.text(`VATable Sales: ₱${totalAmt.toFixed(2)}`, marginX, finalY + 10);
-    doc.text(`VAT-Exempt Sales: ₱0.00`, marginX, finalY + 16);
-    doc.text(`Total Amount: ₱${totalAmt.toFixed(2)}`, marginX, finalY + 22);
-
-    // 🖊️ Footer
-    doc.text("Prepared by:", marginX, finalY + 35);
-    doc.text("Approved by:", marginX + 100, finalY + 35);
-    doc.line(marginX, finalY + 40, marginX + 60, finalY + 40);
-    doc.line(marginX + 100, finalY + 40, marginX + 160, finalY + 40);
-
-    doc.setFontSize(8);
-    doc.text(
-      `Generated on: ${new Date().toLocaleString("en-PH")}`,
-      marginX,
-      finalY + 50
-    );
-
-    // 💾 Save
-    const safeNumber = soMeta.soNumber.replace(/[^\w\-]/g, "_");
-    doc.save(`SO-${safeNumber}.pdf`);
-    toast.success("PDF exported successfully");
-  };
-
   const subtotal = parseFloat(formattedTotal.replace(/[^0-9.]/g, ""));
   const discountFactor = Array.isArray(formData.discounts)
     ? formData.discounts.reduce((acc, d) => {
@@ -1822,6 +1677,8 @@ export default function SalesOrder({ onSuccess }: Props) {
     : totalAfterDiscounts.toLocaleString("en-PH", {
         style: "currency",
         currency: "PHP",
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
       });
 
   const subtotalPeso = parseFloat(formattedTotal.replace(/[^\d.]/g, ""));
@@ -1832,6 +1689,338 @@ export default function SalesOrder({ onSuccess }: Props) {
     minimumFractionDigits: 2,
     maximumFractionDigits: 2,
   })}`;
+
+  const handleExportPDF = (items: SalesOrderItem[], soMeta: SalesOrderMeta) => {
+    if (!items?.length) {
+      toast.error("No items to export");
+      return;
+    }
+
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+
+    const marginLeft = 14;
+    const marginRight = 14;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+
+    // Company Header
+    doc.setFontSize(16).setFont("helvetica", "bold");
+    doc.text("NCM MARKETING CORPORATION", marginLeft, 14);
+
+    doc.setFontSize(9).setFont("helvetica", "normal");
+    doc.text("Freeman Compound, #10 Nadunada St., 6-8 Ave.", marginLeft, 18);
+    doc.text("Caloocan City", marginLeft, 22);
+    doc.text(
+      "E-mail: ncm_office@yahoo.com.ph / Tel No.: +63(2)56760356",
+      marginLeft,
+      26
+    );
+
+    // Title
+    doc.setFontSize(16).setFont("helvetica", "bold");
+    doc.text("SALES ORDER", pageWidth - marginRight, 22, { align: "right" });
+
+    // Order Details Box (Right)
+    const boxWidth = 75;
+    const orderDetailsX = pageWidth - marginRight - boxWidth;
+    const orderDetailsY = 30;
+
+    const orderDetailsData = [
+      [
+        "DATE",
+        new Date(soMeta.creationDate).toLocaleDateString("en-PH", {
+          month: "short",
+          day: "2-digit",
+          year: "numeric",
+        }),
+      ],
+      [
+        "DELIVERY DATE",
+        soMeta.deliveryDate
+          ? new Date(soMeta.deliveryDate).toLocaleDateString("en-PH", {
+              month: "short",
+              day: "2-digit",
+              year: "numeric",
+            })
+          : "N/A",
+      ],
+      ["SO #", soMeta.soNumber],
+      ["WAREHOUSE", soMeta.warehouse || ""],
+    ];
+
+    autoTable(doc, {
+      startY: orderDetailsY,
+      margin: { left: orderDetailsX },
+      head: [],
+      body: orderDetailsData,
+      theme: "grid",
+      styles: {
+        fontSize: 9,
+        cellPadding: 1,
+        lineWidth: 0.3,
+        lineColor: [0, 0, 0],
+      },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: 35 },
+        1: { cellWidth: 40 },
+      },
+      tableWidth: boxWidth,
+    });
+
+    // Customer Details Box (Left)
+    const customerDetailsData = [
+      ["SOLD TO", soMeta.customer || "N/A"],
+      ["ADDRESS", "N/A"],
+      ["CONTACT #", "N/A"],
+      ["SALES PERSON", soMeta.salesPerson || "N/A"],
+    ];
+
+    const rawResult = autoTable(doc, {
+      startY: orderDetailsY,
+      margin: { left: marginLeft, right: contentWidth - boxWidth - 5 },
+      head: [],
+      body: customerDetailsData,
+      theme: "grid",
+      styles: {
+        fontSize: 9,
+        cellPadding: 1,
+        lineWidth: 0.3,
+        lineColor: [0, 0, 0],
+      },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: 35 },
+        1: { cellWidth: "auto" },
+      },
+    }) as unknown;
+
+    type AutoTableLayout = {
+      table: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      };
+    };
+
+    function isAutoTableLayout(obj: unknown): obj is AutoTableLayout {
+      return (
+        typeof obj === "object" &&
+        obj !== null &&
+        "table" in obj &&
+        typeof (obj as { table: unknown }).table === "object"
+      );
+    }
+
+    if (isAutoTableLayout(rawResult)) {
+      const { x, y, width, height } = rawResult.table;
+      doc.setLineWidth(0.3).setDrawColor(0, 0, 0);
+      doc.rect(x, y, width, height);
+    } else {
+      console.warn(
+        "⚠️ autoTable did not return layout metadata. Skipping outer border."
+      );
+    }
+
+    // Item Table
+    let currentY =
+      (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
+        .finalY + 8;
+
+    const tableData = items.map((item) => [
+      Math.floor(item.quantity ?? 0).toString(),
+      "",
+      item.itemName ?? "-",
+      (item.price ?? 0).toFixed(2),
+      ((item.quantity ?? 0) * (item.price ?? 0)).toFixed(2),
+    ]);
+
+    autoTable(doc, {
+      startY: currentY,
+      head: [["Qty", "Unit", "Description", "Sales Price", "Total"]],
+      body: tableData,
+      theme: "grid",
+      styles: { fontSize: 9, cellPadding: 2 },
+      headStyles: {
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        lineWidth: 0.5,
+        lineColor: [0, 0, 0],
+        halign: "center",
+      },
+      columnStyles: {
+        0: { halign: "center", cellWidth: 20 },
+        1: { halign: "center", cellWidth: 20 },
+        2: { halign: "left", cellWidth: 80 },
+        3: { halign: "right", cellWidth: 30 },
+        4: { halign: "right", cellWidth: 32 },
+      },
+      margin: { left: marginLeft, right: marginRight },
+    });
+
+    const boxStartY = currentY;
+    currentY =
+      (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
+        .finalY + 5;
+
+    doc.setFontSize(10).setFont("helvetica", "bold");
+    doc.text("-- Nothing Follows --", pageWidth / 2, currentY, {
+      align: "center",
+    });
+    currentY += 8;
+
+    const rowHeight = 6;
+    const reservedBottom = 20;
+    const summaryStartY = pageHeight - reservedBottom - rowHeight * 7;
+    const labelXLeft = marginLeft + 4;
+    const valueXLeft = marginLeft + 55;
+    const labelXRight = pageWidth / 2 + 10;
+    const valueXRight = pageWidth - marginRight - 4;
+
+    // Utility to build summary lines
+    function getSummaryColumns(): {
+      left: [string, string][];
+      right: [string, string][];
+    } {
+      const totalQuantity = items.reduce(
+        (sum, item) => sum + (item.quantity ?? 0),
+        0
+      );
+      const grandTotal = items.reduce(
+        (sum, item) => sum + (item.quantity ?? 0) * item.price,
+        0
+      );
+      const freightCharges = soMeta.freightCharges || 0;
+      const otherCharges = soMeta.otherCharges || 0;
+      const netTotal =
+        typeof soMeta.formattedNetTotal === "number"
+          ? soMeta.formattedNetTotal
+          : parseFloat(
+              (soMeta.formattedNetTotal ?? "0").replace(/[^\d.-]/g, "")
+            );
+
+      const discountText = [
+        ...soMeta.discountBreakdown
+          .filter((step) => step.rate > 0)
+          .map(
+            (step) =>
+              `${(step.rate * 100).toLocaleString("en-PH", {
+                minimumFractionDigits: step.rate * 100 < 1 ? 2 : 1,
+                maximumFractionDigits: 2,
+              })}%`
+          ),
+        ...Array(4).fill("0.00%"),
+      ]
+        .slice(0, 4)
+        .join("  ");
+
+      return {
+        left: [
+          ["Total Quantity", totalQuantity.toString()],
+          ["Remarks", ""],
+        ],
+        right: [
+          [
+            "Grand Total",
+            grandTotal.toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          ],
+          [
+            "Freight Charge(s)",
+            freightCharges.toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          ],
+          [
+            "Other Charge(s)",
+            otherCharges.toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          ],
+          ["Discounts", discountText],
+          [
+            "Peso Discount(s)",
+            otherCharges.toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          ],
+          [
+            "Total Amount",
+            netTotal.toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          ],
+        ],
+      };
+    }
+
+    const { left: leftColumn, right: rightColumn } = getSummaryColumns();
+
+    doc.setFontSize(9);
+
+    // Left column
+
+    leftColumn.forEach(([label, value], i) => {
+      const y = summaryStartY + i * rowHeight;
+
+      // Label
+      doc.setFont("helvetica", "bold").text(label, labelXLeft, y);
+
+      // Value with extra left padding
+      doc.setFont("helvetica", "normal").text(value, valueXLeft, y);
+    });
+
+    // Right column
+
+    rightColumn.forEach(([label, value], i) => {
+      const y = summaryStartY + i * rowHeight;
+
+      doc.setFont("helvetica", "bold").text(label, labelXRight, y);
+      doc
+        .setFont("helvetica", "normal")
+        .text(value, valueXRight, y, { align: "right" });
+    });
+
+    // Extend outer border to include summary
+    const boxEndY =
+      summaryStartY +
+      Math.max(leftColumn.length, rightColumn.length) * rowHeight;
+    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
+    doc.rect(marginLeft, boxStartY, contentWidth, boxEndY - boxStartY);
+
+    const signatureY = pageHeight - 24; // Shift upward slightly
+    const boxHeight = 14; // Reduced height
+    const boxWidthSig = 90;
+
+    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
+
+    // Approved By box
+    doc.rect(marginLeft, signatureY, boxWidthSig, boxHeight);
+    doc.setFontSize(9).setFont("helvetica", "bold");
+    doc.text("Approved By", marginLeft + 4, signatureY + 5);
+
+    // Checked By box
+    doc.rect(
+      pageWidth - marginRight - boxWidthSig,
+      signatureY,
+      boxWidthSig,
+      boxHeight
+    );
+    doc.text(
+      "Checked By",
+      pageWidth - marginRight - boxWidthSig + 4,
+      signatureY + 5
+    );
+
+    doc.save(`SalesOrder_${soMeta.soNumber}_${new Date().getTime()}.pdf`);
+  };
 
   const handleOpenView = async (soId: string) => {
     setIsLoadingView(true);
@@ -3040,8 +3229,27 @@ export default function SalesOrder({ onSuccess }: Props) {
                                 customer: so.customer,
                                 salesPerson: so.salesPerson,
                                 warehouse: so.warehouse,
-                                status: so.status,
+                                transactionDate: so.transactionDate,
+                                deliveryDate: so.deliveryDate,
+                                shippingAddress: so.shippingAddress,
                                 notes: so.notes,
+                                status: so.status,
+                                items: so.items,
+                                discounts: so.discounts,
+                                discountBreakdown: so.discountBreakdown,
+                                total: so.total,
+                                totalQuantity: so.totalQuantity,
+                                formattedWeight: so.formattedWeight,
+                                formattedCBM: so.formattedCBM,
+                                formattedTotal: so.formattedTotal,
+                                formattedNetTotal: so.formattedNetTotal,
+                                freightCharges: so.freightCharges,
+                                otherCharges: so.otherCharges,
+                                pesoDiscounts: so.pesoDiscounts,
+                                creationDate:
+                                  so.createdAt ?? new Date().toISOString(),
+                                createdAt: so.createdAt,
+                                updatedAt: so.updatedAt,
                               })
                             }>
                             <Download className="w-4 h-4" />
