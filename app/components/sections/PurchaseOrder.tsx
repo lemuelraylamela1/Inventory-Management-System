@@ -233,7 +233,11 @@ export default function PurchaseOrder({ onSuccess }: Props) {
         po.poNumber?.toString().toLowerCase().includes(query) ||
         po.referenceNumber?.toLowerCase().includes(query);
 
-      const matchesDate = !dateFilter || po.createdAt?.startsWith(dateFilter);
+      const createdAtStr = po.createdAt
+        ? new Date(po.createdAt).toISOString().split("T")[0]
+        : "";
+
+      const matchesDate = !dateFilter || createdAtStr.startsWith(dateFilter);
 
       const matchesSupplier =
         supplierFilter === "all" || po.supplierName === supplierFilter;
@@ -992,73 +996,335 @@ export default function PurchaseOrder({ onSuccess }: Props) {
   };
 
   const handleExportPDF = (
-    items: ItemType[],
-    poMeta: {
-      poNumber: string;
-      referenceNumber: string;
-      supplierName: string;
-      warehouse: string;
-      status: string;
-      remarks?: string;
-    }
+    items: PurchaseOrderItem[],
+    poMeta: PurchaseOrderType
   ) => {
-    if (!items || items.length === 0) {
+    if (!items?.length) {
       toast.error("No items to export");
       return;
     }
 
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-    const title = "Purchase Order Summary";
-    const summaryLines = [
-      `PO Number: ${poMeta.poNumber}`,
-      `Reference No: ${poMeta.referenceNumber}`,
-      `Supplier: ${poMeta.supplierName}`,
-      `Warehouse: ${poMeta.warehouse}`,
-      `Status: ${poMeta.status}`,
-      `Remarks: ${poMeta.remarks || "—"}`,
+    const marginLeft = 14;
+    const marginRight = 14;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+
+    // Company Header
+    doc.setFontSize(16).setFont("helvetica", "bold");
+    doc.text("NCM MARKETING CORPORATION", marginLeft, 14);
+
+    doc.setFontSize(9).setFont("helvetica", "normal");
+    doc.text("Freeman Compound, #10 Nadunada St., 6-8 Ave.", marginLeft, 18);
+    doc.text("Caloocan City", marginLeft, 22);
+    doc.text(
+      "E-mail: ncm_office@yahoo.com.ph / Tel No.: +63(2)56760356",
+      marginLeft,
+      26
+    );
+
+    // Title
+    doc.setFontSize(16).setFont("helvetica", "bold");
+    doc.text("PURCHASE ORDER", pageWidth - marginRight, 22, { align: "right" });
+
+    // Order Details Box (Right)
+    const boxWidth = 75;
+    const orderDetailsX = pageWidth - marginRight - boxWidth;
+    const orderDetailsY = 30;
+
+    const orderDetailsData = [
+      [
+        "DATE",
+        poMeta.createdAt
+          ? new Date(poMeta.createdAt).toLocaleDateString("en-PH", {
+              month: "short",
+              day: "2-digit",
+              year: "numeric",
+            })
+          : "N/A",
+      ],
+      ["PO #", poMeta.poNumber?.trim().toUpperCase() || "N/A"],
+      ["REF #", poMeta.referenceNumber?.trim().toUpperCase() || "N/A"],
+      ["WAREHOUSE", poMeta.warehouse?.trim().toUpperCase() || "N/A"],
     ];
 
-    doc.setFontSize(16);
-    doc.text(title, 14, 20);
-
-    doc.setFontSize(10);
-    summaryLines.forEach((line, i) => {
-      doc.text(line, 14, 28 + i * 6);
+    autoTable(doc, {
+      startY: orderDetailsY,
+      margin: { left: orderDetailsX },
+      head: [],
+      body: orderDetailsData,
+      theme: "grid",
+      styles: {
+        fontSize: 9,
+        cellPadding: 1,
+        lineWidth: 0.3,
+        lineColor: [0, 0, 0],
+      },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: 35 },
+        1: { cellWidth: 40 },
+      },
+      tableWidth: boxWidth,
     });
 
-    const tableStartY = 28 + summaryLines.length * 6 + 10;
+    // Customer Details Box (Left)
+    const customerDetailsData = [
+      ["ORDER FROM", poMeta.supplierName || "N/A"],
+      ["ADDRESS", "N/A"],
+      ["CONTACT #", "N/A"],
+      ["TIN", "N/A"],
+    ];
 
-    const tableHead = [["Item Code", "Item Name", "UOM", "Purchase Price"]];
-    const tableBody = items.map((item) => [
-      item.itemCode,
-      item.itemName,
-      item.unitType,
-      `₱${item.purchasePrice.toFixed(2)}`,
+    const rawResult = autoTable(doc, {
+      startY: orderDetailsY,
+      margin: { left: marginLeft, right: contentWidth - boxWidth - 5 },
+      head: [],
+      body: customerDetailsData,
+      theme: "grid",
+      styles: {
+        fontSize: 9,
+        cellPadding: 1,
+        lineWidth: 0.3,
+        lineColor: [0, 0, 0],
+      },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: 35 },
+        1: { cellWidth: "auto" },
+      },
+    }) as unknown;
+
+    type AutoTableLayout = {
+      table: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      };
+    };
+
+    function isAutoTableLayout(obj: unknown): obj is AutoTableLayout {
+      return (
+        typeof obj === "object" &&
+        obj !== null &&
+        "table" in obj &&
+        typeof (obj as { table: unknown }).table === "object"
+      );
+    }
+
+    if (isAutoTableLayout(rawResult)) {
+      const { x, y, width, height } = rawResult.table;
+      doc.setLineWidth(0.3).setDrawColor(0, 0, 0);
+      doc.rect(x, y, width, height);
+    } else {
+      console.warn(
+        "⚠️ autoTable did not return layout metadata. Skipping outer border."
+      );
+    }
+
+    // Item Table
+    let currentY =
+      (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
+        .finalY + 8;
+
+    const formatCurrency = (value: number): string =>
+      value.toLocaleString("en-PH", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+    const tableData = items.map((item) => [
+      Math.floor(item.quantity ?? 0).toString(),
+      item.unitType ?? "-",
+      item.itemName ?? "-",
+      formatCurrency(item.purchasePrice ?? 0),
+      formatCurrency((item.quantity ?? 0) * (item.purchasePrice ?? 0)),
     ]);
 
     autoTable(doc, {
-      startY: tableStartY,
-      head: tableHead,
-      body: tableBody,
-      styles: {
-        fontSize: 9,
-        halign: "center",
-        cellPadding: 4,
-      },
+      startY: currentY,
+      head: [["Qty", "Unit", "Description", "Sales Price", "Total"]],
+      body: tableData,
+      theme: "grid",
+      styles: { fontSize: 9, cellPadding: 2 },
       headStyles: {
-        fillColor: [41, 98, 255],
-        textColor: 255,
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
         fontStyle: "bold",
+        lineWidth: 0.5,
+        lineColor: [0, 0, 0],
+        halign: "center",
       },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245],
+      columnStyles: {
+        0: { halign: "center", cellWidth: 20 },
+        1: { halign: "left", cellWidth: 20 },
+        2: { halign: "left", cellWidth: 80 },
+        3: { halign: "right", cellWidth: 30 },
+        4: { halign: "right", cellWidth: 32 },
       },
+      margin: { left: marginLeft, right: marginRight },
     });
 
-    const filename = `PO-${poMeta.poNumber}.pdf`;
-    doc.save(filename);
-    toast.success("PDF exported successfully");
+    const boxStartY = currentY;
+    currentY =
+      (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
+        .finalY + 5;
+
+    doc.setFontSize(10).setFont("helvetica", "bold");
+    doc.text("-- Nothing Follows --", pageWidth / 2, currentY, {
+      align: "center",
+    });
+    currentY += 8;
+
+    const rowHeight = 6;
+    const reservedBottom = 20;
+    const summaryStartY = pageHeight - reservedBottom - rowHeight * 7;
+    const labelXLeft = marginLeft + 4;
+    const valueXLeft = marginLeft + 55;
+    const labelXRight = pageWidth / 2 + 10;
+    const valueXRight = pageWidth - marginRight - 4;
+
+    // Utility to build summary lines
+    function getSummaryColumns(): {
+      left: [string, string][];
+      right: [string, string][];
+    } {
+      const totalQuantity = items.reduce(
+        (sum, item) => sum + (item.quantity ?? 0),
+        0
+      );
+      const grandTotal = items.reduce(
+        (sum, item) => sum + (item.quantity ?? 0) * item.purchasePrice,
+        0
+      );
+
+      return {
+        left: [["Total Quantity", totalQuantity.toString()]],
+        right: [
+          [
+            "Total Purchase",
+            grandTotal.toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          ],
+        ],
+      };
+    }
+
+    const { left: leftColumn, right: rightColumn } = getSummaryColumns();
+
+    doc.setFontSize(9);
+
+    // Left column
+
+    leftColumn.forEach(([label, value], i) => {
+      const y = summaryStartY + i * rowHeight;
+
+      // Label
+      doc.setFont("helvetica", "bold").text(label, labelXLeft, y);
+
+      // Value with extra left padding
+      doc.setFont("helvetica", "normal").text(value, valueXLeft, y);
+    });
+
+    // Right column
+
+    rightColumn.forEach(([label, value], i) => {
+      const y = summaryStartY + i * rowHeight;
+
+      doc.setFont("helvetica", "bold").text(label, labelXRight, y);
+      doc
+        .setFont("helvetica", "normal")
+        .text(value, valueXRight, y, { align: "right" });
+    });
+
+    // Extend outer border to include summary
+    const boxEndY =
+      summaryStartY +
+      Math.max(leftColumn.length, rightColumn.length) * rowHeight;
+    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
+    doc.rect(marginLeft, boxStartY, contentWidth, boxEndY - boxStartY);
+
+    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
+
+    const signatureBoxY = boxEndY + 5;
+    const signatureBoxHeight = 20;
+    const signatureBoxWidth = contentWidth;
+    // const leftColWidth = 90;
+    // const rightColWidth = signatureBoxWidth - leftColWidth;
+    const rowHeightFooter = signatureBoxHeight / 4;
+
+    // Outer box
+    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
+    doc.rect(marginLeft, signatureBoxY, signatureBoxWidth, signatureBoxHeight);
+
+    const leftColWidth = signatureBoxWidth * 0.4;
+    const rightColWidth = signatureBoxWidth * 0.6;
+
+    // Vertical divider at 30% mark
+    doc.line(
+      marginLeft + leftColWidth,
+      signatureBoxY,
+      marginLeft + leftColWidth,
+      signatureBoxY + signatureBoxHeight
+    );
+
+    // 🔹 Left Column: Grid Labels + Vertical Line
+    const gridLabels = ["Approved By", "Checked By", "", ""];
+    gridLabels.forEach((label, i) => {
+      const y = signatureBoxY + i * rowHeightFooter;
+
+      // Label
+      doc.setFontSize(9).setFont("helvetica", "bold");
+      doc.text(label, marginLeft + 2, y + 4);
+
+      // Horizontal row line
+      if (i > 0) {
+        doc.line(marginLeft, y, marginLeft + leftColWidth, y);
+      }
+
+      // Vertical divider inside row (optional if you want a sub-column)
+      doc.line(marginLeft + 30, y, marginLeft + 30, y + rowHeightFooter);
+    });
+
+    // 🔹 Right Column: Acknowledgment Block
+    const rightX = marginLeft + leftColWidth;
+    doc.setFontSize(8).setFont("helvetica", "normal");
+    doc.text(
+      "Received the above goods/s in good condition",
+      rightX + rightColWidth / 2,
+      signatureBoxY + 5,
+      {
+        align: "center",
+      }
+    );
+
+    const linePadding = 20;
+    const lineWidth = (rightColWidth - linePadding * 3) / 2;
+    const lineStartX = rightX + linePadding;
+    const lineY = signatureBoxY + 20;
+
+    // Signature line (left half)
+    doc.line(lineStartX, lineY, lineStartX + lineWidth, lineY);
+    doc.text(
+      "Signature over Printed Name",
+      lineStartX + lineWidth / 2,
+      lineY - 2,
+      {
+        align: "center",
+      }
+    );
+
+    // Date line (right half)
+    const dateStartX = lineStartX + lineWidth + linePadding;
+    doc.line(dateStartX, lineY, dateStartX + lineWidth, lineY);
+    doc.text("Date Received", dateStartX + lineWidth / 2, lineY - 2, {
+      align: "center",
+    });
+
+    doc.save(`PurchaseOrder_${poMeta.poNumber}_${new Date().getTime()}.pdf`);
   };
 
   return (
@@ -2066,16 +2332,21 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                           <Button
                             variant="ghost"
                             size="sm"
-                            title="Export as PDF"
-                            aria-label={`Export SO ${po.poNumber} to PDF`}
+                            title={`Export PO ${po.poNumber} to PDF`}
+                            aria-label={`Export PO ${po.poNumber} to PDF`}
                             onClick={() =>
-                              handleExportPDF(items, {
-                                poNumber: po.poNumber,
+                              handleExportPDF(po.items, {
+                                _id: po._id, // or po._id depending on your schema
                                 referenceNumber: po.referenceNumber,
+                                status: po.status,
+                                poNumber: po.poNumber,
                                 supplierName: po.supplierName,
                                 warehouse: po.warehouse,
-                                status: po.status,
-                                remarks: po.remarks,
+                                items: po.items,
+                                total: po.total,
+                                totalQuantity: po.totalQuantity,
+                                createdAt: po.createdAt,
+                                updatedAt: po.updatedAt,
                               })
                             }>
                             <Download className="w-4 h-4" />

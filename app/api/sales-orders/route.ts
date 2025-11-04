@@ -23,6 +23,8 @@ export async function POST(request: NextRequest) {
 
   const {
     customer,
+    address,
+    contactNumber,
     salesPerson,
     warehouse,
     transactionDate,
@@ -66,6 +68,8 @@ export async function POST(request: NextRequest) {
       "_id" | "soNumber" | "createdAt" | "updatedAt"
     > = {
       customer: customer.trim().toUpperCase(),
+      address: address.trim().toUpperCase(),
+      contactNumber: contactNumber.trim().toUpperCase(),
       salesPerson: salesPerson.trim().toUpperCase(),
       warehouse: warehouse.trim().toUpperCase(),
       transactionDate,

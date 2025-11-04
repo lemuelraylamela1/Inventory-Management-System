@@ -43,6 +43,12 @@ const SalesOrderSchema = new Schema<SalesOrderDocument>(
   {
     soNumber: { type: String, unique: true },
     customer: { type: String, required: true, trim: true, uppercase: true },
+    address: { type: String, trim: true },
+    contactNumber: {
+      type: String,
+
+      trim: true,
+    },
     salesPerson: { type: String, required: true, trim: true, uppercase: true },
     warehouse: { type: String, required: true, trim: true, uppercase: true },
     transactionDate: {

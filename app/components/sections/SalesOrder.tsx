@@ -211,6 +211,8 @@ export default function SalesOrder({ onSuccess }: Props) {
   >({
     soNumber: "",
     customer: "",
+    address: "",
+    contactNumber: "",
     salesPerson: "",
     warehouse: "",
     transactionDate: new Date().toISOString().split("T")[0],
@@ -238,6 +240,8 @@ export default function SalesOrder({ onSuccess }: Props) {
   >({
     soNumber: "",
     customer: "",
+    address: "",
+    contactNumber: "",
     salesPerson: "",
     warehouse: "",
     transactionDate: "",
@@ -536,6 +540,8 @@ export default function SalesOrder({ onSuccess }: Props) {
     > = {
       soNumber: "",
       customer: "",
+      address: "",
+      contactNumber: "",
       salesPerson: "",
       warehouse: "",
       transactionDate: "",
@@ -866,6 +872,8 @@ export default function SalesOrder({ onSuccess }: Props) {
     const payload = {
       soNumber: formData.soNumber.trim().toUpperCase(),
       customer: formData.customer.trim().toUpperCase(),
+      address: formData.address?.trim().toUpperCase() || "",
+      contactNumber: formData.contactNumber?.trim().toUpperCase() || "",
       salesPerson: formData.salesPerson.trim().toUpperCase(),
       warehouse: formData.warehouse.trim().toUpperCase(),
       transactionDate: formData.transactionDate,
@@ -991,6 +999,8 @@ export default function SalesOrder({ onSuccess }: Props) {
   > = {
     soNumber: "",
     customer: "",
+    address: "",
+    contactNumber: "",
     salesPerson: "",
     warehouse: "",
     transactionDate: "",
@@ -1082,6 +1092,8 @@ export default function SalesOrder({ onSuccess }: Props) {
     const hydratedFormData: typeof formData = {
       soNumber: so.soNumber.trim().toUpperCase(),
       customer: so.customer?.trim().toUpperCase() || "",
+      address: so.address?.trim().toUpperCase() || "",
+      contactNumber: so.contactNumber?.trim().toUpperCase() || "",
       salesPerson: so.salesPerson?.trim().toUpperCase() || "",
       warehouse: so.warehouse?.trim().toUpperCase() || "",
       transactionDate:
@@ -1222,6 +1234,8 @@ export default function SalesOrder({ onSuccess }: Props) {
     setFormData({
       soNumber: "",
       customer: "",
+      address: "",
+      contactNumber: "",
       salesPerson: "",
       warehouse: "",
       transactionDate: new Date().toISOString().split("T")[0],
@@ -1290,6 +1304,8 @@ export default function SalesOrder({ onSuccess }: Props) {
     setFormData({
       soNumber: "",
       customer: "",
+      address: "",
+      contactNumber: "",
       salesPerson: "",
       warehouse: "",
       transactionDate: new Date().toISOString().split("T")[0],
@@ -1314,6 +1330,8 @@ export default function SalesOrder({ onSuccess }: Props) {
     setValidationErrors({
       soNumber: "",
       customer: "",
+      address: "",
+      contactNumber: "",
       salesPerson: "",
       warehouse: "",
       transactionDate: "",
@@ -1480,6 +1498,8 @@ export default function SalesOrder({ onSuccess }: Props) {
       setFormData({
         soNumber: "",
         customer: "",
+        address: "",
+        contactNumber: "",
         salesPerson: "",
         warehouse: "",
         transactionDate: new Date().toISOString().split("T")[0],
@@ -1771,8 +1791,8 @@ export default function SalesOrder({ onSuccess }: Props) {
     // Customer Details Box (Left)
     const customerDetailsData = [
       ["SOLD TO", soMeta.customer || "N/A"],
-      ["ADDRESS", "N/A"],
-      ["CONTACT #", "N/A"],
+      ["ADDRESS", soMeta.address || "N/A"],
+      ["CONTACT #", soMeta.contactNumber || "N/A"],
       ["SALES PERSON", soMeta.salesPerson || "N/A"],
     ];
 
@@ -1827,12 +1847,18 @@ export default function SalesOrder({ onSuccess }: Props) {
       (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
         .finalY + 8;
 
+    const formatCurrency = (value: number): string =>
+      value.toLocaleString("en-PH", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
     const tableData = items.map((item) => [
       Math.floor(item.quantity ?? 0).toString(),
-      "",
+      item.unitType ?? "-",
       item.itemName ?? "-",
-      (item.price ?? 0).toFixed(2),
-      ((item.quantity ?? 0) * (item.price ?? 0)).toFixed(2),
+      formatCurrency(item.price ?? 0),
+      formatCurrency((item.quantity ?? 0) * (item.price ?? 0)),
     ]);
 
     autoTable(doc, {
@@ -1851,7 +1877,7 @@ export default function SalesOrder({ onSuccess }: Props) {
       },
       columnStyles: {
         0: { halign: "center", cellWidth: 20 },
-        1: { halign: "center", cellWidth: 20 },
+        1: { halign: "left", cellWidth: 20 },
         2: { halign: "left", cellWidth: 80 },
         3: { halign: "right", cellWidth: 30 },
         4: { halign: "right", cellWidth: 32 },
@@ -2139,6 +2165,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                               setFormData((prev) => ({
                                 ...prev,
                                 customer: value,
+                                address: "",
+                                contactNumber: "",
                                 salesPerson: "",
                                 customerType: "",
                                 customerTypeData: undefined,
@@ -2238,6 +2266,14 @@ export default function SalesOrder({ onSuccess }: Props) {
                                             setFormData((prev) => ({
                                               ...prev,
                                               customer: customerName,
+                                              address:
+                                                customer.address
+                                                  ?.trim()
+                                                  .toUpperCase() || "",
+                                              contactNumber:
+                                                customer.contactNumber
+                                                  ?.trim()
+                                                  .toUpperCase() || "",
                                               salesPerson,
                                               customerType: customerGroup,
                                               customerTypeData,
@@ -3227,6 +3263,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                               handleExportPDF(so.items, {
                                 soNumber: so.soNumber,
                                 customer: so.customer,
+                                address: so.address,
+                                contactNumber: so.contactNumber,
                                 salesPerson: so.salesPerson,
                                 warehouse: so.warehouse,
                                 transactionDate: so.transactionDate,
@@ -3385,6 +3423,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                         setFormData((prev) => ({
                           ...prev,
                           customer: value,
+                          address: "",
+                          contactNumber: "",
                           salesPerson: "",
                           customerType: "",
                           customerTypeData: undefined,
@@ -3469,6 +3509,14 @@ export default function SalesOrder({ onSuccess }: Props) {
                                       setFormData((prev) => ({
                                         ...prev,
                                         customer: customerName,
+                                        address:
+                                          customer.address
+                                            ?.trim()
+                                            .toUpperCase() || "",
+                                        contactNumber:
+                                          customer.contactNumber
+                                            ?.trim()
+                                            .toUpperCase() || "",
                                         salesPerson,
                                         customerType: customerGroup,
                                         customerTypeData,

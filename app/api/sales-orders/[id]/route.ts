@@ -75,6 +75,8 @@ export async function PATCH(
 
   const {
     customer,
+    address,
+    contactNumber,
     salesPerson,
     warehouse,
     transactionDate,
@@ -101,6 +103,8 @@ export async function PATCH(
 
   const isInvalid =
     (customer && typeof customer !== "string") ||
+    (address && typeof address !== "string") ||
+    (contactNumber && typeof contactNumber !== "string") ||
     (salesPerson && typeof salesPerson !== "string") ||
     (warehouse && typeof warehouse !== "string") ||
     (transactionDate && typeof transactionDate !== "string") ||

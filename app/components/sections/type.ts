@@ -111,13 +111,14 @@ export type PurchaseOrderType = {
   remarks?: string;
   status: "PENDING" | "PARTIAL" | "REJECTED" | "COMPLETED";
   createdAt?: Date;
+  updatedAt?: Date;
 };
 
 export type PurchaseOrderResponse = PurchaseOrderType & {
   _id: string;
   poNumber: string;
-  createdAt: string;
-  updatedAt: string;
+  createdAt: Date;
+  updatedAt: Date;
 };
 
 export type PurchaseReceiptType = {
@@ -262,6 +263,8 @@ export type SalesOrder = {
   _id: string | Types.ObjectId;
   soNumber: string;
   customer: string;
+  address: string;
+  contactNumber: string;
   salesPerson: string;
   warehouse: string;
   transactionDate: string;
@@ -297,6 +300,8 @@ export type SalesOrderInput = Omit<
 export interface SalesOrderMeta {
   soNumber: string;
   customer: string;
+  address: string;
+  contactNumber: string;
   salesPerson: string;
   warehouse: string;
   transactionDate: string;
