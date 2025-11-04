@@ -131,8 +131,8 @@ export type PurchaseReceiptType = {
   warehouse?: string;
   status?: "OPEN" | "RECEIVED";
   remarks?: string;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt: Date;
+  updatedAt?: Date;
   items?: {
     itemCode: string;
     itemName: string;

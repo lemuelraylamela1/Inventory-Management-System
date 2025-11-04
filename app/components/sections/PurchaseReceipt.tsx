@@ -257,8 +257,11 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
         receipt.prNumber?.toLowerCase().includes(query) ||
         receipt.supplierInvoiceNum?.toLowerCase().includes(query);
 
-      const matchesDate =
-        !dateFilter || receipt.createdAt?.startsWith(dateFilter);
+      const createdAtStr = receipt.createdAt
+        ? new Date(receipt.createdAt).toISOString().split("T")[0]
+        : "";
+
+      const matchesDate = !dateFilter || createdAtStr.startsWith(dateFilter);
 
       const matchesStatus =
         statusFilter === "all" ||
@@ -1063,108 +1066,357 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
 
   const handleExportPDF = (
     items: ReceiptItem[],
-    receiptMeta: {
-      prNumber: string;
-      supplierInvoiceNum?: string;
-      supplierName: string;
-      warehouse: string;
-      status: string;
-      remarks?: string;
-      poNumbers: string[];
-    }
+    prMeta: PurchaseReceiptType
   ) => {
-    if (!items || items.length === 0) {
+    if (!items?.length) {
       toast.error("No items to export");
       return;
     }
 
     const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
 
-    // Header
-    doc.setFontSize(14);
-    doc.setFont("helvetica", "bold");
-    doc.text("NCM Marketing Corporation", 14, 20);
-    doc.setFontSize(10);
-    doc.setFont("helvetica", "normal");
+    const marginLeft = 14;
+    const marginRight = 14;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+
+    // Company Header
+    doc.setFontSize(16).setFont("helvetica", "bold");
+    doc.text("NCM MARKETING CORPORATION", marginLeft, 14);
+
+    doc.setFontSize(9).setFont("helvetica", "normal");
+    doc.text("Freeman Compound, #10 Nadunada St., 6-8 Ave.", marginLeft, 18);
+    doc.text("Caloocan City", marginLeft, 22);
     doc.text(
-      "Freeman Compound, #10 Nardruta St., cor. 4th Ave., Caloocan City",
-      14,
+      "E-mail: ncm_office@yahoo.com.ph / Tel No.: +63(2)56760356",
+      marginLeft,
       26
     );
-    doc.text(`Date: ${new Date().toLocaleDateString("en-PH")}`, 160, 26);
 
-    // Receipt Metadata
-    doc.text(`PR #: ${receiptMeta.prNumber}`, 14, 34);
-    doc.text(`PO #: ${receiptMeta.poNumbers.join(", ")}`, 80, 34);
-    doc.text(`Warehouse: ${receiptMeta.warehouse}`, 140, 34);
-    doc.text(`Supplier: ${receiptMeta.supplierName}`, 14, 40);
-    doc.text(`Invoice #: ${receiptMeta.supplierInvoiceNum || "—"}`, 80, 40);
-    doc.text(`Status: ${receiptMeta.status}`, 140, 40);
-    doc.text(`Remarks: ${receiptMeta.remarks || "—"}`, 14, 46);
+    // Title
+    doc.setFontSize(16).setFont("helvetica", "bold");
+    doc.text("PURCHASE RECEIPT", pageWidth - marginRight, 22, {
+      align: "right",
+    });
 
-    // Table Header
-    const tableStartY = 52;
-    const tableHead = [["Qty", "Unit", "Description", "Unit Price", "Amount"]];
-    const tableBody = items.map((item) => [
-      item.quantity,
-      item.unitType,
-      item.itemName,
-      `₱${item.purchasePrice.toFixed(2)}`,
-      `₱${(item.quantity * item.purchasePrice).toFixed(2)}`,
+    // Order Details Box (Right)
+    const boxWidth = 75;
+    const orderDetailsX = pageWidth - marginRight - boxWidth;
+    const orderDetailsY = 30;
+
+    const orderDetailsData = [
+      [
+        "DATE",
+        prMeta.createdAt && !isNaN(new Date(prMeta.createdAt).getTime())
+          ? new Date(prMeta.createdAt).toLocaleDateString("en-PH", {
+              month: "short",
+              day: "2-digit",
+              year: "numeric",
+            })
+          : "N/A",
+      ],
+      ["PR #", prMeta.prNumber?.trim().toUpperCase() || "N/A"],
+      ["PO #", prMeta.poNumber?.join(", ")?.trim().toUpperCase() || "N/A"],
+      ["WAREHOUSE", prMeta.warehouse?.trim().toUpperCase() || "N/A"],
+      ["TERMS", "N/A"],
+    ];
+
+    autoTable(doc, {
+      startY: orderDetailsY,
+      margin: { left: orderDetailsX },
+      head: [],
+      body: orderDetailsData,
+      theme: "grid",
+      styles: {
+        fontSize: 9,
+        cellPadding: 1,
+        lineWidth: 0.3,
+        lineColor: [0, 0, 0],
+      },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: 35 },
+        1: { cellWidth: 40 },
+      },
+      tableWidth: boxWidth,
+    });
+
+    // Customer Details Box (Left)
+    const customerDetailsData = [
+      ["ORDER FROM", prMeta.supplierName || "N/A"],
+      ["ADDRESS", "N/A"],
+      ["CONTACT #", "N/A"],
+      ["TIN", "N/A"],
+    ];
+
+    const rawResult = autoTable(doc, {
+      startY: orderDetailsY,
+      margin: { left: marginLeft, right: contentWidth - boxWidth - 5 },
+      head: [],
+      body: customerDetailsData,
+      theme: "grid",
+      styles: {
+        fontSize: 9,
+        cellPadding: 1,
+        lineWidth: 0.3,
+        lineColor: [0, 0, 0],
+      },
+      columnStyles: {
+        0: { fontStyle: "bold", cellWidth: 35 },
+        1: { cellWidth: "auto" },
+      },
+    }) as unknown;
+
+    type AutoTableLayout = {
+      table: {
+        x: number;
+        y: number;
+        width: number;
+        height: number;
+      };
+    };
+
+    function isAutoTableLayout(obj: unknown): obj is AutoTableLayout {
+      return (
+        typeof obj === "object" &&
+        obj !== null &&
+        "table" in obj &&
+        typeof (obj as { table: unknown }).table === "object"
+      );
+    }
+
+    if (isAutoTableLayout(rawResult)) {
+      const { x, y, width, height } = rawResult.table;
+      doc.setLineWidth(0.3).setDrawColor(0, 0, 0);
+      doc.rect(x, y, width, height);
+    } else {
+      console.warn(
+        "⚠️ autoTable did not return layout metadata. Skipping outer border."
+      );
+    }
+
+    // Item Table
+    let currentY =
+      (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
+        .finalY + 8;
+
+    const formatCurrency = (value: number): string =>
+      value.toLocaleString("en-PH", {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+
+    const tableData = items.map((item) => [
+      Math.floor(item.quantity ?? 0).toString(),
+      item.unitType ?? "-",
+      item.itemName ?? "-",
+      formatCurrency(item.purchasePrice ?? 0),
+      formatCurrency(0), // Tax column default
+      formatCurrency((item.quantity ?? 0) * (item.purchasePrice ?? 0)),
     ]);
 
     autoTable(doc, {
-      startY: tableStartY,
-      head: tableHead,
-      body: tableBody,
-      styles: {
-        fontSize: 9,
-        cellPadding: 3,
+      startY: currentY,
+      head: [["Qty", "Unit", "Description", "Price", "Tax", "Total"]],
+      body: tableData,
+      theme: "grid",
+      styles: { fontSize: 9, cellPadding: 2 },
+      headStyles: {
+        fillColor: [255, 255, 255],
+        textColor: [0, 0, 0],
+        fontStyle: "bold",
+        lineWidth: 0.5,
+        lineColor: [0, 0, 0],
         halign: "center",
-        valign: "middle",
       },
       columnStyles: {
-        3: { halign: "right" },
-        4: { halign: "right" },
+        0: { halign: "center", cellWidth: 20 }, // Qty
+        1: { halign: "left", cellWidth: 20 }, // Unit
+        2: { halign: "left", cellWidth: 80 }, // Description
+        3: { halign: "right", cellWidth: 20 }, // Price
+        4: { halign: "right", cellWidth: 20 }, // Tax
+        5: { halign: "right", cellWidth: 22 }, // Total
       },
-      headStyles: {
-        fillColor: [0, 0, 0],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 245],
-      },
+      margin: { left: marginLeft, right: marginRight },
     });
 
-    // Totals
-    const finalY = doc.lastAutoTable?.finalY ?? tableStartY + 10;
-    const totalAmount = items.reduce(
-      (sum, item) => sum + item.quantity * item.purchasePrice,
-      0
+    const boxStartY = currentY;
+    currentY =
+      (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
+        .finalY + 5;
+
+    doc.setFontSize(10).setFont("helvetica", "bold");
+    doc.text("-- Nothing Follows --", pageWidth / 2, currentY, {
+      align: "center",
+    });
+    currentY += 8;
+
+    const rowHeight = 6;
+    const reservedBottom = 30;
+    const summaryStartY = pageHeight - reservedBottom - rowHeight * 7;
+    const labelXLeft = marginLeft + 4;
+    const valueXLeft = marginLeft + 55;
+    const labelXRight = pageWidth / 2 + 10;
+    const valueXRight = pageWidth - marginRight - 4;
+
+    // Utility to build summary lines
+    function getSummaryColumns(): {
+      left: [string, string][];
+      right: [string, string][];
+    } {
+      const totalQuantity = items.reduce(
+        (sum, item) => sum + (item.quantity ?? 0),
+        0
+      );
+      const grandTotal = items.reduce(
+        (sum, item) => sum + (item.quantity ?? 0) * item.purchasePrice,
+        0
+      );
+
+      return {
+        left: [["Total Quantity", totalQuantity.toString()]],
+        right: [
+          [
+            "VATable Sales",
+            grandTotal.toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          ],
+          ["VAT-Exempt Sales", "0.00"],
+          [
+            "Total Sales",
+            grandTotal.toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          ],
+          ["Discount", "0.00"],
+          ["Tax", "0.00"],
+          ["WTax", "0.00"],
+          [
+            "Total Amount",
+            grandTotal.toLocaleString("en-PH", {
+              minimumFractionDigits: 2,
+              maximumFractionDigits: 2,
+            }),
+          ],
+        ],
+      };
+    }
+
+    const { left: leftColumn, right: rightColumn } = getSummaryColumns();
+
+    doc.setFontSize(9);
+
+    // Left column
+
+    leftColumn.forEach(([label, value], i) => {
+      const y = summaryStartY + i * rowHeight;
+
+      // Label
+      doc.setFont("helvetica", "bold").text(label, labelXLeft, y);
+
+      // Value with extra left padding
+      doc.setFont("helvetica", "normal").text(value, valueXLeft, y);
+    });
+
+    // Right column
+
+    rightColumn.forEach(([label, value], i) => {
+      const y = summaryStartY + i * rowHeight;
+
+      doc.setFont("helvetica", "bold").text(label, labelXRight, y);
+      doc
+        .setFont("helvetica", "normal")
+        .text(value, valueXRight, y, { align: "right" });
+    });
+
+    // Extend outer border to include summary
+    const boxEndY =
+      summaryStartY +
+      Math.max(leftColumn.length, rightColumn.length) * rowHeight;
+    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
+    doc.rect(marginLeft, boxStartY, contentWidth, boxEndY - boxStartY);
+
+    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
+
+    const signatureBoxY = boxEndY + 5;
+    const signatureBoxHeight = 20;
+    const signatureBoxWidth = contentWidth;
+    // const leftColWidth = 90;
+    // const rightColWidth = signatureBoxWidth - leftColWidth;
+    const rowHeightFooter = signatureBoxHeight / 4;
+
+    // Outer box
+    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
+    doc.rect(marginLeft, signatureBoxY, signatureBoxWidth, signatureBoxHeight);
+
+    const leftColWidth = signatureBoxWidth * 0.4;
+    const rightColWidth = signatureBoxWidth * 0.6;
+
+    // Vertical divider at 30% mark
+    doc.line(
+      marginLeft + leftColWidth,
+      signatureBoxY,
+      marginLeft + leftColWidth,
+      signatureBoxY + signatureBoxHeight
     );
 
-    doc.setFontSize(10);
-    doc.text(`VATable Sales: ₱${totalAmount.toFixed(2)}`, 140, finalY + 10);
-    doc.text(`VAT-Exempt Sales: ₱0.00`, 140, finalY + 16);
-    doc.text(`Zero-Rated Sales: ₱0.00`, 140, finalY + 22);
-    doc.text(`Total Sales: ₱${totalAmount.toFixed(2)}`, 140, finalY + 28);
-    doc.text(`Less: VAT: ₱0.00`, 140, finalY + 34);
-    doc.text(`Total Discount: ₱0.00`, 140, finalY + 40);
-    doc.setFont("helvetica", "bold");
-    doc.text(`Amount Due: ₱${totalAmount.toFixed(2)}`, 140, finalY + 46);
+    // 🔹 Left Column: Grid Labels + Vertical Line
+    const gridLabels = ["Approved By", "Checked By", "", ""];
+    gridLabels.forEach((label, i) => {
+      const y = signatureBoxY + i * rowHeightFooter;
 
-    // Signature Block
-    doc.setFont("helvetica", "normal");
-    doc.text("Authorized Representative:", 14, finalY + 60);
-    doc.line(60, finalY + 60, 120, finalY + 60);
-    doc.text("Date Received:", 140, finalY + 60);
-    doc.line(170, finalY + 60, 195, finalY + 60);
+      // Label
+      doc.setFontSize(9).setFont("helvetica", "bold");
+      doc.text(label, marginLeft + 2, y + 4);
 
-    // Save
-    const filename = `PR-${receiptMeta.prNumber}.pdf`;
-    doc.save(filename);
-    toast.success("PDF exported successfully");
+      // Horizontal row line
+      if (i > 0) {
+        doc.line(marginLeft, y, marginLeft + leftColWidth, y);
+      }
+
+      // Vertical divider inside row (optional if you want a sub-column)
+      doc.line(marginLeft + 30, y, marginLeft + 30, y + rowHeightFooter);
+    });
+
+    // 🔹 Right Column: Acknowledgment Block
+    const rightX = marginLeft + leftColWidth;
+    doc.setFontSize(8).setFont("helvetica", "normal");
+    doc.text(
+      "Received the above goods/s in good condition",
+      rightX + rightColWidth / 2,
+      signatureBoxY + 5,
+      {
+        align: "center",
+      }
+    );
+
+    const linePadding = 20;
+    const lineWidth = (rightColWidth - linePadding * 3) / 2;
+    const lineStartX = rightX + linePadding;
+    const lineY = signatureBoxY + 20;
+
+    // Signature line (left half)
+    doc.line(lineStartX, lineY, lineStartX + lineWidth, lineY);
+    doc.text(
+      "Signature over Printed Name",
+      lineStartX + lineWidth / 2,
+      lineY - 2,
+      {
+        align: "center",
+      }
+    );
+
+    // Date line (right half)
+    const dateStartX = lineStartX + lineWidth + linePadding;
+    doc.line(dateStartX, lineY, dateStartX + lineWidth, lineY);
+    doc.text("Date Received", dateStartX + lineWidth / 2, lineY - 2, {
+      align: "center",
+    });
+
+    doc.save(`PurchaseReceipt_${prMeta.prNumber}_${new Date().getTime()}.pdf`);
   };
 
   return (
@@ -2096,13 +2348,17 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                               onClick={() =>
                                 handleExportPDF(receipt.items, {
                                   prNumber: receipt.prNumber,
+                                  poNumber: receipt.poNumber.map((po) =>
+                                    po.trim().toUpperCase()
+                                  ),
+
                                   supplierInvoiceNum:
                                     receipt.supplierInvoiceNum,
                                   supplierName: receipt.supplierName,
                                   warehouse: receipt.warehouse,
                                   status: receipt.status,
                                   remarks: receipt.remarks,
-                                  poNumbers: receipt.poNumber, // assuming this is an array
+                                  createdAt: receipt.createdAt,
                                 })
                               }>
                               <Download className="w-4 h-4" />
