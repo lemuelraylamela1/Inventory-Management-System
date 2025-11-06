@@ -68,11 +68,12 @@ export function Sidebar({
 
   const mainMenuItems = [
     { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    // { id: "sales", label: "Sales", icon: ShoppingCart },
-    // { id: "purchase", label: "Purchase", icon: Package },
-    // { id: "inventory", label: "Inventory", icon: Package2 },
     { id: "reports", label: "Reports", icon: BarChart3 },
     { id: "users", label: "User Management", icon: Users, adminOnly: true },
+  ];
+  const accounting = [
+    { id: "accounts-payable", label: "Accounts Payable", icon: Banknote },
+    { id: "accounts-receivable", label: "Accounts Receivable", icon: FileText },
   ];
 
   const inventory = [
@@ -172,6 +173,55 @@ export function Sidebar({
                   {item.label}
                 </Button>
               ))}
+
+              <Collapsible
+                open={openSubMenus.includes("accounting")}
+                onOpenChange={() => toggleSubMenu("accounting")}>
+                <CollapsibleTrigger asChild>
+                  <Button variant="ghost" className="w-full justify-start">
+                    <Banknote className="mr-2 h-4 w-4" />
+                    Accounting
+                    {openSubMenus.includes("accounting") ? (
+                      <ChevronDown
+                        className={`ml-auto h-4 w-4 transform transition-transform duration-300 ${
+                          openSubMenus.includes("accounting")
+                            ? "rotate-180"
+                            : "rotate-0"
+                        }`}
+                      />
+                    ) : (
+                      <ChevronRight className="ml-auto h-4 w-4" />
+                    )}
+                  </Button>
+                </CollapsibleTrigger>
+                <AnimatePresence initial={false}>
+                  {openSubMenus.includes("accounting") && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      transition={{ duration: 0.4, ease: "easeInOut" }}
+                      className="space-y-1 ml-4 mt-1 overflow-hidden">
+                      {accounting.map((item) => (
+                        <Button
+                          key={item.id}
+                          variant={
+                            activeSection === item.id ? "default" : "ghost"
+                          }
+                          size="sm"
+                          className="w-full justify-start"
+                          onClick={() => {
+                            onSectionChange(item.id);
+                            if (window.innerWidth < 1024) onToggle();
+                          }}>
+                          <item.icon className="mr-2 h-3 w-3" />
+                          {item.label}
+                        </Button>
+                      ))}
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </Collapsible>
 
               <Collapsible
                 open={openSubMenus.includes("sales")}

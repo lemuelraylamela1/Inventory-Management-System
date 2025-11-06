@@ -4,6 +4,7 @@ import PurchaseReceipt from "@/models/purchaseReceipt";
 import Inventory, { InventoryItem } from "@/models/inventory";
 import InventoryMain from "@/models/inventoryMain";
 import { ReceiptItem, PurchaseOrderItem } from "@/app/components/sections/type";
+import AccountsPayable from "@/models/accountsPayable";
 
 type PurchaseOrderDocument = {
   _id: string;
@@ -112,6 +113,22 @@ export async function POST(request: Request) {
       }
     );
 
+    try {
+      await AccountsPayable.create({
+        imported: "No",
+        voucherNo: "", // auto-generated via pre-save hook
+        supplier: receipt.supplier?.trim().toUpperCase() || "UNKNOWN",
+        reference: prNumber,
+        amount: typeof receipt.amount === "number" ? receipt.amount : 0,
+        balance: typeof receipt.amount === "number" ? receipt.amount : 0,
+        status: "UNPAID",
+      });
+
+      console.log(`📤 Accounts Payable entry created for ${prNumber}`);
+    } catch (err) {
+      console.error("❌ Failed to push to AccountsPayable:", err);
+    }
+
     const purchaseOrders = await PurchaseOrder.find({
       poNumber: { $in: poNumbers },
     });
@@ -189,7 +206,10 @@ export async function POST(request: Request) {
         docs
           .flatMap((doc) => doc.items)
           .filter((i: InventoryItem) => i.itemCode === itemCode)
-          .reduce((sum: number, i: InventoryItem) => sum + i.quantity, 0)
+          .reduce((sum: number, i: InventoryItem) => {
+            const qty = Number(i.quantity);
+            return isFinite(qty) ? sum + qty : sum;
+          }, 0)
       );
 
       await InventoryMain.findOneAndUpdate(

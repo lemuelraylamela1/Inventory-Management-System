@@ -440,3 +440,29 @@ export type ChartOfAccount = {
   createdAt: Date;
   updatedAt: Date;
 };
+
+export type AccountsPayable = {
+  _id: string;
+  imported: "Yes" | "No";
+  voucherNo: string;
+  supplier: string; // Reference to Supplier document
+  reference: string; // e.g., PR number
+  amount: number;
+  balance: number;
+  status: string;
+  createdAt: Date;
+  updatedAt: Date;
+};
+
+export type AccountsReceivable = {
+  _id?: string;
+  imported: "Yes" | "No";
+  voucherNo: string;
+  customer: string;
+  reference: string;
+  amount: number;
+  balance: number;
+  status: "UNPAID" | "PARTIAL" | "PAID";
+  createdAt: Date;
+  updatedAt: Date;
+};

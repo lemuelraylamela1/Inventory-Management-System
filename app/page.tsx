@@ -34,6 +34,8 @@ import AccountClass from "./components/sections/AccountClass";
 import AccountCodes from "./components/sections/AccountCodes";
 import AtcCodes from "./components/sections/AtcCodes";
 import ChartOfAccount from "./components/sections/ChartOfAccount";
+import AccountsReceivable from "./components/sections/AccountsReceivable";
+import AccountsPayable from "./components/sections/AccountsPayable";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -72,6 +74,10 @@ export default function App() {
         return <AccountClass />;
       case "account-codes":
         return <AccountCodes />;
+      case "accounts-payable":
+        return <AccountsPayable />;
+      case "accounts-receivable":
+        return <AccountsReceivable />;
       case "atc-codes":
         return <AtcCodes />;
       case "bank":
