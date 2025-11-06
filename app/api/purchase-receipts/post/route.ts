@@ -112,12 +112,13 @@ export async function POST(request: Request) {
         },
       }
     );
+    console.log("🧾 Injecting supplier:", receipt.supplier);
 
     try {
       await AccountsPayable.create({
         imported: "No",
         voucherNo: "", // auto-generated via pre-save hook
-        supplier: receipt.supplier?.trim().toUpperCase() || "UNKNOWN",
+        supplier: receipt.supplierName?.trim().toUpperCase() || "UNKNOWN",
         reference: prNumber,
         amount: typeof receipt.amount === "number" ? receipt.amount : 0,
         balance: typeof receipt.amount === "number" ? receipt.amount : 0,
@@ -125,6 +126,11 @@ export async function POST(request: Request) {
       });
 
       console.log(`📤 Accounts Payable entry created for ${prNumber}`);
+      console.log("📤 AccountsPayable payload:", {
+        supplier: receipt.supplier,
+        reference: prNumber,
+        amount: receipt.amount,
+      });
     } catch (err) {
       console.error("❌ Failed to push to AccountsPayable:", err);
     }
