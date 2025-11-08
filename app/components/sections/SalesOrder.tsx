@@ -417,7 +417,7 @@ export default function SalesOrder({ onSuccess }: Props) {
     if (!warehouse) return;
 
     // 🛡️ Skip reset if editing dialog is open
-    if (isEditDialogOpen) {
+    if (isEditDialogOpen || isViewDialogOpen) {
       console.log("🛑 Skipping warehouse reset during edit");
     } else {
       // 🔁 Reset state only during create flow
@@ -1470,83 +1470,67 @@ export default function SalesOrder({ onSuccess }: Props) {
     return () => clearInterval(intervalId);
   }, []);
 
-  const fetchSingleSO = async (soId: string) => {
-    if (!soId || typeof soId !== "string") {
-      console.warn("⚠️ Invalid Sales Order ID:", soId);
-      return;
-    }
+  // const fetchSingleSO = async (soId: string) => {
+  //   if (!soId || typeof soId !== "string") {
+  //     console.warn("⚠️ Invalid Sales Order ID:", soId);
+  //     return;
+  //   }
 
-    try {
-      console.log(`📡 Fetching Sales Order: ${soId}`);
+  //   try {
+  //     console.log(`📡 Fetching Sales Order: ${soId}`);
 
-      const res = await fetch(`/api/sales-orders/${soId}`, {
-        cache: "no-store",
-      });
+  //     const res = await fetch(`/api/sales-orders/${soId}`, {
+  //       cache: "no-store",
+  //     });
 
-      if (!res.ok) throw new Error("Failed to fetch Sales Order");
+  //     if (!res.ok) throw new Error("Failed to fetch Sales Order");
 
-      const { order } = await res.json();
+  //     const { order } = await res.json();
 
-      console.log("📥 Raw Sales Order from DB:", order);
+  //     console.log("📥 Raw Sales Order from DB:", order);
 
-      setItemsData(order.items ?? []);
-      setFormData(order);
-    } catch (error) {
-      console.error("❌ Error loading Sales Order:", error);
+  //     setItemsData(order.items ?? []);
+  //     setFormData(order);
+  //   } catch (error) {
+  //     console.error("❌ Error loading Sales Order:", error);
 
-      setItemsData([]);
-      setFormData({
-        soNumber: "",
-        customer: "",
-        address: "",
-        contactNumber: "",
-        salesPerson: "",
-        warehouse: "",
-        transactionDate: new Date().toISOString().split("T")[0],
-        deliveryDate: "",
-        shippingAddress: "",
-        notes: "",
-        status: "PENDING",
-        creationDate: new Date().toISOString().split("T")[0],
-        items: [],
-        total: 0,
-        totalQuantity: 0,
-        formattedWeight: "0.00 kg",
-        formattedCBM: "0.000 m³",
-        formattedTotal: "₱0.00",
-        formattedNetTotal: "₱0.00",
-        discounts: [],
-        discountBreakdown: [],
-        customerType: "",
-        customerTypeData: undefined,
-      });
-    }
-  };
+  //     setItemsData([]);
+  //     setFormData({
+  //       soNumber: "",
+  //       customer: "",
+  //       address: "",
+  //       contactNumber: "",
+  //       salesPerson: "",
+  //       warehouse: "",
+  //       transactionDate: new Date().toISOString().split("T")[0],
+  //       deliveryDate: "",
+  //       shippingAddress: "",
+  //       notes: "",
+  //       status: "PENDING",
+  //       creationDate: new Date().toISOString().split("T")[0],
+  //       items: [],
+  //       total: 0,
+  //       totalQuantity: 0,
+  //       formattedWeight: "0.00 kg",
+  //       formattedCBM: "0.000 m³",
+  //       formattedTotal: "₱0.00",
+  //       formattedNetTotal: "₱0.00",
+  //       discounts: [],
+  //       discountBreakdown: [],
+  //       customerType: "",
+  //       customerTypeData: undefined,
+  //     });
+  //   }
+  // };
+
+  // const params = useParams();
+  // const soId = params?.id as string;
 
   // useEffect(() => {
-  //   // 🔁 Poll all sales orders every second
-  //   const fetchAndPollSalesOrders = () => {
-  //     fetchSalesOrders(); // initial fetch
-
-  //     const interval = setInterval(() => {
-  //       fetchSalesOrders();
-  //     }, 1000);
-
-  //     return () => clearInterval(interval); // cleanup
-  //   };
-
-  //   const cleanup = fetchAndPollSalesOrders();
-  //   return cleanup;
-  // }, []);
-
-  const params = useParams();
-  const soId = params?.id as string;
-
-  useEffect(() => {
-    if (soId) {
-      fetchSingleSO(soId);
-    }
-  }, [soId]);
+  //   if (soId) {
+  //     fetchSingleSO(soId);
+  //   }
+  // }, [soId]);
 
   // const isHydrationReady = useMemo(() => {
   //   return (
@@ -1554,18 +1538,57 @@ export default function SalesOrder({ onSuccess }: Props) {
   //   );
   // }, [itemCatalog, customers, customerTypes]);
 
-  const handleView = async (soId: string) => {
-    if (!soId) return;
+  const handleView = async (id: string) => {
+    try {
+      const res = await fetch(`/api/sales-orders/${id}`, {
+        cache: "no-store",
+      });
 
-    console.log(`🔍 Viewing Sales Order: ${soId}`);
-    await fetchSingleSO(soId); // wait for hydration
-    console.log("✅ Sales Order hydrated successfully");
+      if (!res.ok) {
+        console.warn(
+          `⚠️ Failed to fetch sales order ${id}: HTTP ${res.status}`
+        );
+        toast.error("Sales order not found");
+        return;
+      }
 
-    // Only open dialog if formData is now populated
-    if (formData.soNumber) {
+      const contentType = res.headers.get("content-type") || "";
+      if (!contentType.includes("application/json")) {
+        const fallback = await res.text();
+        console.error("❌ Non-JSON response:", fallback);
+        toast.error("Invalid response format");
+        return;
+      }
+
+      const { order }: { order: SalesOrder } = await res.json();
+      if (!order) {
+        console.warn("⚠️ No sales order returned for ID:", id);
+        toast.error("Sales order not found");
+        return;
+      }
+
+      console.log("📦 Raw items from order:", order.items);
+
+      const normalizedItems = Array.isArray(order.items)
+        ? order.items.map((item, i) => ({
+            ...item,
+            id: item._id ?? `item-${i}`,
+          }))
+        : [];
+
+      console.log("✅ Normalized items:", normalizedItems);
+
+      setFormData({ ...order, items: normalizedItems });
+      setItemsData(normalizedItems);
       setIsViewDialogOpen(true);
-    } else {
-      console.warn("⚠️ formData not ready, skipping dialog open");
+    } catch (error: unknown) {
+      if (error instanceof Error) {
+        console.error("❌ Failed to load sales order:", error);
+        toast.error(`Unable to load sales order: ${error.message}`);
+      } else {
+        console.error("❌ Unknown error:", error);
+        toast.error("Unable to load sales order");
+      }
     }
   };
 
@@ -2048,15 +2071,6 @@ export default function SalesOrder({ onSuccess }: Props) {
     doc.save(`SalesOrder_${soMeta.soNumber}_${new Date().getTime()}.pdf`);
   };
 
-  const handleOpenView = async (soId: string) => {
-    setIsLoadingView(true);
-    setIsViewDialogOpen(true); // open immediately to show spinner
-
-    await fetchSingleSO(soId); // hydrate formData
-
-    setIsLoadingView(false);
-  };
-
   return (
     <div className="space-y-6">
       <Card>
@@ -2157,6 +2171,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                           <Input
                             id="create-customer-name"
                             type="text"
+                            name="create-customer-name-no-autofill"
                             autoComplete="off"
                             value={formData.customer || ""}
                             onClick={() => setShowCustomerSuggestions(true)}

@@ -256,6 +256,17 @@ export async function PATCH(
               newEntry.currentOnhand = isNaN(currentOnhand) ? 0 : currentOnhand;
 
               inventoryDoc.items.push(newEntry);
+
+              // 🧹 Remove zero-quantity items before saving
+              inventoryDoc.items = inventoryDoc.items.filter(
+                (i: InventoryItem) => Number(i.quantity) !== 0
+              );
+
+              await inventoryDoc.save();
+              console.log(
+                `📤 Logged sale for ${itemCode} in ${warehouseCode} | previousOnhand=${previousOnhand}, deducted=${quantity}, currentOnhand=${newEntry.currentOnhand}`
+              );
+
               await inventoryDoc.save();
 
               console.log(
