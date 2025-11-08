@@ -39,15 +39,45 @@ export default function AccountsReceivable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortKey, setSortKey] = useState<keyof AccountsReceivable>("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const filteredReceivables = useMemo(() => {
     const query = searchTerm.toLowerCase();
-    return receivables.filter((ar) => {
+    const filtered = receivables.filter((ar) => {
       const customer = ar.customer?.toLowerCase() || "";
       const reference = ar.reference?.toLowerCase() || "";
       return customer.includes(query) || reference.includes(query);
     });
-  }, [receivables, searchTerm]);
+
+    const sorted = [...filtered].sort((a, b) => {
+      const aVal = a[sortKey];
+      const bVal = b[sortKey];
+
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortOrder === "asc" ? aVal - bVal : bVal - aVal;
+      }
+
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortOrder === "asc"
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+
+      if (aVal instanceof Date || bVal instanceof Date) {
+        return sortOrder === "asc"
+          ? new Date(aVal).getTime() - new Date(bVal).getTime()
+          : new Date(bVal).getTime() - new Date(aVal).getTime();
+      }
+
+      return 0;
+    });
+
+    return sorted;
+  }, [receivables, searchTerm, sortKey, sortOrder]);
 
   const totalPages = Math.ceil(filteredReceivables.length / rowsPerPage);
 
@@ -118,7 +148,6 @@ export default function AccountsReceivable() {
             <TableHeader>
               <TableRow>
                 <TableHead>Creation Date</TableHead>
-                <TableHead>Imported</TableHead>
                 <TableHead>Voucher No.</TableHead>
                 <TableHead>Customer</TableHead>
                 <TableHead>Reference</TableHead>
@@ -163,7 +192,6 @@ export default function AccountsReceivable() {
                           })
                         : "—"}
                     </TableCell>
-                    <TableCell>{ar.imported ?? "—"}</TableCell>
                     <TableCell>{ar.voucherNo ?? "—"}</TableCell>
                     <TableCell>{ar.customer ?? "—"}</TableCell>
                     <TableCell>{ar.reference ?? "—"}</TableCell>

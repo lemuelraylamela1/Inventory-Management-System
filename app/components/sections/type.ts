@@ -443,7 +443,6 @@ export type ChartOfAccount = {
 
 export type AccountsPayable = {
   _id: string;
-  imported: "Yes" | "No";
   voucherNo: string;
   supplier: string; // Reference to Supplier document
   reference: string; // e.g., PR number
@@ -456,7 +455,6 @@ export type AccountsPayable = {
 
 export type AccountsReceivable = {
   _id?: string;
-  imported: "Yes" | "No";
   voucherNo: string;
   customer: string;
   reference: string;

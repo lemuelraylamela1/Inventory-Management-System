@@ -116,7 +116,6 @@ export async function POST(request: Request) {
 
     try {
       await AccountsPayable.create({
-        imported: "No",
         voucherNo: "", // auto-generated via pre-save hook
         supplier: receipt.supplierName?.trim().toUpperCase() || "UNKNOWN",
         reference: prNumber,

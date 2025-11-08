@@ -3,7 +3,6 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface AccountsReceivable extends Document {
-  imported: "Yes" | "No";
   voucherNo: string;
   customer: string;
   reference: string;
@@ -16,12 +15,6 @@ export interface AccountsReceivable extends Document {
 
 const AccountsReceivableSchema = new Schema<AccountsReceivable>(
   {
-    imported: {
-      type: String,
-      enum: ["Yes", "No"],
-      required: true,
-      default: "No",
-    },
     voucherNo: {
       type: String,
       required: true,

@@ -39,15 +39,45 @@ export default function AccountsPayable() {
   const [searchTerm, setSearchTerm] = useState("");
   const [rowsPerPage, setRowsPerPage] = useState(10);
   const [currentPage, setCurrentPage] = useState(1);
+  const [sortKey, setSortKey] = useState<keyof AccountsPayable>("createdAt");
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("desc");
 
   const filteredPayables = useMemo(() => {
     const query = searchTerm.toLowerCase();
-    return payables.filter((ap) => {
+    const filtered = payables.filter((ap) => {
       const supplier = ap.supplier?.toLowerCase() || "";
       const reference = ap.reference?.toLowerCase() || "";
       return supplier.includes(query) || reference.includes(query);
     });
-  }, [payables, searchTerm]);
+
+    const sorted = [...filtered].sort((a, b) => {
+      const aVal = a[sortKey];
+      const bVal = b[sortKey];
+
+      if (aVal == null) return 1;
+      if (bVal == null) return -1;
+
+      if (typeof aVal === "number" && typeof bVal === "number") {
+        return sortOrder === "asc" ? aVal - bVal : bVal - aVal;
+      }
+
+      if (typeof aVal === "string" && typeof bVal === "string") {
+        return sortOrder === "asc"
+          ? aVal.localeCompare(bVal)
+          : bVal.localeCompare(aVal);
+      }
+
+      if (aVal instanceof Date || bVal instanceof Date) {
+        return sortOrder === "asc"
+          ? new Date(aVal).getTime() - new Date(bVal).getTime()
+          : new Date(bVal).getTime() - new Date(aVal).getTime();
+      }
+
+      return 0;
+    });
+
+    return sorted;
+  }, [payables, searchTerm, sortKey, sortOrder]);
 
   const totalPages = Math.ceil(filteredPayables.length / rowsPerPage);
 
@@ -118,7 +148,6 @@ export default function AccountsPayable() {
             <TableHeader>
               <TableRow>
                 <TableHead>Creation Date</TableHead>
-                <TableHead>Imported</TableHead>
                 <TableHead>Voucher No.</TableHead>
                 <TableHead>Supplier</TableHead>
                 <TableHead>Reference</TableHead>
@@ -163,7 +192,6 @@ export default function AccountsPayable() {
                           })
                         : "—"}
                     </TableCell>
-                    <TableCell>{ap.imported ?? "—"}</TableCell>
                     <TableCell>{ap.voucherNo ?? "—"}</TableCell>
                     <TableCell>{ap.supplier ?? "—"}</TableCell>
                     <TableCell>{ap.reference ?? "—"}</TableCell>
