@@ -1,7 +1,6 @@
 import mongoose, { Schema, Document } from "mongoose";
 
 export interface AccountsPayable extends Document {
-  imported: "Yes" | "No";
   voucherNo: string;
   supplier: string;
   reference: string;
@@ -14,12 +13,6 @@ export interface AccountsPayable extends Document {
 
 const AccountsPayableSchema = new Schema<AccountsPayable>(
   {
-    imported: {
-      type: String,
-      enum: ["Yes", "No"],
-      required: true,
-      default: "No",
-    },
     voucherNo: {
       type: String,
       required: true,
