@@ -3165,7 +3165,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                       <div className="flex h-full items-center justify-center gap-2">
                         <Loader2 className="w-5 h-5 animate-spin text-primary" />
                         <span className="text-sm font-medium tracking-wide">
-                          Loading invoices, please wait…
+                          Loading orders, please wait…
                         </span>
                       </div>
                     </TableCell>

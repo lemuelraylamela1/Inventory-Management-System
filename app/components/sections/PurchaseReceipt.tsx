@@ -969,101 +969,6 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
     setIsCreateDialogOpen(true);
   };
 
-  // const enrichedPOs = purchaseOrders.map((po) => {
-  //   const enrichedItems = po.items.map((poItem) => {
-  //     const matchedItem = items.find(
-  //       (item) =>
-  //         item.itemName?.trim().toUpperCase() ===
-  //         poItem.itemName?.trim().toUpperCase()
-  //     );
-
-  //     return {
-  //       ...poItem,
-  //       itemCode: matchedItem?.itemCode || "",
-  //       unitType: matchedItem?.unitType || "",
-  //       purchasePrice: matchedItem?.purchasePrice || poItem.purchasePrice || 0,
-  //       amount:
-  //         (matchedItem?.purchasePrice ?? poItem.purchasePrice ?? 0) *
-  //         (poItem.quantity ?? 0),
-  //     };
-  //   });
-
-  //   return {
-  //     ...po,
-  //     items: enrichedItems,
-  //   };
-  // });
-
-  // const handleExportPDF = (
-  //   items: ItemType[],
-  //   poMeta: {
-  //     poNumber: string;
-  //     referenceNumber: string;
-  //     supplierName: string;
-  //     warehouse: string;
-  //     status: string;
-  //     remarks?: string;
-  //   }
-  // ) => {
-  //   if (!items || items.length === 0) {
-  //     toast.error("No items to export");
-  //     return;
-  //   }
-
-  //   const doc = new jsPDF();
-
-  //   const title = "Purchase Order Summary";
-  //   const summaryLines = [
-  //     `PO Number: ${poMeta.poNumber}`,
-  //     `Reference No: ${poMeta.referenceNumber}`,
-  //     `Supplier: ${poMeta.supplierName}`,
-  //     `Warehouse: ${poMeta.warehouse}`,
-  //     `Status: ${poMeta.status}`,
-  //     `Remarks: ${poMeta.remarks || "—"}`,
-  //   ];
-
-  //   doc.setFontSize(16);
-  //   doc.text(title, 14, 20);
-
-  //   doc.setFontSize(10);
-  //   summaryLines.forEach((line, i) => {
-  //     doc.text(line, 14, 28 + i * 6);
-  //   });
-
-  //   const tableStartY = 28 + summaryLines.length * 6 + 10;
-
-  //   const tableHead = [["Item Code", "Item Name", "UOM", "Purchase Price"]];
-  //   const tableBody = items.map((item) => [
-  //     item.itemCode,
-  //     item.itemName,
-  //     item.unitType,
-  //     `₱${item.purchasePrice.toFixed(2)}`,
-  //   ]);
-
-  //   autoTable(doc, {
-  //     startY: tableStartY,
-  //     head: tableHead,
-  //     body: tableBody,
-  //     styles: {
-  //       fontSize: 9,
-  //       halign: "center",
-  //       cellPadding: 4,
-  //     },
-  //     headStyles: {
-  //       fillColor: [41, 98, 255],
-  //       textColor: 255,
-  //       fontStyle: "bold",
-  //     },
-  //     alternateRowStyles: {
-  //       fillColor: [245, 245, 245],
-  //     },
-  //   });
-
-  //   const filename = `PO-${poMeta.poNumber}.pdf`;
-  //   doc.save(filename);
-  //   toast.success("PDF exported successfully");
-  // };
-
   const handleExportPDF = (
     items: ReceiptItem[],
     prMeta: PurchaseReceiptType
@@ -1076,347 +981,332 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-
     const marginLeft = 14;
     const marginRight = 14;
     const contentWidth = pageWidth - marginLeft - marginRight;
+    const startY = 60;
+    const rowsPerPage = 20;
 
-    // Company Header
-    doc.setFontSize(16).setFont("helvetica", "bold");
-    doc.text("NCM MARKETING CORPORATION", marginLeft, 14);
-
-    doc.setFontSize(9).setFont("helvetica", "normal");
-    doc.text("Freeman Compound, #10 Nadunada St., 6-8 Ave.", marginLeft, 18);
-    doc.text("Caloocan City", marginLeft, 22);
-    doc.text(
-      "E-mail: ncm_office@yahoo.com.ph / Tel No.: +63(2)56760356",
-      marginLeft,
-      26
+    const totalAmount = items.reduce(
+      (sum, i) => sum + (i.quantity ?? 0) * (i.purchasePrice ?? 0),
+      0
     );
 
-    // Title
-    doc.setFontSize(16).setFont("helvetica", "bold");
-    doc.text("PURCHASE RECEIPT", pageWidth - marginRight, 22, {
-      align: "right",
-    });
+    const chunkedItems = [];
+    for (let i = 0; i < items.length; i += rowsPerPage) {
+      chunkedItems.push(items.slice(i, i + rowsPerPage));
+    }
 
-    // Order Details Box (Right)
-    const boxWidth = 75;
-    const orderDetailsX = pageWidth - marginRight - boxWidth;
-    const orderDetailsY = 30;
-
-    const orderDetailsData = [
-      [
-        "DATE",
-        prMeta.createdAt && !isNaN(new Date(prMeta.createdAt).getTime())
-          ? new Date(prMeta.createdAt).toLocaleDateString("en-PH", {
-              month: "short",
-              day: "2-digit",
-              year: "numeric",
-            })
-          : "N/A",
-      ],
-      ["PR #", prMeta.prNumber?.trim().toUpperCase() || "N/A"],
-      ["PO #", prMeta.poNumber?.join(", ")?.trim().toUpperCase() || "N/A"],
-      ["WAREHOUSE", prMeta.warehouse?.trim().toUpperCase() || "N/A"],
-      ["TERMS", "N/A"],
-    ];
-
-    autoTable(doc, {
-      startY: orderDetailsY,
-      margin: { left: orderDetailsX },
-      head: [],
-      body: orderDetailsData,
-      theme: "grid",
-      styles: {
-        fontSize: 9,
-        cellPadding: 1,
-        lineWidth: 0.3,
-        lineColor: [0, 0, 0],
-      },
-      columnStyles: {
-        0: { fontStyle: "bold", cellWidth: 35 },
-        1: { cellWidth: 40 },
-      },
-      tableWidth: boxWidth,
-    });
-
-    // Customer Details Box (Left)
-    const customerDetailsData = [
-      ["ORDER FROM", prMeta.supplierName || "N/A"],
-      ["ADDRESS", "N/A"],
-      ["CONTACT #", "N/A"],
-      ["TIN", "N/A"],
-    ];
-
-    const rawResult = autoTable(doc, {
-      startY: orderDetailsY,
-      margin: { left: marginLeft, right: contentWidth - boxWidth - 5 },
-      head: [],
-      body: customerDetailsData,
-      theme: "grid",
-      styles: {
-        fontSize: 9,
-        cellPadding: 1,
-        lineWidth: 0.3,
-        lineColor: [0, 0, 0],
-      },
-      columnStyles: {
-        0: { fontStyle: "bold", cellWidth: 35 },
-        1: { cellWidth: "auto" },
-      },
-    }) as unknown;
-
-    type AutoTableLayout = {
-      table: {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-      };
+    const renderHeader = (pageNumber: number, totalPages: number) => {
+      doc.setFont("helvetica", "bold").setFontSize(16);
+      doc.text("NCM MARKETING CORPORATION", marginLeft, 14);
+      doc.setFontSize(9).setFont("helvetica", "normal");
+      doc.text("Freeman Compound, #10 Nadunada St., 6-8 Ave.", marginLeft, 18);
+      doc.text("Caloocan City", marginLeft, 22);
+      doc.text(
+        "E-mail: ncm_office@yahoo.com.ph / Tel No.: +63(2)56760356",
+        marginLeft,
+        26
+      );
+      doc.setFont("helvetica", "bold").setFontSize(16);
+      doc.text("PURCHASE RECEIPT", pageWidth - marginRight, 22, {
+        align: "right",
+      });
     };
 
-    function isAutoTableLayout(obj: unknown): obj is AutoTableLayout {
-      return (
-        typeof obj === "object" &&
-        obj !== null &&
-        "table" in obj &&
-        typeof (obj as { table: unknown }).table === "object"
-      );
-    }
+    const renderMetaBoxes = () => {
+      const boxWidth = 75;
+      const orderDetailsX = pageWidth - marginRight - boxWidth;
+      const orderDetailsY = 30;
 
-    if (isAutoTableLayout(rawResult)) {
-      const { x, y, width, height } = rawResult.table;
-      doc.setLineWidth(0.3).setDrawColor(0, 0, 0);
-      doc.rect(x, y, width, height);
-    } else {
-      console.warn(
-        "⚠️ autoTable did not return layout metadata. Skipping outer border."
-      );
-    }
+      const orderDetailsData = [
+        [
+          "DATE",
+          prMeta.createdAt
+            ? new Date(prMeta.createdAt).toLocaleDateString("en-PH", {
+                month: "short",
+                day: "2-digit",
+                year: "numeric",
+              })
+            : "N/A",
+        ],
+        ["PR #", prMeta.poNumber || "N/A"],
+        ["PO #", prMeta.poNumber || "N/A"],
+        ["WAREHOUSE", prMeta.warehouse?.trim().toUpperCase() || "N/A"],
+        ["TERMS", "N/A"],
+      ];
 
-    // Item Table
-    let currentY =
-      (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
-        .finalY + 8;
-
-    const formatCurrency = (value: number): string =>
-      value.toLocaleString("en-PH", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+      autoTable(doc, {
+        startY: orderDetailsY,
+        margin: { left: orderDetailsX },
+        body: orderDetailsData,
+        theme: "grid",
+        styles: {
+          fontSize: 9,
+          cellPadding: 1,
+          lineWidth: 0.3,
+          lineColor: [0, 0, 0],
+        },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 35 },
+          1: { cellWidth: 40 },
+        },
+        tableWidth: boxWidth,
       });
 
-    const tableData = items.map((item) => [
-      Math.floor(item.quantity ?? 0).toString(),
-      item.unitType ?? "-",
-      item.itemName ?? "-",
-      formatCurrency(item.purchasePrice ?? 0),
-      formatCurrency(0), // Tax column default
-      formatCurrency((item.quantity ?? 0) * (item.purchasePrice ?? 0)),
-    ]);
+      const customerDetailsData = [
+        ["ORDER FROM", prMeta.supplierName || "N/A"],
+        ["ADDRESS", "N/A"],
+        ["CONTACT #", "N/A"],
+        ["TIN", "N/A"],
+      ];
 
-    autoTable(doc, {
-      startY: currentY,
-      head: [["Qty", "Unit", "Description", "Price", "Tax", "Total"]],
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 9, cellPadding: 2 },
-      headStyles: {
-        fillColor: [255, 255, 255],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
-        lineWidth: 0.5,
-        lineColor: [0, 0, 0],
-        halign: "center",
-      },
-      columnStyles: {
-        0: { halign: "center", cellWidth: 20 }, // Qty
-        1: { halign: "left", cellWidth: 20 }, // Unit
-        2: { halign: "left", cellWidth: 80 }, // Description
-        3: { halign: "right", cellWidth: 20 }, // Price
-        4: { halign: "right", cellWidth: 20 }, // Tax
-        5: { halign: "right", cellWidth: 22 }, // Total
-      },
-      margin: { left: marginLeft, right: marginRight },
-    });
+      autoTable(doc, {
+        startY: orderDetailsY,
+        margin: { left: marginLeft, right: contentWidth - boxWidth - 5 },
+        body: customerDetailsData,
+        theme: "grid",
+        styles: {
+          fontSize: 9,
+          cellPadding: 1,
+          lineWidth: 0.3,
+          lineColor: [0, 0, 0],
+        },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 35 },
+          1: { cellWidth: "auto" },
+        },
+      });
+    };
 
-    const boxStartY = currentY;
-    currentY =
-      (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
-        .finalY + 5;
+    const renderFooter = () => {
+      const footerY = pageHeight - 40;
+      const footerHeight = 20;
+      const contentWidth = pageWidth - marginLeft - marginRight;
 
-    doc.setFontSize(10).setFont("helvetica", "bold");
-    doc.text("-- Nothing Follows --", pageWidth / 2, currentY, {
-      align: "center",
-    });
-    currentY += 8;
+      // Draw single footer box
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.3);
+      doc.rect(marginLeft, footerY, contentWidth, footerHeight);
 
-    const rowHeight = 6;
-    const reservedBottom = 30;
-    const summaryStartY = pageHeight - reservedBottom - rowHeight * 7;
-    const labelXLeft = marginLeft + 4;
-    const valueXLeft = marginLeft + 55;
-    const labelXRight = pageWidth / 2 + 10;
-    const valueXRight = pageWidth - marginRight - 4;
+      // Draw 4 equal horizontal lines inside the box
+      const lineSpacing = footerHeight / 4;
+      const horizontalEndX = marginRight + contentWidth - 110;
+      for (let i = 1; i <= 4; i++) {
+        const lineY = footerY + i * lineSpacing;
+        doc.line(marginLeft, lineY, horizontalEndX, lineY);
+      }
 
-    // Utility to build summary lines
-    function getSummaryColumns(): {
-      left: [string, string][];
-      right: [string, string][];
-    } {
-      const totalQuantity = items.reduce(
-        (sum, item) => sum + (item.quantity ?? 0),
-        0
+      // Draw vertical line just after "Approved By" section
+      doc.line(
+        horizontalEndX - 48,
+        footerY,
+        horizontalEndX - 48,
+        footerY + footerHeight
       );
-      const grandTotal = items.reduce(
-        (sum, item) => sum + (item.quantity ?? 0) * item.purchasePrice,
-        0
+      doc.line(horizontalEndX, footerY, horizontalEndX, footerY + footerHeight);
+
+      // Labels inside the box
+      doc.setFont("helvetica", "bold").setFontSize(9);
+      doc.text("Approved By", marginLeft + 2, footerY + 4);
+      doc.text("Checked By", marginLeft + 2, footerY + 9);
+
+      doc.setFont("helvetica", "normal").setFontSize(8);
+      doc.text(
+        "Received the above goods/s in good condition",
+        marginLeft + 100,
+        footerY + 4
       );
 
-      return {
-        left: [["Total Quantity", totalQuantity.toString()]],
-        right: [
-          [
-            "VATable Sales",
-            grandTotal.toLocaleString("en-PH", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            }),
-          ],
-          ["VAT-Exempt Sales", "0.00"],
-          [
-            "Total Sales",
-            grandTotal.toLocaleString("en-PH", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            }),
-          ],
-          ["Discount", "0.00"],
-          ["Tax", "0.00"],
-          ["WTax", "0.00"],
-          [
-            "Total Amount",
-            grandTotal.toLocaleString("en-PH", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            }),
-          ],
-        ],
-      };
-    }
+      // Signature line inside the box
+      doc.text("Signature over Printed Name", marginLeft + 85, footerY + 18);
+      doc.text("Date Received", pageWidth - marginRight - 12, footerY + 18, {
+        align: "right",
+      });
+    };
 
-    const { left: leftColumn, right: rightColumn } = getSummaryColumns();
+    chunkedItems.forEach((chunk, index) => {
+      if (index > 0) doc.addPage();
+      const pageNumber = index + 1;
+      const totalPages = chunkedItems.length;
 
-    doc.setFontSize(9);
+      renderHeader(pageNumber, totalPages);
+      renderMetaBoxes();
 
-    // Left column
+      autoTable(doc, {
+        startY,
+        head: [["Qty", "Unit", "Description", "Sales Price", "Tax", "Total"]],
+        body: chunk.map((item) => [
+          item.quantity ?? 0,
+          item.unitType ?? "-",
+          item.itemName ?? "-",
+          (item.purchasePrice ?? 0).toFixed(2),
+          "0.00",
+          ((item.quantity ?? 0) * (item.purchasePrice ?? 0)).toFixed(2),
+        ]),
+        theme: "plain",
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: {
+          fillColor: [200, 200, 200],
+          fontStyle: "bold",
+          lineWidth: 0.3,
+          lineColor: [0, 0, 0],
+        },
+        columnStyles: {
+          0: { halign: "right" }, // Qty
+          1: { halign: "left" }, // Unit
+          2: { halign: "left" }, // Description
+          3: { halign: "right" }, // Sales Price
+          4: { halign: "right" }, // Tax
+          5: { halign: "right" }, // Total
+        },
+        didParseCell: (data) => {
+          const colIndex = data.column.index;
+          if (data.section === "head") {
+            // Align header text
+            if (
+              colIndex === 0 ||
+              colIndex === 3 ||
+              colIndex === 4 ||
+              colIndex === 5
+            ) {
+              data.cell.styles.halign = "right";
+            } else {
+              data.cell.styles.halign = "left";
+            }
 
-    leftColumn.forEach(([label, value], i) => {
-      const y = summaryStartY + i * rowHeight;
+            // Add left and right borders
+            data.cell.styles.lineWidth = 0.3;
+            data.cell.styles.lineColor = [0, 0, 0];
+            data.cell.styles.cellPadding = {
+              left: 2,
+              right: 2,
+              top: 1,
+              bottom: 1,
+            };
+          }
+        },
+        tableWidth: contentWidth,
+        margin: { left: marginLeft, right: marginRight },
+        showHead: "everyPage",
+      });
 
-      // Label
-      doc.setFont("helvetica", "bold").text(label, labelXLeft, y);
+      const footerY = pageHeight - 40;
 
-      // Value with extra left padding
-      doc.setFont("helvetica", "normal").text(value, valueXLeft, y);
-    });
+      if (index === chunkedItems.length - 1) {
+        const totalQuantity = items.reduce(
+          (sum, i) => sum + (i.quantity ?? 0),
+          0
+        );
 
-    // Right column
+        // Placeholder values — replace with actual computed logic if available
+        const vatableSales = totalAmount;
+        const vatExemptSales = 0;
+        const totalSales = totalAmount;
+        const discount = 0;
+        const tax = 0;
+        const wtax = 0;
 
-    rightColumn.forEach(([label, value], i) => {
-      const y = summaryStartY + i * rowHeight;
+        doc.setFont("helvetica", "italic").setFontSize(9);
+        doc.text("-- Nothing follows --", pageWidth / 2, footerY - 80, {
+          align: "center",
+        });
 
-      doc.setFont("helvetica", "bold").text(label, labelXRight, y);
-      doc
-        .setFont("helvetica", "normal")
-        .text(value, valueXRight, y, { align: "right" });
-    });
+        doc.setFont("helvetica", "bold").setFontSize(9);
 
-    // Extend outer border to include summary
-    const boxEndY =
-      summaryStartY +
-      Math.max(leftColumn.length, rightColumn.length) * rowHeight;
-    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
-    doc.rect(marginLeft, boxStartY, contentWidth, boxEndY - boxStartY);
+        // Left side: Total Quantity
+        doc.text(
+          `Total Quantity:`.padEnd(50) + `${totalQuantity}`,
+          marginLeft + 10,
+          footerY - 40,
+          {
+            align: "left",
+          }
+        );
 
-    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
+        // Right side: Financial breakdown with padded spacing
+        const rightX = pageWidth - marginRight - 10;
+        doc.text(
+          `VATable Sales:`.padEnd(56) + `${vatableSales.toFixed(2)}`,
+          rightX,
+          footerY - 40,
+          {
+            align: "right",
+          }
+        );
+        doc.text(
+          `VAT Exempt Sales:`.padEnd(63) + `${vatExemptSales.toFixed(2)}`,
+          rightX,
+          footerY - 35,
+          {
+            align: "right",
+          }
+        );
+        doc.text(
+          `Total Sales:`.padEnd(54) + `${totalSales.toFixed(2)}`,
+          rightX,
+          footerY - 30,
+          {
+            align: "right",
+          }
+        );
+        doc.text(
+          `Discount:`.padEnd(55) + `${discount.toFixed(2)}`,
+          rightX,
+          footerY - 25,
+          {
+            align: "right",
+          }
+        );
+        doc.text(
+          `Tax:`.padEnd(50) + `${tax.toFixed(2)}`,
+          rightX,
+          footerY - 20,
+          {
+            align: "right",
+          }
+        );
+        doc.text(
+          `WTax:`.padEnd(51) + `${wtax.toFixed(2)}`,
+          rightX,
+          footerY - 15,
+          {
+            align: "right",
+          }
+        );
 
-    const signatureBoxY = boxEndY + 5;
-    const signatureBoxHeight = 20;
-    const signatureBoxWidth = contentWidth;
-    // const leftColWidth = 90;
-    // const rightColWidth = signatureBoxWidth - leftColWidth;
-    const rowHeightFooter = signatureBoxHeight / 4;
-
-    // Outer box
-    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
-    doc.rect(marginLeft, signatureBoxY, signatureBoxWidth, signatureBoxHeight);
-
-    const leftColWidth = signatureBoxWidth * 0.4;
-    const rightColWidth = signatureBoxWidth * 0.6;
-
-    // Vertical divider at 30% mark
-    doc.line(
-      marginLeft + leftColWidth,
-      signatureBoxY,
-      marginLeft + leftColWidth,
-      signatureBoxY + signatureBoxHeight
-    );
-
-    // 🔹 Left Column: Grid Labels + Vertical Line
-    const gridLabels = ["Approved By", "Checked By", "", ""];
-    gridLabels.forEach((label, i) => {
-      const y = signatureBoxY + i * rowHeightFooter;
-
-      // Label
-      doc.setFontSize(9).setFont("helvetica", "bold");
-      doc.text(label, marginLeft + 2, y + 4);
-
-      // Horizontal row line
-      if (i > 0) {
-        doc.line(marginLeft, y, marginLeft + leftColWidth, y);
+        // Final total
+        doc.text(
+          `Total Purchase:`.padEnd(57) + `${totalAmount.toFixed(2)}`,
+          rightX,
+          footerY - 10,
+          {
+            align: "right",
+          }
+        );
+      } else {
+        doc.setFont("helvetica", "italic").setFontSize(9);
+        doc.text(
+          `-- Page ${pageNumber} of ${totalPages} --`,
+          pageWidth / 2,
+          footerY - 10,
+          { align: "center" }
+        );
       }
 
-      // Vertical divider inside row (optional if you want a sub-column)
-      doc.line(marginLeft + 30, y, marginLeft + 30, y + rowHeightFooter);
+      const finalY = doc.lastAutoTable?.finalY ?? startY + 70;
+
+      const isLastPage = index === chunkedItems.length - 1;
+      const bottomBorderY = isLastPage ? footerY - 2 : footerY - 2;
+
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.3);
+      doc.rect(marginLeft, startY, contentWidth, bottomBorderY - startY);
+
+      renderFooter();
     });
 
-    // 🔹 Right Column: Acknowledgment Block
-    const rightX = marginLeft + leftColWidth;
-    doc.setFontSize(8).setFont("helvetica", "normal");
-    doc.text(
-      "Received the above goods/s in good condition",
-      rightX + rightColWidth / 2,
-      signatureBoxY + 5,
-      {
-        align: "center",
-      }
-    );
-
-    const linePadding = 20;
-    const lineWidth = (rightColWidth - linePadding * 3) / 2;
-    const lineStartX = rightX + linePadding;
-    const lineY = signatureBoxY + 20;
-
-    // Signature line (left half)
-    doc.line(lineStartX, lineY, lineStartX + lineWidth, lineY);
-    doc.text(
-      "Signature over Printed Name",
-      lineStartX + lineWidth / 2,
-      lineY - 2,
-      {
-        align: "center",
-      }
-    );
-
-    // Date line (right half)
-    const dateStartX = lineStartX + lineWidth + linePadding;
-    doc.line(dateStartX, lineY, dateStartX + lineWidth, lineY);
-    doc.text("Date Received", dateStartX + lineWidth / 2, lineY - 2, {
-      align: "center",
-    });
-
-    doc.save(`PurchaseReceipt_${prMeta.prNumber}_${new Date().getTime()}.pdf`);
+    doc.save(`${prMeta.prNumber || "purchase_receipt"}.pdf`);
   };
 
   return (
