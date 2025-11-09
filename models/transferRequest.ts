@@ -23,7 +23,7 @@ export interface TransferRequest extends Document {
 const TransferRequestItemSchema = new Schema<TransferRequestItem>(
   {
     itemCode: { type: String, required: true },
-    quantity: { type: Number, required: true, min: 1 },
+    quantity: { type: Number },
     unitType: { type: String, required: true },
   },
   { _id: false }

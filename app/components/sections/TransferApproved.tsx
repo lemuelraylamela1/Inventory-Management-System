@@ -134,26 +134,6 @@ export default function TransferApproved() {
 
   /* CRUD Handlers */
   const [isLoading, setIsLoading] = useState(false);
-  // const fetchTransferApprovals = async () => {
-  //   setIsLoading(true);
-  //   try {
-  //     const res = await fetch("/api/transfer-approval");
-  //     if (!res.ok) throw new Error("Failed to fetch transfer approvals");
-
-  //     const data: TransferApproval[] = await res.json();
-  //     setTransferApprovals(data);
-  //   } catch (error: unknown) {
-  //     const message =
-  //       error instanceof Error ? error.message : "Unexpected error occurred.";
-  //     toast.error(message);
-  //   } finally {
-  //     setIsLoading(false);
-  //   }
-  // };
-
-  // useEffect(() => {
-  //   fetchTransferApprovals();
-  // }, []);
 
   const [transferRequests, setTransferRequests] = useState<TransferRequest[]>(
     []
@@ -302,10 +282,10 @@ export default function TransferApproved() {
       }
 
       const result = await res.json();
-      console.log("📦 Transfer request approved:", result);
+      console.log("✅ Transfer request approved:", result);
 
       toast.success("Transfer request approved");
-      fetchTransferRequests(); // Refresh data
+      fetchTransferRequests(); // Refresh table
     } catch (err) {
       console.error("❌ Approval failed:", err);
       toast.error("Failed to approve transfer request");

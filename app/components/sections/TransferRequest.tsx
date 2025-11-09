@@ -122,7 +122,7 @@ export default function TransferRequestPage() {
     status: "PENDING",
     transferDate: "",
     preparedBy: "",
-    items: [{ itemCode: "", quantity: 0, unitType: "" }],
+    items: [{ itemCode: "", quantity: 1, unitType: "" }],
   });
 
   const getInitialFormData = (): TransferRequest => ({
@@ -203,7 +203,7 @@ export default function TransferRequestPage() {
         .filter((item) => Number(item.quantity) > 0)
         .map((item) => ({
           itemCode: item.itemCode.trim().toUpperCase(),
-          quantity: Math.max(Number(item.quantity) || 0, 0),
+          quantity: Math.max(Number(item.quantity) || 1, 1),
           unitType: item.unitType.trim().toUpperCase(),
         }));
 

@@ -4,7 +4,60 @@ import { TransferRequestModel } from "@/models/transferRequest";
 import InventoryMain from "@/models/inventoryMain";
 import Inventory from "@/models/inventory";
 import Item from "@/models/item";
-import { InventoryItem } from "../../../../components/sections/type";
+
+/* ---------------------------------------------
+ * TYPE DEFINITIONS
+ * --------------------------------------------- */
+
+interface TransferRequestItem {
+  itemCode: string;
+  quantity: number | string;
+  unitType: string;
+}
+
+interface TransferItemInput {
+  itemCode: string;
+  quantity: number | string;
+  unitType: string;
+  sourceWarehouse: string;
+  requestingWarehouse: string;
+}
+
+interface NormalizedTransferItem {
+  itemCode: string;
+  quantity: number;
+  unitType: string;
+}
+
+interface ProcessedResult {
+  itemCode: string;
+  source: number;
+  destination: number;
+}
+
+/* ---------------------------------------------
+ * HELPERS
+ * --------------------------------------------- */
+
+function normalizeQuantity(qty: number | string): number {
+  const num = Number(qty);
+  if (Number.isNaN(num) || num <= 0) {
+    throw new Error(`Invalid quantity: ${qty}`);
+  }
+  return num;
+}
+
+async function safeFindItem(itemCode: string) {
+  const itemDoc = await Item.findOne({ itemCode });
+  return {
+    itemName: itemDoc?.itemName ?? "UNNAMED ITEM",
+    category: itemDoc?.category ?? "UNCATEGORIZED",
+  };
+}
+
+/* ---------------------------------------------
+ * PROCESS A SINGLE ITEM TRANSFER
+ * --------------------------------------------- */
 
 async function processTransferItem({
   itemCode,
@@ -12,33 +65,22 @@ async function processTransferItem({
   unitType,
   sourceWarehouse,
   requestingWarehouse,
-}: {
-  itemCode: string;
-  quantity: number;
-  unitType: string;
-  sourceWarehouse: string;
-  requestingWarehouse: string;
-}) {
-  const itemDoc = await Item.findOne({ itemCode });
-  const itemName = itemDoc?.itemName ?? "UNNAMED ITEM";
-  const category = itemDoc?.category ?? "UNCATEGORIZED";
+}: TransferItemInput): Promise<ProcessedResult> {
+  const qty = normalizeQuantity(quantity);
+  const { itemName, category } = await safeFindItem(itemCode);
 
-  if (!itemDoc) {
-    console.warn(`⚠️ Item not found in catalog: ${itemCode}`);
-  }
-
-  // 🔻 Deduct from source warehouse
+  /* ✅ Deduct from source warehouse */
   await InventoryMain.updateOne(
     { itemCode, warehouse: sourceWarehouse },
-    { $inc: { quantity: -quantity } },
+    { $inc: { quantity: -qty } },
     { upsert: true }
   );
 
-  // 📦 Transfer to requesting warehouse
+  /* ✅ Add to destination warehouse */
   await InventoryMain.updateOne(
     { itemCode, warehouse: requestingWarehouse },
     {
-      $inc: { quantity },
+      $inc: { quantity: qty },
       $setOnInsert: {
         itemCode,
         itemName,
@@ -49,156 +91,167 @@ async function processTransferItem({
     { upsert: true }
   );
 
-  // ✅ Fetch updated destination quantity AFTER transfer
-  const destinationMainDoc = await InventoryMain.findOne({
+  /* ✅ Fetch updated quantities */
+  const destMain = await InventoryMain.findOne({
     itemCode,
     warehouse: requestingWarehouse,
   });
-  const updatedDestinationQuantity = Number(destinationMainDoc?.quantity) || 0;
 
-  // 🧾 Log destination-side tracker entry
-  const destinationTrackerEntry = {
+  const sourceMain = await InventoryMain.findOne({
+    itemCode,
+    warehouse: sourceWarehouse,
+  });
+
+  const destQty = Number(destMain?.quantity) || 0;
+  const srcQty = Number(sourceMain?.quantity) || 0;
+
+  const timestamp = new Date();
+
+  /* ✅ Destination tracker entry (now includes quantity ✅ FIXED) */
+  const destinationEntry = {
     itemCode,
     itemName,
     category,
     unitType,
-    inQty: quantity,
+    inQty: qty,
     outQty: 0,
-    currentOnhand: updatedDestinationQuantity,
+    currentOnhand: destQty,
+    quantity: destQty, // ✅ REQUIRED
     particulars: `Received from ${sourceWarehouse}`,
     activity: "TRANSFER",
-    date: new Date().toISOString(),
-    receivedAt: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    date: timestamp.toISOString(),
+    receivedAt: timestamp,
+    createdAt: timestamp,
+    updatedAt: timestamp,
   };
 
-  const destinationInventoryDoc = await Inventory.findOne({
-    warehouse: requestingWarehouse,
-  });
-
-  if (!destinationInventoryDoc) {
-    await Inventory.create({
-      warehouse: requestingWarehouse,
-      items: [destinationTrackerEntry],
-      remarks: `Auto-created from transfer from ${sourceWarehouse}`,
-    });
-    console.log(`🆕 Created inventory tracker for ${requestingWarehouse}`);
-  } else {
-    destinationInventoryDoc.items.push(destinationTrackerEntry);
-    await destinationInventoryDoc.save();
-    console.log(`📥 Logged receipt for ${itemCode} in ${requestingWarehouse}`);
-  }
-
-  // ✅ Fetch updated source quantity AFTER deduction
-  const sourceMainDoc = await InventoryMain.findOne({
-    itemCode,
-    warehouse: sourceWarehouse,
-  });
-  const updatedSourceQuantity = Number(sourceMainDoc?.quantity) || 0;
-
-  console.log(
-    `📦 Updated InventoryMain quantity for ${itemCode} in ${sourceWarehouse}: ${updatedSourceQuantity}`
-  );
-
-  // 🧾 Log source-side tracker entry
-  const sourceTrackerEntry = {
+  /* ✅ Source tracker entry (also includes quantity ✅ FIXED) */
+  const sourceEntry = {
     itemCode,
     itemName,
     category,
     unitType,
     inQty: 0,
-    outQty: quantity,
-    currentOnhand: updatedSourceQuantity,
+    outQty: qty,
+    currentOnhand: srcQty,
+    quantity: srcQty, // ✅ REQUIRED
     particulars: `Transferred to ${requestingWarehouse}`,
     activity: "TRANSFER",
-    date: new Date().toISOString(),
-    receivedAt: new Date(),
-    createdAt: new Date(),
-    updatedAt: new Date(),
+    date: timestamp.toISOString(),
+    receivedAt: timestamp,
+    createdAt: timestamp,
+    updatedAt: timestamp,
   };
 
-  const sourceInventoryDoc = await Inventory.findOne({
-    warehouse: sourceWarehouse,
-  });
+  /* ✅ Log destination inventory tracker */
+  const destInv = await Inventory.findOne({ warehouse: requestingWarehouse });
+  if (!destInv) {
+    await Inventory.create({
+      warehouse: requestingWarehouse,
+      items: [destinationEntry],
+      remarks: `Auto-created from transfer from ${sourceWarehouse}`,
+    });
+  } else {
+    destInv.items.push(destinationEntry);
+    await destInv.save();
+  }
 
-  if (!sourceInventoryDoc) {
+  /* ✅ Log source inventory tracker */
+  const srcInv = await Inventory.findOne({ warehouse: sourceWarehouse });
+  if (!srcInv) {
     await Inventory.create({
       warehouse: sourceWarehouse,
-      items: [sourceTrackerEntry],
+      items: [sourceEntry],
       remarks: `Auto-created from transfer to ${requestingWarehouse}`,
     });
-    console.log(`🆕 Created inventory tracker for ${sourceWarehouse}`);
   } else {
-    sourceInventoryDoc.items.push(sourceTrackerEntry);
-    await sourceInventoryDoc.save();
-    console.log(`📤 Logged transfer for ${itemCode} in ${sourceWarehouse}`);
+    srcInv.items.push(sourceEntry);
+    await srcInv.save();
   }
 
   return {
     itemCode,
-    source: updatedSourceQuantity,
-    destination: updatedDestinationQuantity,
+    source: srcQty,
+    destination: destQty,
   };
 }
 
+/* ---------------------------------------------
+ * PATCH — APPROVE TRANSFER REQUEST
+ * --------------------------------------------- */
+
 export async function PATCH(
   req: Request,
-  props: { params: Promise<{ id: string }> }
+  { params }: { params: { id: string } }
 ) {
-  const params = await props.params;
+  const { id } = params;
+
   try {
     await connectMongoDB();
-    const { id } = params;
 
-    const request = await TransferRequestModel.findById(id);
-    if (!request) {
+    const requestDoc = await TransferRequestModel.findById(id);
+
+    if (!requestDoc) {
       return NextResponse.json(
         { error: "Transfer request not found" },
         { status: 404 }
       );
     }
 
-    if (request.status === "APPROVED") {
+    if (requestDoc.status === "APPROVED") {
+      return NextResponse.json({ error: "Already approved" }, { status: 400 });
+    }
+
+    /* ✅ Normalize & validate items */
+    const normalizedItems: NormalizedTransferItem[] = requestDoc.items
+      .map((item: TransferRequestItem) => {
+        const qty = Number(item.quantity);
+        return qty >= 1
+          ? {
+              itemCode: item.itemCode,
+              unitType: item.unitType,
+              quantity: qty,
+            }
+          : null;
+      })
+      .filter((i): i is NormalizedTransferItem => i !== null);
+
+    if (normalizedItems.length === 0) {
       return NextResponse.json(
-        { error: "Transfer request already approved" },
+        { error: "All items invalid after normalization." },
         { status: 400 }
       );
     }
 
-    const { sourceWarehouse, requestingWarehouse, items } = request;
-    const finalQuantities: Record<
-      string,
-      { source: number; destination: number }
-    > = {};
+    /* ✅ Process each valid item */
+    const results: Record<string, ProcessedResult> = {};
 
-    for (const item of items) {
-      const { itemCode, quantity, unitType } = item;
-      const result = await processTransferItem({
-        itemCode,
-        quantity,
-        unitType,
-        sourceWarehouse,
-        requestingWarehouse,
+    for (const item of normalizedItems) {
+      const res = await processTransferItem({
+        ...item,
+        sourceWarehouse: requestDoc.sourceWarehouse,
+        requestingWarehouse: requestDoc.requestingWarehouse,
       });
-      finalQuantities[result.itemCode] = {
-        source: result.source,
-        destination: result.destination,
-      };
+      results[item.itemCode] = res;
     }
 
-    request.status = "APPROVED";
-    await request.save();
+    /* ✅ Update request status */
+    requestDoc.status = "APPROVED";
+    requestDoc.items = normalizedItems;
+
+    if (typeof requestDoc.markModified === "function") {
+      requestDoc.markModified("items");
+    }
+
+    await requestDoc.save();
 
     return NextResponse.json(
-      { success: true, finalQuantities },
+      { success: true, finalQuantities: results },
       { status: 200 }
     );
   } catch (err) {
-    console.error("❌ Approval error:", err);
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    const message =
+      err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
