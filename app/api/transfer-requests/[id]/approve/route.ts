@@ -180,10 +180,8 @@ async function processTransferItem({
  * PATCH — APPROVE TRANSFER REQUEST
  * --------------------------------------------- */
 
-export async function PATCH(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   const { id } = params;
 
   try {
