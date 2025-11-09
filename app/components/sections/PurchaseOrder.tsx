@@ -1251,13 +1251,17 @@ export default function PurchaseOrder({ onSuccess }: Props) {
           align: "center",
         });
 
-        doc.setFont("helvetica", "bold");
-        doc.text(
-          `Total Purchase: ${totalAmount.toFixed(2)}`,
-          pageWidth - marginRight - 10,
-          footerY - 10,
-          { align: "right" }
-        );
+        doc.setFont("helvetica", "bold").setFontSize(9);
+
+        const rightX = pageWidth - marginRight - 10;
+        const labelOffset = 65;
+
+        doc.text("Total Purchase:", rightX - labelOffset, footerY - 10, {
+          align: "left",
+        });
+        doc.text(totalAmount.toFixed(2), rightX, footerY - 10, {
+          align: "right",
+        });
       } else {
         const finalY = doc.lastAutoTable?.finalY ?? startY;
         doc.setFont("helvetica", "italic").setFontSize(9);

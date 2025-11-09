@@ -2,7 +2,7 @@
 
 import React, { useState, useMemo, useEffect, useRef } from "react";
 import { useParams } from "next/navigation";
-
+import { format } from "date-fns";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import {
@@ -1733,7 +1733,7 @@ export default function SalesOrder({ onSuccess }: Props) {
     maximumFractionDigits: 2,
   })}`;
 
-  const handleExportPDF = (items: SalesOrderItem[], soMeta: SalesOrderMeta) => {
+  const handleExportPDF = (items: SalesOrderItem[], soMeta: SalesOrder) => {
     if (!items?.length) {
       toast.error("No items to export");
       return;
@@ -1742,333 +1742,353 @@ export default function SalesOrder({ onSuccess }: Props) {
     const doc = new jsPDF();
     const pageWidth = doc.internal.pageSize.getWidth();
     const pageHeight = doc.internal.pageSize.getHeight();
-
     const marginLeft = 14;
     const marginRight = 14;
     const contentWidth = pageWidth - marginLeft - marginRight;
+    const startY = 60;
+    const rowsPerPage = 20;
 
-    // Company Header
-    doc.setFontSize(16).setFont("helvetica", "bold");
-    doc.text("NCM MARKETING CORPORATION", marginLeft, 14);
-
-    doc.setFontSize(9).setFont("helvetica", "normal");
-    doc.text("Freeman Compound, #10 Nadunada St., 6-8 Ave.", marginLeft, 18);
-    doc.text("Caloocan City", marginLeft, 22);
-    doc.text(
-      "E-mail: ncm_office@yahoo.com.ph / Tel No.: +63(2)56760356",
-      marginLeft,
-      26
+    const totalAmount = items.reduce(
+      (sum, i) => sum + (i.quantity ?? 0) * (i.salesPrice ?? 0),
+      0
     );
 
-    // Title
-    doc.setFontSize(16).setFont("helvetica", "bold");
-    doc.text("SALES ORDER", pageWidth - marginRight, 22, { align: "right" });
+    const chunkedItems = [];
+    for (let i = 0; i < items.length; i += rowsPerPage) {
+      chunkedItems.push(items.slice(i, i + rowsPerPage));
+    }
 
-    // Order Details Box (Right)
-    const boxWidth = 75;
-    const orderDetailsX = pageWidth - marginRight - boxWidth;
-    const orderDetailsY = 30;
-
-    const orderDetailsData = [
-      [
-        "DATE",
-        new Date(soMeta.creationDate).toLocaleDateString("en-PH", {
-          month: "short",
-          day: "2-digit",
-          year: "numeric",
-        }),
-      ],
-      [
-        "DELIVERY DATE",
-        soMeta.deliveryDate
-          ? new Date(soMeta.deliveryDate).toLocaleDateString("en-PH", {
-              month: "short",
-              day: "2-digit",
-              year: "numeric",
-            })
-          : "N/A",
-      ],
-      ["SO #", soMeta.soNumber],
-      ["WAREHOUSE", soMeta.warehouse || ""],
-    ];
-
-    autoTable(doc, {
-      startY: orderDetailsY,
-      margin: { left: orderDetailsX },
-      head: [],
-      body: orderDetailsData,
-      theme: "grid",
-      styles: {
-        fontSize: 9,
-        cellPadding: 1,
-        lineWidth: 0.3,
-        lineColor: [0, 0, 0],
-      },
-      columnStyles: {
-        0: { fontStyle: "bold", cellWidth: 35 },
-        1: { cellWidth: 40 },
-      },
-      tableWidth: boxWidth,
-    });
-
-    // Customer Details Box (Left)
-    const customerDetailsData = [
-      ["SOLD TO", soMeta.customer || "N/A"],
-      ["ADDRESS", soMeta.address || "N/A"],
-      ["CONTACT #", soMeta.contactNumber || "N/A"],
-      ["SALES PERSON", soMeta.salesPerson || "N/A"],
-    ];
-
-    const rawResult = autoTable(doc, {
-      startY: orderDetailsY,
-      margin: { left: marginLeft, right: contentWidth - boxWidth - 5 },
-      head: [],
-      body: customerDetailsData,
-      theme: "grid",
-      styles: {
-        fontSize: 9,
-        cellPadding: 1,
-        lineWidth: 0.3,
-        lineColor: [0, 0, 0],
-      },
-      columnStyles: {
-        0: { fontStyle: "bold", cellWidth: 35 },
-        1: { cellWidth: "auto" },
-      },
-    }) as unknown;
-
-    type AutoTableLayout = {
-      table: {
-        x: number;
-        y: number;
-        width: number;
-        height: number;
-      };
+    const renderHeader = (pageNumber: number, totalPages: number) => {
+      doc.setFont("helvetica", "bold").setFontSize(16);
+      doc.text("NCM MARKETING CORPORATION", marginLeft, 14);
+      doc.setFontSize(9).setFont("helvetica", "normal");
+      doc.text("Freeman Compound, #10 Nadunada St., 6-8 Ave.", marginLeft, 18);
+      doc.text("Caloocan City", marginLeft, 22);
+      doc.text(
+        "E-mail: ncm_office@yahoo.com.ph / Tel No.: +63(2)56760356",
+        marginLeft,
+        26
+      );
+      doc.setFont("helvetica", "bold").setFontSize(16);
+      doc.text("SALES ORDER", pageWidth - marginRight, 22, {
+        align: "right",
+      });
     };
 
-    function isAutoTableLayout(obj: unknown): obj is AutoTableLayout {
-      return (
-        typeof obj === "object" &&
-        obj !== null &&
-        "table" in obj &&
-        typeof (obj as { table: unknown }).table === "object"
-      );
-    }
+    const renderMetaBoxes = () => {
+      const boxWidth = 75;
+      const orderDetailsX = pageWidth - marginRight - boxWidth;
+      const orderDetailsY = 30;
 
-    if (isAutoTableLayout(rawResult)) {
-      const { x, y, width, height } = rawResult.table;
-      doc.setLineWidth(0.3).setDrawColor(0, 0, 0);
-      doc.rect(x, y, width, height);
-    } else {
-      console.warn(
-        "⚠️ autoTable did not return layout metadata. Skipping outer border."
-      );
-    }
+      const orderDetailsData = [
+        [
+          "DATE",
+          soMeta.createdAt
+            ? new Date(soMeta.createdAt).toLocaleDateString("en-PH", {
+                month: "short",
+                day: "2-digit",
+                year: "numeric",
+              })
+            : "N/A",
+        ],
 
-    // Item Table
-    let currentY =
-      (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
-        .finalY + 8;
+        [
+          "DELIVERY DATE",
+          soMeta.deliveryDate
+            ? format(new Date(soMeta.deliveryDate), "MMM dd yyyy")
+            : "N/A",
+        ],
+        ["SO #", soMeta.soNumber || "N/A"],
+        ["TERMS", "N/A"],
+      ];
 
-    const formatCurrency = (value: number): string =>
-      value.toLocaleString("en-PH", {
-        minimumFractionDigits: 2,
-        maximumFractionDigits: 2,
+      autoTable(doc, {
+        startY: orderDetailsY,
+        margin: { left: orderDetailsX },
+        body: orderDetailsData,
+        theme: "grid",
+        styles: {
+          fontSize: 9,
+          cellPadding: 1,
+          lineWidth: 0.3,
+          lineColor: [0, 0, 0],
+        },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 35 },
+          1: { cellWidth: 40 },
+        },
+        tableWidth: boxWidth,
       });
 
-    const tableData = items.map((item) => [
-      Math.floor(item.quantity ?? 0).toString(),
-      item.unitType ?? "-",
-      item.itemName ?? "-",
-      formatCurrency(item.price ?? 0),
-      formatCurrency((item.quantity ?? 0) * (item.price ?? 0)),
-    ]);
+      const customerDetailsData = [
+        ["SOLD TO", soMeta.customer || "N/A"],
+        ["ADDRESS", soMeta.address || "N/A"],
+        ["CONTACT #", soMeta.contactNumber || "N/A"],
+        ["SALES PERSON", soMeta.salesPerson || "N/A"],
+      ];
 
-    autoTable(doc, {
-      startY: currentY,
-      head: [["Qty", "Unit", "Description", "Sales Price", "Total"]],
-      body: tableData,
-      theme: "grid",
-      styles: { fontSize: 9, cellPadding: 2 },
-      headStyles: {
-        fillColor: [255, 255, 255],
-        textColor: [0, 0, 0],
-        fontStyle: "bold",
-        lineWidth: 0.5,
-        lineColor: [0, 0, 0],
-        halign: "center",
-      },
-      columnStyles: {
-        0: { halign: "center", cellWidth: 20 },
-        1: { halign: "left", cellWidth: 20 },
-        2: { halign: "left", cellWidth: 80 },
-        3: { halign: "right", cellWidth: 30 },
-        4: { halign: "right", cellWidth: 32 },
-      },
-      margin: { left: marginLeft, right: marginRight },
-    });
+      autoTable(doc, {
+        startY: orderDetailsY,
+        margin: { left: marginLeft, right: contentWidth - boxWidth - 5 },
+        body: customerDetailsData,
+        theme: "grid",
+        styles: {
+          fontSize: 9,
+          cellPadding: 1,
+          lineWidth: 0.3,
+          lineColor: [0, 0, 0],
+        },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 35 },
+          1: { cellWidth: "auto" },
+        },
+      });
+    };
 
-    const boxStartY = currentY;
-    currentY =
-      (doc as jsPDF & { lastAutoTable: { finalY: number } }).lastAutoTable
-        .finalY + 5;
+    const renderFooter = () => {
+      const footerY = pageHeight - 40;
+      const footerHeight = 20;
+      const contentWidth = pageWidth - marginLeft - marginRight;
 
-    doc.setFontSize(10).setFont("helvetica", "bold");
-    doc.text("-- Nothing Follows --", pageWidth / 2, currentY, {
-      align: "center",
-    });
-    currentY += 8;
+      // Draw single footer box
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.3);
+      doc.rect(marginLeft, footerY, contentWidth, footerHeight);
 
-    const rowHeight = 6;
-    const reservedBottom = 20;
-    const summaryStartY = pageHeight - reservedBottom - rowHeight * 7;
-    const labelXLeft = marginLeft + 4;
-    const valueXLeft = marginLeft + 55;
-    const labelXRight = pageWidth / 2 + 10;
-    const valueXRight = pageWidth - marginRight - 4;
+      // Draw 4 equal horizontal lines inside the box
+      const lineSpacing = footerHeight / 4;
+      const horizontalEndX = marginRight + contentWidth - 110;
+      for (let i = 1; i <= 4; i++) {
+        const lineY = footerY + i * lineSpacing;
+        doc.line(marginLeft, lineY, horizontalEndX, lineY);
+      }
 
-    // Utility to build summary lines
-    function getSummaryColumns(): {
-      left: [string, string][];
-      right: [string, string][];
-    } {
-      const totalQuantity = items.reduce(
-        (sum, item) => sum + (item.quantity ?? 0),
-        0
+      // Draw vertical line just after "Approved By" section
+      doc.line(
+        horizontalEndX - 48,
+        footerY,
+        horizontalEndX - 48,
+        footerY + footerHeight
       );
-      const grandTotal = items.reduce(
-        (sum, item) => sum + (item.quantity ?? 0) * item.price,
-        0
+      doc.line(horizontalEndX, footerY, horizontalEndX, footerY + footerHeight);
+
+      // Labels inside the box
+      doc.setFont("helvetica", "bold").setFontSize(9);
+      doc.text("Approved By", marginLeft + 2, footerY + 4);
+      doc.text("Checked By", marginLeft + 2, footerY + 9);
+
+      doc.setFont("helvetica", "normal").setFontSize(8);
+      doc.text(
+        "Received the above goods/s in good condition",
+        marginLeft + 100,
+        footerY + 4
       );
-      const freightCharges = soMeta.freightCharges || 0;
-      const otherCharges = soMeta.otherCharges || 0;
-      const netTotal =
-        typeof soMeta.formattedNetTotal === "number"
-          ? soMeta.formattedNetTotal
-          : parseFloat(
-              (soMeta.formattedNetTotal ?? "0").replace(/[^\d.-]/g, "")
-            );
 
-      const discountText = [
-        ...soMeta.discountBreakdown
-          .filter((step) => step.rate > 0)
-          .map(
-            (step) =>
-              `${(step.rate * 100).toLocaleString("en-PH", {
-                minimumFractionDigits: step.rate * 100 < 1 ? 2 : 1,
-                maximumFractionDigits: 2,
-              })}%`
-          ),
-        ...Array(4).fill("0.00%"),
-      ]
-        .slice(0, 4)
-        .join("  ");
+      // Signature line inside the box
+      doc.text("Signature over Printed Name", marginLeft + 85, footerY + 18);
+      doc.text("Date Received", pageWidth - marginRight - 12, footerY + 18, {
+        align: "right",
+      });
+    };
 
-      return {
-        left: [
-          ["Total Quantity", totalQuantity.toString()],
-          ["Remarks", ""],
-        ],
-        right: [
-          [
-            "Grand Total",
-            grandTotal.toLocaleString("en-PH", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            }),
-          ],
-          [
-            "Freight Charge(s)",
-            freightCharges.toLocaleString("en-PH", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            }),
-          ],
-          [
-            "Other Charge(s)",
-            otherCharges.toLocaleString("en-PH", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            }),
-          ],
-          ["Discounts", discountText],
-          [
-            "Peso Discount(s)",
-            otherCharges.toLocaleString("en-PH", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            }),
-          ],
-          [
-            "Total Amount",
-            netTotal.toLocaleString("en-PH", {
-              minimumFractionDigits: 2,
-              maximumFractionDigits: 2,
-            }),
-          ],
-        ],
-      };
-    }
+    chunkedItems.forEach((chunk, index) => {
+      if (index > 0) doc.addPage();
+      const pageNumber = index + 1;
+      const totalPages = chunkedItems.length;
 
-    const { left: leftColumn, right: rightColumn } = getSummaryColumns();
+      renderHeader(pageNumber, totalPages);
+      renderMetaBoxes();
 
-    doc.setFontSize(9);
+      autoTable(doc, {
+        startY,
+        head: [["Qty", "Unit", "Description", "Sales Price", "Tax", "Total"]],
 
-    // Left column
+        body: chunk.map((item) => [
+          item.quantity ?? 0,
+          item.unitType ?? "-",
+          item.itemName ?? "-",
+          (item.price ?? 0).toFixed(2),
+          "0.00",
+          ((item.quantity ?? 0) * (item.price ?? 0)).toFixed(2),
+        ]),
+        theme: "plain",
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: {
+          fillColor: [200, 200, 200],
+          fontStyle: "bold",
+          lineWidth: 0.3,
+          lineColor: [0, 0, 0],
+        },
+        columnStyles: {
+          0: { halign: "right" }, // Qty
+          1: { halign: "left" }, // Unit
+          2: { halign: "left" }, // Description
+          3: { halign: "right" }, // Sales Price
+          4: { halign: "right" }, // Tax
+          5: { halign: "right" }, // Total
+        },
+        didParseCell: (data) => {
+          const colIndex = data.column.index;
+          if (data.section === "head") {
+            // Align header text
+            if (
+              colIndex === 0 ||
+              colIndex === 3 ||
+              colIndex === 4 ||
+              colIndex === 5
+            ) {
+              data.cell.styles.halign = "right";
+            } else {
+              data.cell.styles.halign = "left";
+            }
 
-    leftColumn.forEach(([label, value], i) => {
-      const y = summaryStartY + i * rowHeight;
+            // Add left and right borders
+            data.cell.styles.lineWidth = 0.3;
+            data.cell.styles.lineColor = [0, 0, 0];
+            data.cell.styles.cellPadding = {
+              left: 2,
+              right: 2,
+              top: 1,
+              bottom: 1,
+            };
+          }
+        },
+        tableWidth: contentWidth,
+        margin: { left: marginLeft, right: marginRight },
+        showHead: "everyPage",
+      });
 
-      // Label
-      doc.setFont("helvetica", "bold").text(label, labelXLeft, y);
+      const footerY = pageHeight - 40;
 
-      // Value with extra left padding
-      doc.setFont("helvetica", "normal").text(value, valueXLeft, y);
+      if (index === chunkedItems.length - 1) {
+        const totalQuantity = soMeta.totalQuantity;
+        const grandTotal =
+          typeof soMeta.formattedNetTotal === "number"
+            ? soMeta.formattedNetTotal
+            : parseFloat(
+                (soMeta.formattedNetTotal ?? "0").replace(/[^\d.-]/g, "")
+              );
+
+        const freightCharges = soMeta.freightCharges ?? 0;
+        const otherCharges = soMeta.otherCharges ?? 0;
+        const pesoDiscount = soMeta.pesoDiscounts ?? 0;
+
+        // Optional: derive discount from breakdown
+
+        const discountText = [
+          ...soMeta.discountBreakdown
+            .filter((step) => step.rate > 0)
+            .map(
+              (step) =>
+                `${(step.rate * 100).toLocaleString("en-PH", {
+                  minimumFractionDigits: step.rate * 100 < 1 ? 2 : 1,
+                  maximumFractionDigits: 2,
+                })}%`
+            ),
+          ...Array(4).fill("0.00%"),
+        ]
+          .slice(0, 4)
+          .join("  ");
+
+        doc.setFont("helvetica", "italic").setFontSize(9);
+        doc.text("-- Nothing follows --", pageWidth / 2, footerY - 80, {
+          align: "center",
+        });
+
+        doc.setFont("helvetica", "bold").setFontSize(9);
+
+        const renderRightAlignedLabelValue = (
+          label: string,
+          value: string,
+          y: number,
+          rightX: number,
+          labelOffset = 60
+        ) => {
+          doc.text(label, rightX - labelOffset, y, { align: "left" });
+          doc.text(value, rightX, y, { align: "right" });
+        };
+
+        // Left side: Total Quantity
+        doc.text("Total Quantity:", marginLeft + 10, footerY - 40, {
+          align: "left",
+        });
+        doc.text(`${totalQuantity}`, marginLeft + 80, footerY - 40, {
+          align: "left",
+        });
+
+        const remarksY = footerY - 35;
+
+        doc.text("Remarks:", marginLeft + 10, remarksY, { align: "left" });
+        doc.text(soMeta.notes ?? "N/A", marginLeft + 80, remarksY, {
+          align: "left",
+        });
+
+        // Right side: Financial breakdown
+        const rightX = pageWidth - marginRight - 10;
+
+        renderRightAlignedLabelValue(
+          "Grand Total:",
+          grandTotal.toLocaleString("en-PH", {
+            minimumFractionDigits: 2,
+            maximumFractionDigits: 2,
+          }),
+          footerY - 40,
+          rightX
+        );
+
+        renderRightAlignedLabelValue(
+          "Freight Charge(s):",
+          freightCharges.toFixed(2),
+          footerY - 35,
+          rightX
+        );
+        renderRightAlignedLabelValue(
+          "Other Charge(s):",
+          otherCharges.toFixed(2),
+          footerY - 30,
+          rightX
+        );
+        renderRightAlignedLabelValue(
+          "Discount:",
+          discountText,
+          footerY - 25,
+          rightX
+        );
+        renderRightAlignedLabelValue(
+          "Peso Discounts:",
+          pesoDiscount.toFixed(2),
+          footerY - 20,
+          rightX
+        );
+        renderRightAlignedLabelValue(
+          "Total Amount:",
+          totalAmount.toFixed(2),
+          footerY - 10,
+          rightX
+        );
+      } else {
+        doc.setFont("helvetica", "italic").setFontSize(9);
+        doc.text(
+          `-- Page ${pageNumber} of ${totalPages} --`,
+          pageWidth / 2,
+          footerY - 10,
+          { align: "center" }
+        );
+      }
+
+      const finalY = doc.lastAutoTable?.finalY ?? startY + 70;
+
+      const isLastPage = index === chunkedItems.length - 1;
+      const bottomBorderY = isLastPage ? footerY - 2 : footerY - 2;
+
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.3);
+      doc.rect(marginLeft, startY, contentWidth, bottomBorderY - startY);
+
+      renderFooter();
     });
 
-    // Right column
-
-    rightColumn.forEach(([label, value], i) => {
-      const y = summaryStartY + i * rowHeight;
-
-      doc.setFont("helvetica", "bold").text(label, labelXRight, y);
-      doc
-        .setFont("helvetica", "normal")
-        .text(value, valueXRight, y, { align: "right" });
-    });
-
-    // Extend outer border to include summary
-    const boxEndY =
-      summaryStartY +
-      Math.max(leftColumn.length, rightColumn.length) * rowHeight;
-    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
-    doc.rect(marginLeft, boxStartY, contentWidth, boxEndY - boxStartY);
-
-    const signatureY = pageHeight - 24; // Shift upward slightly
-    const boxHeight = 14; // Reduced height
-    const boxWidthSig = 90;
-
-    doc.setLineWidth(0.5).setDrawColor(0, 0, 0);
-
-    // Approved By box
-    doc.rect(marginLeft, signatureY, boxWidthSig, boxHeight);
-    doc.setFontSize(9).setFont("helvetica", "bold");
-    doc.text("Approved By", marginLeft + 4, signatureY + 5);
-
-    // Checked By box
-    doc.rect(
-      pageWidth - marginRight - boxWidthSig,
-      signatureY,
-      boxWidthSig,
-      boxHeight
-    );
-    doc.text(
-      "Checked By",
-      pageWidth - marginRight - boxWidthSig + 4,
-      signatureY + 5
-    );
-
-    doc.save(`SalesOrder_${soMeta.soNumber}_${new Date().getTime()}.pdf`);
+    doc.save(`${soMeta.soNumber || "sales_order"}.pdf`);
   };
 
   return (
@@ -3274,37 +3294,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                             size="sm"
                             title="Export as PDF"
                             aria-label={`Export SO ${so.soNumber} to PDF`}
-                            onClick={() =>
-                              handleExportPDF(so.items, {
-                                soNumber: so.soNumber,
-                                customer: so.customer,
-                                address: so.address,
-                                contactNumber: so.contactNumber,
-                                salesPerson: so.salesPerson,
-                                warehouse: so.warehouse,
-                                transactionDate: so.transactionDate,
-                                deliveryDate: so.deliveryDate,
-                                shippingAddress: so.shippingAddress,
-                                notes: so.notes,
-                                status: so.status,
-                                items: so.items,
-                                discounts: so.discounts,
-                                discountBreakdown: so.discountBreakdown,
-                                total: so.total,
-                                totalQuantity: so.totalQuantity,
-                                formattedWeight: so.formattedWeight,
-                                formattedCBM: so.formattedCBM,
-                                formattedTotal: so.formattedTotal,
-                                formattedNetTotal: so.formattedNetTotal,
-                                freightCharges: so.freightCharges,
-                                otherCharges: so.otherCharges,
-                                pesoDiscounts: so.pesoDiscounts,
-                                creationDate:
-                                  so.createdAt ?? new Date().toISOString(),
-                                createdAt: so.createdAt,
-                                updatedAt: so.updatedAt,
-                              })
-                            }>
+                            onClick={() => handleExportPDF(so.items, so)}>
                             <Download className="w-4 h-4" />
                           </Button>
                         </div>
@@ -4314,9 +4304,24 @@ export default function SalesOrder({ onSuccess }: Props) {
                     </span>
                   </p>
                 </div>
+
                 <div className="text-sm text-right text-muted-foreground">
-                  <p>Transaction Date: {formData.transactionDate}</p>
-                  <p>Delivery Date: {formData.deliveryDate}</p>
+                  <p>
+                    Transaction Date:{" "}
+                    {formData.transactionDate
+                      ? format(
+                          new Date(formData.transactionDate),
+                          "MMM dd yyyy"
+                        )
+                      : "N/A"}
+                  </p>
+                  <p>
+                    Delivery Date:{" "}
+                    {formData.deliveryDate
+                      ? format(new Date(formData.deliveryDate), "MMM dd yyyy")
+                      : "N/A"}
+                  </p>
+
                   <p>
                     Status:{" "}
                     <span

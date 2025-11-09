@@ -1193,6 +1193,17 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
 
       const footerY = pageHeight - 40;
 
+      const renderRightAlignedLabelValue = (
+        label: string,
+        value: string,
+        y: number,
+        rightX: number,
+        labelOffset = 65
+      ) => {
+        doc.text(label, rightX - labelOffset, y, { align: "left" });
+        doc.text(value, rightX, y, { align: "right" });
+      };
+
       if (index === chunkedItems.length - 1) {
         const totalQuantity = items.reduce(
           (sum, i) => sum + (i.quantity ?? 0),
@@ -1215,74 +1226,57 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
         doc.setFont("helvetica", "bold").setFontSize(9);
 
         // Left side: Total Quantity
-        doc.text(
-          `Total Quantity:`.padEnd(50) + `${totalQuantity}`,
-          marginLeft + 10,
-          footerY - 40,
-          {
-            align: "left",
-          }
-        );
+        doc.text("Total Quantity:", marginLeft + 10, footerY - 40, {
+          align: "left",
+        });
+        doc.text(`${totalQuantity}`, marginLeft + 80, footerY - 40, {
+          align: "left",
+        });
 
         // Right side: Financial breakdown with padded spacing
         const rightX = pageWidth - marginRight - 10;
-        doc.text(
-          `VATable Sales:`.padEnd(56) + `${vatableSales.toFixed(2)}`,
-          rightX,
-          footerY - 40,
-          {
-            align: "right",
-          }
-        );
-        doc.text(
-          `VAT Exempt Sales:`.padEnd(63) + `${vatExemptSales.toFixed(2)}`,
-          rightX,
-          footerY - 35,
-          {
-            align: "right",
-          }
-        );
-        doc.text(
-          `Total Sales:`.padEnd(54) + `${totalSales.toFixed(2)}`,
-          rightX,
-          footerY - 30,
-          {
-            align: "right",
-          }
-        );
-        doc.text(
-          `Discount:`.padEnd(55) + `${discount.toFixed(2)}`,
-          rightX,
-          footerY - 25,
-          {
-            align: "right",
-          }
-        );
-        doc.text(
-          `Tax:`.padEnd(50) + `${tax.toFixed(2)}`,
-          rightX,
-          footerY - 20,
-          {
-            align: "right",
-          }
-        );
-        doc.text(
-          `WTax:`.padEnd(51) + `${wtax.toFixed(2)}`,
-          rightX,
-          footerY - 15,
-          {
-            align: "right",
-          }
-        );
 
-        // Final total
-        doc.text(
-          `Total Purchase:`.padEnd(57) + `${totalAmount.toFixed(2)}`,
-          rightX,
+        renderRightAlignedLabelValue(
+          "VATable Sales:",
+          vatableSales.toFixed(2),
+          footerY - 40,
+          rightX
+        );
+        renderRightAlignedLabelValue(
+          "VAT Exempt Sales:",
+          vatExemptSales.toFixed(2),
+          footerY - 35,
+          rightX
+        );
+        renderRightAlignedLabelValue(
+          "Total Sales:",
+          totalSales.toFixed(2),
+          footerY - 30,
+          rightX
+        );
+        renderRightAlignedLabelValue(
+          "Discount:",
+          discount.toFixed(2),
+          footerY - 25,
+          rightX
+        );
+        renderRightAlignedLabelValue(
+          "Tax:",
+          tax.toFixed(2),
+          footerY - 20,
+          rightX
+        );
+        renderRightAlignedLabelValue(
+          "WTax:",
+          wtax.toFixed(2),
+          footerY - 15,
+          rightX
+        );
+        renderRightAlignedLabelValue(
+          "Total Purchase:",
+          totalAmount.toFixed(2),
           footerY - 10,
-          {
-            align: "right",
-          }
+          rightX
         );
       } else {
         doc.setFont("helvetica", "italic").setFontSize(9);
@@ -2234,7 +2228,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                               variant="ghost"
                               size="sm"
                               title="Export as PDF"
-                              aria-label={`Export SO ${receipt.prNumber} to PDF`}
+                              aria-label={`Export PR ${receipt.prNumber} to PDF`}
                               onClick={() =>
                                 handleExportPDF(receipt.items, {
                                   prNumber: receipt.prNumber,
