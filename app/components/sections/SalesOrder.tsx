@@ -2700,12 +2700,24 @@ export default function SalesOrder({ onSuccess }: Props) {
                                   {(() => {
                                     const input =
                                       item.itemName?.toUpperCase().trim() || "";
+                                    const selectedNames = itemsData
+                                      .map((i) =>
+                                        i.itemName?.trim().toUpperCase()
+                                      )
+                                      .filter(Boolean);
+
                                     const filtered = inventoryItems.filter(
-                                      (option) =>
-                                        option.itemName
-                                          ?.toUpperCase()
-                                          .includes(input) &&
-                                        Number(option.quantity) > 0
+                                      (option) => {
+                                        const normalized = option.itemName
+                                          ?.trim()
+                                          .toUpperCase();
+                                        return (
+                                          normalized &&
+                                          normalized.includes(input) &&
+                                          Number(option.quantity) > 0 &&
+                                          !selectedNames.includes(normalized)
+                                        );
+                                      }
                                     );
 
                                     if (filtered.length === 0) {
