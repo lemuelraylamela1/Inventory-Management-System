@@ -210,6 +210,7 @@ export type InventoryItem = {
   createdAt?: Date;
   inQty?: number;
   outQty?: number;
+  reserved?: number;
 };
 
 export type InventoryType = {
@@ -361,7 +362,7 @@ export type SalesInvoiceItem = {
 
 export type TransferRequestItem = {
   itemCode: string;
-  itemName?: string; // ✅ Added
+  itemName?: string;
   quantity: number;
   unitType: string;
 };
@@ -372,9 +373,9 @@ export type TransferRequest = {
   requestingWarehouse: string;
   sourceWarehouse: string;
   transactionDate: Date | string;
-  transferDate?: Date | string; // 🆕 Optional transfer date
-  reference?: string; // 🆕 Optional reference number
-  notes?: string; // 🆕 Optional notes
+  transferDate?: Date | string;
+  reference?: string;
+  notes?: string;
   preparedBy: string;
   status: "PENDING" | "APPROVED" | "REJECTED";
   items: TransferRequestItem[];
@@ -384,8 +385,8 @@ export type TransferRequest = {
 
 export type TransferApproval = {
   _id: string;
-  transferApproveNo: string; // Auto-generated: TA0000000001, TA0000000002, ...
-  transferRequestNo: string; // References TransferRequest.requestNo
+  transferApproveNo: string;
+  transferRequestNo: string;
   approvedBy: string;
   approvedDate: Date;
   status: "APPROVED" | "REJECTED";

@@ -12,6 +12,7 @@ import type {
   SalesOrderItem,
   SalesOrder,
 } from "../../components/sections/type";
+import { adjustInventoryReservation } from "@/libs/adjustInventoryReservation";
 
 type SalesOrderInput = Omit<
   SalesOrder,
@@ -90,6 +91,7 @@ export async function POST(request: NextRequest) {
     };
 
     const newOrder = await SalesOrderModel.create(enrichedOrder);
+    await adjustInventoryReservation(items, warehouse, "reserve");
 
     return NextResponse.json(
       { message: "Sales order created", order: newOrder },

@@ -9,6 +9,7 @@ import type {
 import InventoryMain from "@/models/inventoryMain";
 import Inventory from "@/models/inventory";
 import { InventoryItem } from "../../../components/sections/type";
+import { adjustInventoryReservation } from "@/libs/adjustInventoryReservation";
 
 // ✅ GET /api/sales-orders/[id]
 export async function GET(
@@ -145,7 +146,7 @@ export async function PATCH(
     updatePayload.items = normalizedItems;
     updatePayload.total = normalizedItems.reduce((sum, i) => sum + i.amount, 0);
     updatePayload.totalQuantity = normalizedItems.reduce(
-      (sum, i) => sum + sum + (i.quantity ?? 0),
+      (sum, i) => sum + (i.quantity ?? 0),
       0
     );
   }
@@ -164,121 +165,95 @@ export async function PATCH(
       );
     }
 
+    // 🔁 Release reservation if cancelled
+    if (previousOrder?.status !== "CANCELLED" && order.status === "CANCELLED") {
+      await adjustInventoryReservation(
+        previousOrder.items,
+        previousOrder.warehouse,
+        "release"
+      );
+    }
+
+    // ✅ Consume reservation and log inventory if completed
     if (previousOrder?.status !== "COMPLETED" && order.status === "COMPLETED") {
       const warehouseCode = order.warehouse?.trim().toUpperCase();
       const soNumber = order.soNumber;
       const now = new Date();
 
-      if (!warehouseCode) {
-        console.warn(`⚠️ No warehouse found in sales order ${soNumber}`);
-      } else {
-        for (const item of order.items) {
-          const itemCode = item.itemCode?.trim().toUpperCase();
-          const quantity = Math.max(Number(item.quantity) || 0, 0);
+      await adjustInventoryReservation(order.items, warehouseCode, "consume");
 
-          if (!itemCode || quantity <= 0) {
-            console.warn(
-              `⚠️ Skipping invalid item: ${item.itemName} (${itemCode})`
-            );
-            continue;
+      for (const item of order.items) {
+        const itemCode = item.itemCode?.trim().toUpperCase();
+        const quantity = Math.max(Number(item.quantity) || 0, 0);
+        if (!itemCode || quantity <= 0) continue;
+
+        try {
+          const mainDoc = await InventoryMain.findOne({
+            itemCode,
+            warehouse: warehouseCode,
+          });
+          if (mainDoc) {
+            mainDoc.quantity = Math.max((mainDoc.quantity || 0) - quantity, 0);
+            await mainDoc.save();
           }
+        } catch (err) {
+          console.error(`❌ InventoryMain update failed for ${itemCode}:`, err);
+        }
 
-          // 📉 Deduct from InventoryMain with fallback
-          try {
-            const mainDoc = await InventoryMain.findOne({
-              itemCode,
+        try {
+          const inventoryDoc = await Inventory.findOne({
+            warehouse: warehouseCode,
+          });
+          const newEntry = {
+            itemCode,
+            itemName: item.itemName?.trim().toUpperCase(),
+            category: "SOLD",
+            quantity: -quantity,
+            unitType: item.unitType?.trim().toUpperCase() || "",
+            source: soNumber,
+            referenceNumber: soNumber,
+            activity: "SALE",
+            user: "SYSTEM",
+            inQty: 0,
+            outQty: quantity,
+            currentOnhand: 0,
+            particulars: `Sold via ${soNumber}`,
+            date: now.toISOString(),
+            receivedAt: now,
+            createdAt: now,
+            updatedAt: now,
+          };
+
+          if (!inventoryDoc) {
+            newEntry.currentOnhand = -quantity;
+            await Inventory.create({
               warehouse: warehouseCode,
+              items: [newEntry],
+              remarks: `Auto-created from sales order ${soNumber}`,
             });
-            if (!mainDoc) {
-              console.warn(
-                `⚠️ InventoryMain not found for ${itemCode} in ${warehouseCode}`
-              );
-            } else {
-              const currentQty = Number(mainDoc.quantity) || 0;
-              const newQty = Math.max(currentQty - quantity, 0);
-              mainDoc.quantity = newQty;
-              await mainDoc.save();
-              console.log(
-                `📉 InventoryMain updated for ${itemCode}: ${currentQty} → ${newQty}`
-              );
-            }
-          } catch (err) {
-            console.error(
-              `❌ InventoryMain update failed for ${itemCode}:`,
-              err
+          } else {
+            const previousOnhand = inventoryDoc.items
+              .filter((i: InventoryItem) => i.itemCode === itemCode)
+              .reduce((sum: number, i: InventoryItem) => {
+                const inQty = Number(i.inQty) || 0;
+                const outQty = Number(i.outQty) || 0;
+                return sum + (inQty - outQty);
+              }, 0);
+
+            newEntry.currentOnhand = isNaN(previousOnhand - quantity)
+              ? 0
+              : previousOnhand - quantity;
+            inventoryDoc.items.push(newEntry);
+            inventoryDoc.items = inventoryDoc.items.filter(
+              (i: InventoryItem) => Number(i.quantity) !== 0
             );
+            await inventoryDoc.save();
           }
-
-          // 📦 Log to Inventory tracker with correct currentOnhand
-          try {
-            const inventoryDoc = await Inventory.findOne({
-              warehouse: warehouseCode,
-            });
-
-            const newEntry = {
-              itemCode,
-              itemName: item.itemName?.trim().toUpperCase(),
-              category: "SOLD",
-              quantity: -quantity,
-              unitType: item.unitType?.trim().toUpperCase() || "",
-              source: soNumber,
-              referenceNumber: soNumber,
-              activity: "SALE",
-              user: "SYSTEM",
-              inQty: 0,
-              outQty: quantity,
-              currentOnhand: 0,
-              particulars: `Sold via ${soNumber}`,
-              date: now.toISOString(),
-              receivedAt: now,
-              createdAt: now,
-              updatedAt: now,
-            };
-
-            if (!inventoryDoc) {
-              newEntry.currentOnhand = -quantity;
-              await Inventory.create({
-                warehouse: warehouseCode,
-                items: [newEntry],
-                remarks: `Auto-created from sales order ${soNumber}`,
-              });
-              console.log(`🆕 Created inventory tracker for ${warehouseCode}`);
-            } else {
-              const previousOnhand = inventoryDoc.items
-                .filter((i: InventoryItem) => i.itemCode === itemCode)
-                .reduce((sum: number, i: InventoryItem) => {
-                  const inQty = Number(i.inQty) || 0;
-                  const outQty = Number(i.outQty) || 0;
-                  return sum + (inQty - outQty);
-                }, 0);
-
-              const currentOnhand = previousOnhand - quantity;
-              newEntry.currentOnhand = isNaN(currentOnhand) ? 0 : currentOnhand;
-
-              inventoryDoc.items.push(newEntry);
-
-              // 🧹 Remove zero-quantity items before saving
-              inventoryDoc.items = inventoryDoc.items.filter(
-                (i: InventoryItem) => Number(i.quantity) !== 0
-              );
-
-              await inventoryDoc.save();
-              console.log(
-                `📤 Logged sale for ${itemCode} in ${warehouseCode} | previousOnhand=${previousOnhand}, deducted=${quantity}, currentOnhand=${newEntry.currentOnhand}`
-              );
-
-              await inventoryDoc.save();
-
-              console.log(
-                `📤 Logged sale for ${itemCode} in ${warehouseCode} | previousOnhand=${previousOnhand}, deducted=${quantity}, currentOnhand=${newEntry.currentOnhand}`
-              );
-            }
-          } catch (err) {
-            console.error(
-              `❌ Failed to log inventory tracker for ${itemCode}:`,
-              err
-            );
-          }
+        } catch (err) {
+          console.error(
+            `❌ Failed to log inventory tracker for ${itemCode}:`,
+            err
+          );
         }
       }
     }
@@ -315,6 +290,18 @@ export async function DELETE(
       return NextResponse.json(
         { error: "Sales order not found" },
         { status: 404 }
+      );
+    }
+
+    // 🔁 Release reservation only if not completed
+    if (deleted.status !== "COMPLETED") {
+      await adjustInventoryReservation(
+        deleted.items,
+        deleted.warehouse,
+        "release"
+      );
+      console.log(
+        `🔁 Released reserved inventory for deleted sales order ${deleted.soNumber}`
       );
     }
 

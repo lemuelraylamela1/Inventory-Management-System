@@ -2711,10 +2711,14 @@ export default function SalesOrder({ onSuccess }: Props) {
                                         const normalized = option.itemName
                                           ?.trim()
                                           .toUpperCase();
+                                        const availableQty =
+                                          (Number(option.quantity) || 0) -
+                                          (Number(option.reserved) || 0);
+
                                         return (
                                           normalized &&
                                           normalized.includes(input) &&
-                                          Number(option.quantity) > 0 &&
+                                          availableQty > 0 &&
                                           !selectedNames.includes(normalized)
                                         );
                                       }
@@ -2798,24 +2802,28 @@ export default function SalesOrder({ onSuccess }: Props) {
                               onChange={(e) => {
                                 const value = e.target.value;
 
-                                // Allow empty string → treat as null
                                 if (value === "") {
                                   updateQuantity(index, null);
                                   return;
                                 }
 
-                                // Only allow valid numeric input
                                 if (/^\d*\.?\d*$/.test(value)) {
                                   const parsed = parseFloat(value);
                                   if (!isNaN(parsed)) {
-                                    const maxQty =
-                                      inventoryItems.find(
-                                        (inv) => inv.itemCode === item.itemCode
-                                      )?.quantity ?? 9999;
+                                    const inventory = inventoryItems.find(
+                                      (inv) => inv.itemCode === item.itemCode
+                                    );
+
+                                    const availableQty =
+                                      (Number(inventory?.quantity) || 0) -
+                                      (Number(inventory?.reserved) || 0);
+
+                                    const maxQty = Math.max(availableQty, 0); // prevent negative clamp
                                     const clamped = Math.min(
                                       Math.max(parsed, 1),
                                       maxQty
                                     );
+
                                     updateQuantity(index, clamped);
                                   }
                                 }
