@@ -361,6 +361,7 @@ export type SalesInvoiceItem = {
 
 export type TransferRequestItem = {
   itemCode: string;
+  itemName?: string; // ✅ Added
   quantity: number;
   unitType: string;
 };

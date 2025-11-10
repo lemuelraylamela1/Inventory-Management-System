@@ -36,7 +36,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from "../ui/alert-dialog";
-
+import { format } from "date-fns";
 import { Button } from "../ui/button";
 import { Input } from "../ui/input";
 import { Textarea } from "../ui/textarea";
@@ -60,6 +60,7 @@ import {
   Filter,
   Edit,
   Eye,
+  Download,
 } from "lucide-react";
 import { Label } from "../ui/label";
 import {
@@ -70,6 +71,9 @@ import {
   SelectValue,
 } from "../ui/select";
 import { toast } from "sonner";
+
+import jsPDF from "jspdf";
+import autoTable from "jspdf-autotable";
 
 export default function TransferRequestPage() {
   const [TransferRequests, setTransferRequests] = useState<TransferRequest[]>(
@@ -203,6 +207,7 @@ export default function TransferRequestPage() {
         .filter((item) => Number(item.quantity) > 0)
         .map((item) => ({
           itemCode: item.itemCode.trim().toUpperCase(),
+          itemName: item.itemName?.trim() || "",
           quantity: Math.max(Number(item.quantity) || 1, 1),
           unitType: item.unitType.trim().toUpperCase(),
         }));
@@ -236,7 +241,6 @@ export default function TransferRequestPage() {
         items: normalizedItems,
       };
 
-      // 🧾 Log payload
       console.log("📦 Transfer request payload:", payload);
 
       // 🚀 Submit request
@@ -269,17 +273,22 @@ export default function TransferRequestPage() {
       .filter((item) => Number(item.quantity) > 0)
       .map((item) => ({
         itemCode: (item.itemCode ?? "").trim().toUpperCase(),
+        itemName: (item.itemName ?? "").trim(), // ✅ Added itemName
         quantity: Math.max(Number(item.quantity) || 1, 1),
         unitType: (item.unitType ?? "").trim().toUpperCase(),
       }));
 
   const handleEdit = (transferRequest: TransferRequest) => {
-    setShowSourceSuggestions(false); // ✅ close source suggestions
-    setShowDestinationSuggestions(false); // ✅ close destination suggestions
-    const hydratedItems = normalizeTransferRequestItems(transferRequest.items);
+    setShowSourceSuggestions(false);
+    setShowDestinationSuggestions(false);
+
+    // ✅ Hydrate items including itemName
+    const hydratedItems: TransferRequestItem[] = normalizeTransferRequestItems(
+      transferRequest.items
+    );
 
     setFormData({
-      requestNo: transferRequest.requestNo ?? "", // ✅ Include this
+      requestNo: transferRequest.requestNo ?? "",
       requestingWarehouse: transferRequest.requestingWarehouse ?? "",
       sourceWarehouse: transferRequest.sourceWarehouse ?? "",
       transactionDate: transferRequest.transactionDate?.toString() ?? "",
@@ -291,7 +300,7 @@ export default function TransferRequestPage() {
       items:
         hydratedItems.length > 0
           ? hydratedItems
-          : [{ itemCode: "", quantity: 1, unitType: "" }],
+          : [{ itemCode: "", itemName: "", quantity: 1, unitType: "" }],
     });
 
     setSelectedTransferRequestId(transferRequest._id ?? null);
@@ -302,11 +311,12 @@ export default function TransferRequestPage() {
     setIsUpdating(true);
 
     try {
-      // 📦 Normalize items
+      // 📦 Normalize items including itemName
       const normalizedItems: TransferRequestItem[] = formData.items
         .filter((item) => Number(item.quantity) > 0)
         .map((item) => ({
           itemCode: item.itemCode.trim().toUpperCase(),
+          itemName: item.itemName?.trim() || "", // ✅ Added
           quantity: Math.max(Number(item.quantity) || 1, 1),
           unitType: item.unitType.trim().toUpperCase(),
         }));
@@ -337,7 +347,6 @@ export default function TransferRequestPage() {
         items: normalizedItems,
       };
 
-      // 🧾 Log payload
       console.log("✏️ Transfer request update payload:", payload);
 
       // 🚀 Submit update
@@ -356,8 +365,10 @@ export default function TransferRequestPage() {
         toast.success(`Transfer Request #${data.request.requestNo} updated`);
         fetchTransferRequests();
         setIsEditDialogOpen(false);
+
+        // ✅ Reset form with itemName included
         setFormData({
-          requestNo: "", // ✅ Include this
+          requestNo: "",
           requestingWarehouse: "",
           sourceWarehouse: "",
           transactionDate: "",
@@ -366,7 +377,7 @@ export default function TransferRequestPage() {
           status: "PENDING",
           notes: "",
           preparedBy: "",
-          items: [{ itemCode: "", quantity: 1, unitType: "" }],
+          items: [{ itemCode: "", itemName: "", quantity: 1, unitType: "" }],
         });
       } else {
         console.error("❌ Update failed:", data.error);
@@ -403,6 +414,7 @@ export default function TransferRequestPage() {
         items: Array.isArray(data.items)
           ? data.items.map((item) => ({
               itemCode: item.itemCode?.trim().toUpperCase() ?? "",
+              itemName: item.itemName?.trim() ?? "", // ✅ Added itemName
               quantity: Math.max(Number(item.quantity) || 1, 1),
               unitType: item.unitType?.trim().toUpperCase() ?? "",
             }))
@@ -590,30 +602,265 @@ export default function TransferRequestPage() {
     }
   };
 
-  // const handleDialogOpenChange = (isOpen: boolean) => {
-  //   if (!isOpen) {
-  //     // Dialog is closing — reset form
-  //     setFormData(getInitialFormData());
-  //   }
-  //   setIsCreateDialogOpen(isOpen);
-  // };
+  const handleExportPDF = (
+    items: TransferRequestItem[],
+    trMeta: TransferRequest
+  ) => {
+    if (!items?.length) {
+      toast.error("No items to export");
+      return;
+    }
 
-  // const toggleSelectAll = () => {
-  //   const visibleIds = paginatedRequests
-  //     .map((req) => req._id)
-  //     .filter((id): id is string => typeof id === "string");
+    const doc = new jsPDF();
+    const pageWidth = doc.internal.pageSize.getWidth();
+    const pageHeight = doc.internal.pageSize.getHeight();
+    const marginLeft = 14;
+    const marginRight = 14;
+    const contentWidth = pageWidth - marginLeft - marginRight;
+    const startY = 60;
+    const rowsPerPage = 20;
 
-  //   const allSelected = visibleIds.every((id) => selectedIds.includes(id));
-  //   setSelectedIds(
-  //     allSelected ? [] : [...new Set([...selectedIds, ...visibleIds])]
-  //   );
-  // };
+    const chunkedItems = [];
+    for (let i = 0; i < items.length; i += rowsPerPage) {
+      chunkedItems.push(items.slice(i, i + rowsPerPage));
+    }
 
-  // const toggleSelectOne = (id: string) => {
-  //   setSelectedIds((prev) =>
-  //     prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-  //   );
-  // };
+    const renderHeader = (pageNumber: number, totalPages: number) => {
+      doc.setFont("helvetica", "bold").setFontSize(16);
+      doc.text("NCM MARKETING CORPORATION", marginLeft, 14);
+      doc.setFontSize(9).setFont("helvetica", "normal");
+      doc.text("Freeman Compound, #10 Nadunada St., 6-8 Ave.", marginLeft, 18);
+      doc.text("Caloocan City", marginLeft, 22);
+      doc.text(
+        "E-mail: ncm_office@yahoo.com.ph / Tel No.: +63(2)56760356",
+        marginLeft,
+        26
+      );
+      doc.setFont("helvetica", "bold").setFontSize(16);
+      doc.text("TRANSFER REQUEST", pageWidth - marginRight, 22, {
+        align: "right",
+      });
+    };
+
+    const renderMetaBoxes = () => {
+      const boxWidth = 75;
+      const orderDetailsX = pageWidth - marginRight - boxWidth;
+      const orderDetailsY = 30;
+
+      const orderDetailsData = [
+        [
+          "DATE",
+          trMeta.createdAt
+            ? new Date(trMeta.createdAt).toLocaleDateString("en-PH", {
+                month: "short",
+                day: "2-digit",
+                year: "numeric",
+              })
+            : "N/A",
+        ],
+        [
+          "TRANSFER DATE",
+          trMeta.transferDate
+            ? format(new Date(trMeta.transferDate), "MMM dd yyyy")
+            : "N/A",
+        ],
+
+        ["REQUEST #", trMeta.requestNo?.trim().toUpperCase() || "N/A"],
+        ["REFERENCE", trMeta.reference?.trim().toUpperCase() || "N/A"],
+      ];
+
+      autoTable(doc, {
+        startY: orderDetailsY,
+        margin: { left: orderDetailsX },
+        body: orderDetailsData,
+        theme: "grid",
+        styles: {
+          fontSize: 9,
+          cellPadding: 1,
+          lineWidth: 0.3,
+          lineColor: [0, 0, 0],
+        },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 35 },
+          1: { cellWidth: 40 },
+        },
+        tableWidth: boxWidth,
+      });
+
+      const customerDetailsData = [
+        ["REQUESTED FROM", trMeta.sourceWarehouse || "N/A"],
+        ["TRANSFERRED TO", trMeta.requestingWarehouse || "N/A"],
+        ["REMARKS", trMeta.notes || "N/A"],
+      ];
+
+      autoTable(doc, {
+        startY: orderDetailsY,
+        margin: { left: marginLeft, right: contentWidth - boxWidth - 5 },
+        body: customerDetailsData,
+        theme: "grid",
+        styles: {
+          fontSize: 9,
+          cellPadding: 1,
+          lineWidth: 0.3,
+          lineColor: [0, 0, 0],
+        },
+        columnStyles: {
+          0: { fontStyle: "bold", cellWidth: 35 },
+          1: { cellWidth: "auto" },
+        },
+      });
+    };
+
+    const renderFooter = () => {
+      const footerY = pageHeight - 40;
+      const footerHeight = 20;
+      const contentWidth = pageWidth - marginLeft - marginRight;
+
+      // Draw single footer box
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.3);
+      doc.rect(marginLeft, footerY, contentWidth, footerHeight);
+
+      // Draw 4 equal horizontal lines inside the box
+      const lineSpacing = footerHeight / 4;
+      const horizontalEndX = marginRight + contentWidth - 110;
+      for (let i = 1; i <= 4; i++) {
+        const lineY = footerY + i * lineSpacing;
+        doc.line(marginLeft, lineY, horizontalEndX, lineY);
+      }
+
+      // Draw vertical line just after "Approved By" section
+      doc.line(
+        horizontalEndX - 48,
+        footerY,
+        horizontalEndX - 48,
+        footerY + footerHeight
+      );
+      doc.line(horizontalEndX, footerY, horizontalEndX, footerY + footerHeight);
+
+      // Labels inside the box
+      doc.setFont("helvetica", "bold").setFontSize(9);
+      doc.text("Approved By", marginLeft + 2, footerY + 4);
+      doc.text("Checked By", marginLeft + 2, footerY + 9);
+
+      doc.setFont("helvetica", "normal").setFontSize(8);
+      doc.text(
+        "Received the above goods/s in good condition",
+        marginLeft + 100,
+        footerY + 4
+      );
+
+      // Signature line inside the box
+      doc.text("Signature over Printed Name", marginLeft + 85, footerY + 18);
+      doc.text("Date Received", pageWidth - marginRight - 12, footerY + 18, {
+        align: "right",
+      });
+    };
+
+    chunkedItems.forEach((chunk, index) => {
+      if (index > 0) doc.addPage();
+      const pageNumber = index + 1;
+      const totalPages = chunkedItems.length;
+
+      renderHeader(pageNumber, totalPages);
+      renderMetaBoxes();
+
+      autoTable(doc, {
+        startY,
+        head: [["Qty", "Unit", "Description"]],
+        body: chunk.map((item) => [
+          item.quantity ?? 0,
+          item.unitType ?? "-",
+          item.itemName ?? "-",
+        ]),
+        theme: "plain",
+        styles: { fontSize: 9, cellPadding: 2 },
+        headStyles: {
+          fillColor: [200, 200, 200],
+          fontStyle: "bold",
+          lineWidth: 0.3,
+          lineColor: [0, 0, 0],
+        },
+        columnStyles: {
+          0: { halign: "right" }, // Qty
+          1: { halign: "left" }, // Unit
+          2: { halign: "left" }, // Description
+          3: { halign: "right" }, // Sales Price
+          4: { halign: "right" }, // Total
+        },
+        didParseCell: (data) => {
+          const colIndex = data.column.index;
+          if (data.section === "head") {
+            // Align header text
+            if (colIndex === 0 || colIndex === 3 || colIndex === 4) {
+              data.cell.styles.halign = "right";
+            } else {
+              data.cell.styles.halign = "left";
+            }
+
+            // Add left and right borders
+            data.cell.styles.lineWidth = 0.3;
+            data.cell.styles.lineColor = [0, 0, 0];
+            data.cell.styles.cellPadding = {
+              left: 2,
+              right: 2,
+              top: 1,
+              bottom: 1,
+            };
+          }
+        },
+        tableWidth: contentWidth,
+        margin: { left: marginLeft, right: marginRight },
+        showHead: "everyPage",
+      });
+
+      const footerY = pageHeight - 40;
+
+      if (index === chunkedItems.length - 1) {
+        doc.setFont("helvetica", "italic").setFontSize(9);
+        doc.text("-- Nothing follows --", pageWidth / 2, footerY - 20, {
+          align: "center",
+        });
+
+        doc.setFont("helvetica", "bold").setFontSize(9);
+
+        const rightX = pageWidth - marginRight - 10;
+        const labelOffset = 65;
+        const totalQuantity = items.reduce(
+          (sum, i) => sum + (i.quantity ?? 0),
+          0
+        );
+        doc.text("Total Quantity:", rightX - labelOffset, footerY - 10, {
+          align: "left",
+        });
+        doc.text(totalQuantity.toFixed(0), rightX, footerY - 10, {
+          align: "right",
+        });
+      } else {
+        const finalY = doc.lastAutoTable?.finalY ?? startY;
+        doc.setFont("helvetica", "italic").setFontSize(9);
+        doc.text(
+          `-- Page ${pageNumber} of ${totalPages} --`,
+          pageWidth / 2,
+          footerY - 10,
+          { align: "center" }
+        );
+      }
+
+      const finalY = doc.lastAutoTable?.finalY ?? startY + 70;
+
+      const isLastPage = index === chunkedItems.length - 1;
+      const bottomBorderY = isLastPage ? footerY - 2 : footerY - 2;
+
+      doc.setDrawColor(0);
+      doc.setLineWidth(0.3);
+      doc.rect(marginLeft, startY, contentWidth, bottomBorderY - startY);
+
+      renderFooter();
+    });
+
+    doc.save(`${trMeta.requestNo || "transfer_request"}.pdf`);
+  };
 
   return (
     <div className="space-y-6">
@@ -896,6 +1143,14 @@ export default function TransferRequestPage() {
                             </AlertDialog>
                           </>
                         )}
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Export as PDF"
+                          aria-label={`Export Request ${req.requestNo} to PDF`}
+                          onClick={() => handleExportPDF(req.items, req)}>
+                          <Download className="w-4 h-4" />
+                        </Button>
                       </TableCell>
                     </TableRow>
                   ))
@@ -1198,8 +1453,9 @@ export default function TransferRequestPage() {
             <div className="space-y-2">
               <div className="border rounded-md overflow-visible">
                 {/* Header */}
-                <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 bg-primary text-primary-foreground py-2 px-2 rounded-t text-xs font-semibold uppercase">
+                <div className="grid grid-cols-[1.5fr_2fr_1fr_1fr_1fr] gap-4 bg-primary text-primary-foreground py-2 px-2 rounded-t text-xs font-semibold uppercase">
                   <div className="text-start">Item Code</div>
+                  <div className="text-start">Item Name</div>
                   <div className="text-end">Qty</div>
                   <div className="text-end">UOM</div>
                   <div className="text-end">Action</div>
@@ -1213,13 +1469,15 @@ export default function TransferRequestPage() {
                   );
                   const maxQty = inventoryMatch?.quantity || 1;
                   const unitType = inventoryMatch?.unitType || "";
+                  const itemName =
+                    inventoryMatch?.itemName || item.itemName || "";
 
                   return (
                     <div
                       key={index}
-                      className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 items-center border-t px-2 py-2 text-sm">
-                      {/* 🔍 Item Code Input */}
-                      <div className="space-y-1 relative w-full">
+                      className="grid grid-cols-[1.5fr_2fr_1fr_1fr_1fr] gap-4 items-center border-t px-2 py-2 text-sm">
+                      {/* Item Code Input */}
+                      <div className="relative w-full">
                         <Input
                           id={`item-code-${index}`}
                           type="text"
@@ -1234,6 +1492,7 @@ export default function TransferRequestPage() {
                             const value = e.target.value.toUpperCase().trim();
                             const updated = [...formData.items];
                             updated[index].itemCode = value;
+                            updated[index].itemName = ""; // reset name
                             setFormData((prev) => ({
                               ...prev,
                               items: updated,
@@ -1243,16 +1502,10 @@ export default function TransferRequestPage() {
                           className="text-sm uppercase w-full px-2 py-1 pr-8 border border-border bg-white focus:outline-none focus:ring-1 focus:ring-primary"
                         />
 
-                        {/* 🔍 Icon */}
-                        <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
-                          <Search className="h-4 w-4 text-muted-foreground" />
-                        </div>
-
-                        {/* 📜 Suggestions */}
+                        {/* Suggestions */}
                         {showItemSuggestions === index && (
                           <div className="absolute top-full mt-1 w-full z-50">
-                            <ul className="bg-white border border-border rounded-md shadow-lg max-h-[7.5rem] overflow-y-auto text-sm">
-                              {/* Each item is ~2.5rem tall → 3 items = 7.5rem max height */}
+                            <ul className="bg-white border border-border rounded-md shadow-lg max-h-32 overflow-y-auto text-sm">
                               {inventoryItems
                                 .filter((option) => {
                                   const code = option.itemCode
@@ -1288,6 +1541,7 @@ export default function TransferRequestPage() {
                                         updated[index] = {
                                           ...updated[index],
                                           itemCode: code,
+                                          itemName: option.itemName || "",
                                           unitType: option.unitType || "",
                                           quantity: Math.min(
                                             updated[index].quantity || 1,
@@ -1300,66 +1554,48 @@ export default function TransferRequestPage() {
                                         }));
                                         setShowItemSuggestions(null);
                                       }}>
-                                      {code}
+                                      {code} - {option.itemName}
                                     </li>
                                   );
                                 })}
-
-                              {/* 🧭 Fallback */}
-                              {inventoryItems.filter(
-                                (option) =>
-                                  option.warehouse?.trim().toUpperCase() ===
-                                    formData.sourceWarehouse
-                                      ?.trim()
-                                      .toUpperCase() &&
-                                  option.itemCode
-                                    ?.trim()
-                                    .toUpperCase()
-                                    .includes(
-                                      item.itemCode?.toUpperCase() || ""
-                                    )
-                              ).length === 0 && (
-                                <li className="px-3 py-2 text-muted-foreground">
-                                  No matching items found
-                                </li>
-                              )}
                             </ul>
                           </div>
                         )}
                       </div>
 
-                      {/* 🔢 Quantity */}
-                      <div>
-                        <Input
-                          type="number"
-                          min={1}
-                          max={maxQty}
-                          value={item.quantity}
-                          onChange={(e) => {
-                            const raw = Number(e.target.value) || 0;
-                            const clamped = Math.max(raw, 1);
-                            const updated = [...formData.items];
-                            updated[index].quantity = Math.min(clamped, maxQty);
-                            setFormData((prev) => ({
-                              ...prev,
-                              items: updated,
-                            }));
-                          }}
-                          className="text-end"
-                        />
-                      </div>
+                      {/* Item Name Display */}
+                      <Input
+                        placeholder="Item Name"
+                        value={itemName}
+                        readOnly
+                        className="bg-muted text-sm cursor-not-allowed"
+                      />
 
-                      {/* 📏 UOM */}
-                      <div>
-                        <Input
-                          placeholder="UOM"
-                          value={unitType}
-                          readOnly
-                          className="text-end bg-muted cursor-not-allowed"
-                        />
-                      </div>
+                      {/* Quantity */}
+                      <Input
+                        type="number"
+                        min={1}
+                        max={maxQty}
+                        value={item.quantity}
+                        onChange={(e) => {
+                          const raw = Number(e.target.value) || 0;
+                          const clamped = Math.max(raw, 1);
+                          const updated = [...formData.items];
+                          updated[index].quantity = Math.min(clamped, maxQty);
+                          setFormData((prev) => ({ ...prev, items: updated }));
+                        }}
+                        className="text-end"
+                      />
 
-                      {/* 🗑️ Remove */}
+                      {/* UOM */}
+                      <Input
+                        placeholder="UOM"
+                        value={unitType}
+                        readOnly
+                        className="text-end bg-muted cursor-not-allowed"
+                      />
+
+                      {/* Remove */}
                       <div className="flex justify-end">
                         <Button
                           variant="ghost"
@@ -1388,15 +1624,15 @@ export default function TransferRequestPage() {
                 size="sm"
                 disabled={
                   formData.items.length === 0 ||
-                  !formData.items.at(-1)?.itemCode || // no itemCode selected
-                  Number(formData.items.at(-1)?.quantity) <= 0 // quantity is zero or invalid
+                  !formData.items.at(-1)?.itemCode ||
+                  Number(formData.items.at(-1)?.quantity) <= 0
                 }
                 onClick={() =>
                   setFormData((prev) => ({
                     ...prev,
                     items: [
                       ...prev.items,
-                      { itemCode: "", quantity: 0, unitType: "" },
+                      { itemCode: "", quantity: 0, unitType: "", itemName: "" },
                     ],
                   }))
                 }>
@@ -1663,8 +1899,9 @@ export default function TransferRequestPage() {
           <div className="space-y-2">
             <div className="border rounded-md overflow-visible">
               {/* Header */}
-              <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 bg-primary text-primary-foreground py-2 px-2 rounded-t text-xs font-semibold uppercase">
+              <div className="grid grid-cols-[1.5fr_2fr_1fr_1fr_1fr] gap-4 bg-primary text-primary-foreground py-2 px-2 rounded-t text-xs font-semibold uppercase">
                 <div className="text-start">Item Code</div>
+                <div className="text-start">Item Name</div>
                 <div className="text-end">Qty</div>
                 <div className="text-end">UOM</div>
                 <div className="text-end">Action</div>
@@ -1678,39 +1915,42 @@ export default function TransferRequestPage() {
                 );
                 const maxQty = inventoryMatch?.quantity || 1;
                 const unitType = inventoryMatch?.unitType || "";
+                const itemName =
+                  inventoryMatch?.itemName || item.itemName || "";
 
                 return (
                   <div
                     key={index}
-                    className="grid grid-cols-[1.5fr_1fr_1fr_1fr] gap-4 items-center border-t px-2 py-2 text-sm">
-                    {/* 🔍 Item Code Live Search */}
+                    className="grid grid-cols-[1.5fr_2fr_1fr_1fr_1fr] gap-4 items-center border-t px-2 py-2 text-sm">
+                    {/* Item Code Input */}
                     <div className="relative w-full">
                       <Input
                         value={normalizedCode}
                         autoComplete="off"
-                        onChange={(e) => {
-                          const value = e.target.value.toUpperCase().trim();
-                          const updated = [...formData.items];
-                          updated[index].itemCode = value;
-                          setFormData((prev) => ({ ...prev, items: updated }));
-                          setShowItemSuggestions(index);
-                        }}
+                        placeholder="Search item code"
                         onFocus={() => setShowItemSuggestions(index)}
                         onBlur={() =>
                           setTimeout(() => setShowItemSuggestions(null), 200)
                         }
-                        placeholder="Search item code"
-                        className="text-sm uppercase w-full px-2 py-1 pr-8"
+                        onChange={(e) => {
+                          const value = e.target.value.toUpperCase().trim();
+                          const updated = [...formData.items];
+                          updated[index].itemCode = value;
+                          updated[index].itemName = ""; // reset name while typing
+                          setFormData((prev) => ({ ...prev, items: updated }));
+                          setShowItemSuggestions(index);
+                        }}
+                        className="text-sm uppercase w-full px-2 py-1 pr-8 border border-border bg-white focus:outline-none focus:ring-1 focus:ring-primary"
                       />
 
-                      {/* 🔎 Icon */}
+                      {/* Search Icon */}
                       <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
                         <Search className="w-4 h-4 text-muted-foreground" />
                       </div>
 
-                      {/* 🔽 Suggestions */}
+                      {/* Suggestions */}
                       {showItemSuggestions === index && (
-                        <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm">
+                        <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-32 overflow-y-auto text-sm">
                           {inventoryItems
                             .filter((option) => {
                               const code = option.itemCode
@@ -1743,6 +1983,7 @@ export default function TransferRequestPage() {
                                     updated[index] = {
                                       ...updated[index],
                                       itemCode: code,
+                                      itemName: option.itemName || "", // auto-fill name
                                       unitType: option.unitType || "",
                                       quantity: Math.min(
                                         updated[index].quantity || 1,
@@ -1755,7 +1996,7 @@ export default function TransferRequestPage() {
                                     }));
                                     setShowItemSuggestions(null);
                                   }}>
-                                  {code}
+                                  {code} - {option.itemName}
                                 </li>
                               );
                             })}
@@ -1778,7 +2019,15 @@ export default function TransferRequestPage() {
                       )}
                     </div>
 
-                    {/* 🔢 Quantity */}
+                    {/* Item Name Display */}
+                    <Input
+                      value={itemName}
+                      placeholder="Item Name"
+                      readOnly
+                      className="bg-muted text-sm cursor-not-allowed"
+                    />
+
+                    {/* Quantity */}
                     <Input
                       type="number"
                       min={1}
@@ -1793,14 +2042,14 @@ export default function TransferRequestPage() {
                       className="text-end"
                     />
 
-                    {/* 📏 UOM */}
+                    {/* UOM */}
                     <Input
                       value={unitType}
                       readOnly
                       className="text-end bg-muted cursor-not-allowed"
                     />
 
-                    {/* 🗑️ Remove */}
+                    {/* Remove */}
                     <div className="flex justify-end">
                       <Button
                         variant="ghost"
@@ -1820,7 +2069,7 @@ export default function TransferRequestPage() {
               })}
             </div>
 
-            {/* ➕ Add Item */}
+            {/* Add Item */}
             <Button
               variant="outline"
               size="sm"
@@ -1829,7 +2078,7 @@ export default function TransferRequestPage() {
                   ...prev,
                   items: [
                     ...prev.items,
-                    { itemCode: "", quantity: 0, unitType: "" },
+                    { itemCode: "", itemName: "", quantity: 0, unitType: "" },
                   ],
                 }))
               }>
@@ -1983,7 +2232,8 @@ export default function TransferRequestPage() {
             <table className="min-w-full text-sm border border-border rounded-md overflow-hidden">
               <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
                 <tr>
-                  <th className="px-4 py-2 text-left">Item</th>
+                  <th className="px-4 py-2 text-left">Item Code</th>
+                  <th className="px-4 py-2 text-left">Item Name</th>
                   <th className="px-4 py-2 text-right">Quantity</th>
                   <th className="px-4 py-2 text-left">UOM</th>
                 </tr>
@@ -2000,16 +2250,28 @@ export default function TransferRequestPage() {
                           ? "bg-green-50 text-green-700 animate-fade-in"
                           : "even:bg-muted/5 hover:bg-accent/20 hover:ring-1 hover:ring-accent/50"
                       }`}>
+                      {/* Item Code */}
                       <td className="px-4 py-2">
                         {item.itemCode || (
                           <span className="text-muted-foreground">—</span>
                         )}
                       </td>
+
+                      {/* Item Name */}
+                      <td className="px-4 py-2">
+                        {item.itemName || (
+                          <span className="text-muted-foreground">—</span>
+                        )}
+                      </td>
+
+                      {/* Quantity */}
                       <td className="px-4 py-2 text-right">
                         {item.quantity ?? (
                           <span className="text-muted-foreground">0</span>
                         )}
                       </td>
+
+                      {/* UOM */}
                       <td className="px-4 py-2">
                         {item.unitType || (
                           <span className="text-muted-foreground">—</span>

@@ -3,6 +3,7 @@ import connectMongoDB from "@/libs/mongodb";
 import { TransferRequestModel } from "@/models/transferRequest";
 import { generateStockTransferNo } from "@/libs/generateStockTransferNo";
 import type { TransferRequestItem } from "../../components/sections/type";
+import Item from "@/models/item";
 
 export async function POST(req: Request) {
   await connectMongoDB();
@@ -27,12 +28,6 @@ export async function POST(req: Request) {
       !transactionDate ||
       !items?.length
     ) {
-      console.warn("⚠️ Missing required fields:", {
-        requestingWarehouse,
-        sourceWarehouse,
-        transactionDate,
-        items,
-      });
       return NextResponse.json(
         { error: "Missing required fields" },
         { status: 400 }
@@ -41,16 +36,27 @@ export async function POST(req: Request) {
 
     // 🔢 Generate request number
     const requestNo = await generateStockTransferNo();
-    console.log("🔢 Generated requestNo:", requestNo);
 
-    // 📦 Normalize items
-    const normalizedItems = items
-      .filter((item: TransferRequestItem) => Number(item.quantity) > 0)
-      .map((item: TransferRequestItem) => ({
-        itemCode: item.itemCode?.trim().toUpperCase() || "",
-        quantity: Math.max(Number(item.quantity) || 1, 1),
-        unitType: item.unitType?.trim().toUpperCase() || "",
-      }));
+    // 📦 Normalize items and add itemName
+    // 📦 Normalize items and include itemName
+    const normalizedItems = await Promise.all(
+      items
+        .filter((item: TransferRequestItem) => Number(item.quantity) > 0)
+        .map(async (item: TransferRequestItem) => {
+          const code = item.itemCode?.trim().toUpperCase() || "";
+
+          // Lookup item name from inventory
+          const inventoryItem = await Item.findOne({ itemCode: code });
+
+          return {
+            itemCode: code,
+            itemName:
+              inventoryItem?.itemName || item.itemName || "UNNAMED ITEM",
+            quantity: Math.max(Number(item.quantity) || 1, 1),
+            unitType: item.unitType?.trim().toUpperCase() || "",
+          };
+        })
+    );
 
     // 🧮 Construct payload
     const payload = {
@@ -62,29 +68,17 @@ export async function POST(req: Request) {
       preparedBy: preparedBy?.trim() || "system",
       reference: reference?.trim() || "",
       notes: notes?.trim() || "",
-      items: normalizedItems,
+      items: normalizedItems, // ✅ items now include itemName
       status: "PENDING",
     };
 
-    console.log("📥 TransferRequest payload:", payload);
-
-    // 📝 Create transfer request
     const request = await TransferRequestModel.create(payload);
-    console.log("✅ TransferRequest created:", request._id);
 
     return NextResponse.json({ request }, { status: 201 });
   } catch (err: unknown) {
-    if (err instanceof Error) {
-      console.error("❌ Failed to create transfer request:", err.message);
-      console.error("🧠 Stack trace:", err.stack);
-    } else {
-      console.error("❌ Unknown error:", err);
-    }
-
-    return NextResponse.json(
-      { error: "Internal server error" },
-      { status: 500 }
-    );
+    const message =
+      err instanceof Error ? err.message : "Internal server error";
+    return NextResponse.json({ error: message }, { status: 500 });
   }
 }
 

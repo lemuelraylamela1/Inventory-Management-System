@@ -2,6 +2,7 @@ import mongoose, { Schema, Document, Model } from "mongoose";
 
 export interface TransferRequestItem {
   itemCode: string;
+  itemName: string;
   quantity: number;
   unitType: string;
 }
@@ -23,6 +24,7 @@ export interface TransferRequest extends Document {
 const TransferRequestItemSchema = new Schema<TransferRequestItem>(
   {
     itemCode: { type: String, required: true },
+    itemName: { type: String },
     quantity: { type: Number },
     unitType: { type: String, required: true },
   },

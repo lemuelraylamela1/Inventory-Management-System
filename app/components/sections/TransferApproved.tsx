@@ -215,6 +215,7 @@ export default function TransferApproved() {
     status: "PENDING" | "APPROVED" | "REJECTED";
     items: {
       itemCode: string;
+      itemName: string;
       quantity: number;
       unitType: string;
     }[];
@@ -251,6 +252,7 @@ export default function TransferApproved() {
         items: Array.isArray(data.items)
           ? data.items.map((item: TransferRequestItem) => ({
               itemCode: item.itemCode?.trim().toUpperCase() ?? "",
+              itemName: item.itemName?.trim().toUpperCase() ?? "",
               quantity: Math.max(Number(item.quantity) || 1, 1),
               unitType: item.unitType?.trim().toUpperCase() ?? "",
             }))
@@ -724,7 +726,8 @@ export default function TransferApproved() {
               <table className="min-w-full text-sm border border-border rounded-md overflow-hidden">
                 <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
                   <tr>
-                    <th className="px-4 py-2 text-left">Item</th>
+                    <th className="px-4 py-2 text-left">Item Code</th>
+                    <th className="px-4 py-2 text-left">Item Name</th>
                     <th className="px-4 py-2 text-right">Quantity</th>
                     <th className="px-4 py-2 text-left">UOM</th>
                   </tr>
@@ -743,6 +746,11 @@ export default function TransferApproved() {
                         }`}>
                         <td className="px-4 py-2">
                           {item.itemCode || (
+                            <span className="text-muted-foreground">—</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-2">
+                          {item.itemName || (
                             <span className="text-muted-foreground">—</span>
                           )}
                         </td>

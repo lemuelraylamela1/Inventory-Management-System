@@ -4,6 +4,7 @@ import { TransferRequestModel } from "@/models/transferRequest";
 import InventoryMain from "@/models/inventoryMain";
 import Inventory from "@/models/inventory";
 import Item from "@/models/item";
+import type { HydratedDocument, Types } from "mongoose";
 
 /* ---------------------------------------------
  * TYPE DEFINITIONS
@@ -11,12 +12,28 @@ import Item from "@/models/item";
 
 interface TransferRequestItem {
   itemCode: string;
+  itemName?: string;
   quantity: number | string;
   unitType: string;
 }
 
+interface TransferRequestItemSubdoc
+  extends TransferRequestItem,
+    Types.Subdocument {}
+
+interface TransferRequestDocument {
+  _id: Types.ObjectId;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  items: TransferRequestItemSubdoc[];
+  sourceWarehouse: string;
+  requestingWarehouse: string;
+  markModified: (path: string) => void;
+  save: () => Promise<void>;
+}
+
 interface TransferItemInput {
   itemCode: string;
+  itemName?: string;
   quantity: number | string;
   unitType: string;
   sourceWarehouse: string;
@@ -25,6 +42,7 @@ interface TransferItemInput {
 
 interface NormalizedTransferItem {
   itemCode: string;
+  itemName: string;
   quantity: number;
   unitType: string;
 }
@@ -69,14 +87,14 @@ async function processTransferItem({
   const qty = normalizeQuantity(quantity);
   const { itemName, category } = await safeFindItem(itemCode);
 
-  /* ✅ Deduct from source warehouse */
+  /* Deduct from source */
   await InventoryMain.updateOne(
     { itemCode, warehouse: sourceWarehouse },
     { $inc: { quantity: -qty } },
     { upsert: true }
   );
 
-  /* ✅ Add to destination warehouse */
+  /* Add to destination */
   await InventoryMain.updateOne(
     { itemCode, warehouse: requestingWarehouse },
     {
@@ -91,12 +109,11 @@ async function processTransferItem({
     { upsert: true }
   );
 
-  /* ✅ Fetch updated quantities */
+  /* Fetch updated quantities */
   const destMain = await InventoryMain.findOne({
     itemCode,
     warehouse: requestingWarehouse,
   });
-
   const sourceMain = await InventoryMain.findOne({
     itemCode,
     warehouse: sourceWarehouse,
@@ -107,7 +124,7 @@ async function processTransferItem({
 
   const timestamp = new Date();
 
-  /* ✅ Destination tracker entry (now includes quantity ✅ FIXED) */
+  /* Tracker entries (quantity included ✅ required by schema) */
   const destinationEntry = {
     itemCode,
     itemName,
@@ -116,7 +133,7 @@ async function processTransferItem({
     inQty: qty,
     outQty: 0,
     currentOnhand: destQty,
-    quantity: destQty, // ✅ REQUIRED
+    quantity: destQty,
     particulars: `Received from ${sourceWarehouse}`,
     activity: "TRANSFER",
     date: timestamp.toISOString(),
@@ -125,7 +142,6 @@ async function processTransferItem({
     updatedAt: timestamp,
   };
 
-  /* ✅ Source tracker entry (also includes quantity ✅ FIXED) */
   const sourceEntry = {
     itemCode,
     itemName,
@@ -134,7 +150,7 @@ async function processTransferItem({
     inQty: 0,
     outQty: qty,
     currentOnhand: srcQty,
-    quantity: srcQty, // ✅ REQUIRED
+    quantity: srcQty,
     particulars: `Transferred to ${requestingWarehouse}`,
     activity: "TRANSFER",
     date: timestamp.toISOString(),
@@ -143,7 +159,7 @@ async function processTransferItem({
     updatedAt: timestamp,
   };
 
-  /* ✅ Log destination inventory tracker */
+  /* Save inventory tracker logs */
   const destInv = await Inventory.findOne({ warehouse: requestingWarehouse });
   if (!destInv) {
     await Inventory.create({
@@ -156,7 +172,6 @@ async function processTransferItem({
     await destInv.save();
   }
 
-  /* ✅ Log source inventory tracker */
   const srcInv = await Inventory.findOne({ warehouse: sourceWarehouse });
   if (!srcInv) {
     await Inventory.create({
@@ -180,14 +195,18 @@ async function processTransferItem({
  * PATCH — APPROVE TRANSFER REQUEST
  * --------------------------------------------- */
 
-export async function PATCH(req: Request, props: { params: Promise<{ id: string }> }) {
-  const params = await props.params;
-  const { id } = params;
+export async function PATCH(
+  req: Request,
+  props: { params: Promise<{ id: string }> }
+) {
+  const { id } = await props.params;
 
   try {
     await connectMongoDB();
 
-    const requestDoc = await TransferRequestModel.findById(id);
+    const requestDoc = (await TransferRequestModel.findById(
+      id
+    )) as HydratedDocument<TransferRequestDocument> | null;
 
     if (!requestDoc) {
       return NextResponse.json(
@@ -200,17 +219,18 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
       return NextResponse.json({ error: "Already approved" }, { status: 400 });
     }
 
-    /* ✅ Normalize & validate items */
+    /* Normalize items */
     const normalizedItems: NormalizedTransferItem[] = requestDoc.items
-      .map((item: TransferRequestItem) => {
+      .map((item) => {
         const qty = Number(item.quantity);
-        return qty >= 1
-          ? {
-              itemCode: item.itemCode,
-              unitType: item.unitType,
-              quantity: qty,
-            }
-          : null;
+        if (qty < 1) return null;
+
+        return {
+          itemCode: item.itemCode,
+          unitType: item.unitType,
+          itemName: item.itemName,
+          quantity: qty,
+        };
       })
       .filter((i): i is NormalizedTransferItem => i !== null);
 
@@ -221,26 +241,24 @@ export async function PATCH(req: Request, props: { params: Promise<{ id: string 
       );
     }
 
-    /* ✅ Process each valid item */
+    /* Process items */
     const results: Record<string, ProcessedResult> = {};
 
     for (const item of normalizedItems) {
-      const res = await processTransferItem({
+      const result = await processTransferItem({
         ...item,
         sourceWarehouse: requestDoc.sourceWarehouse,
         requestingWarehouse: requestDoc.requestingWarehouse,
       });
-      results[item.itemCode] = res;
+      results[item.itemCode] = result;
     }
 
-    /* ✅ Update request status */
+    /* Update request */
     requestDoc.status = "APPROVED";
-    requestDoc.items = normalizedItems;
+    requestDoc.items =
+      normalizedItems as unknown as TransferRequestItemSubdoc[];
 
-    if (typeof requestDoc.markModified === "function") {
-      requestDoc.markModified("items");
-    }
-
+    requestDoc.markModified("items");
     await requestDoc.save();
 
     return NextResponse.json(
