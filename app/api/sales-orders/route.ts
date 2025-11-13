@@ -12,7 +12,7 @@ import type {
   SalesOrderItem,
   SalesOrder,
 } from "../../components/sections/type";
-import { adjustInventoryReservation } from "@/libs/adjustInventoryReservation";
+import InventoryMain from "@/models/inventoryMain";
 
 type SalesOrderInput = Omit<
   SalesOrder,
@@ -21,23 +21,7 @@ type SalesOrderInput = Omit<
 
 export async function POST(request: NextRequest) {
   const body: SalesOrderInput = await request.json();
-
-  const {
-    customer,
-    address,
-    contactNumber,
-    salesPerson,
-    warehouse,
-    transactionDate,
-    deliveryDate,
-    shippingAddress,
-    notes,
-    status,
-    items,
-    discounts = [],
-    total,
-    creationDate,
-  } = body;
+  const { items, warehouse, ...rest } = body;
 
   const invalidItem = items.find(
     (item: SalesOrderItem) =>
@@ -57,32 +41,19 @@ export async function POST(request: NextRequest) {
   await connectMongoDB();
 
   try {
+    // create order as before
     const totalQuantity = computeTotalQuantity(items);
     const formattedWeight = formatWeight(items);
     const formattedCBM = formatCBM(items);
     const formattedTotal = computeSubtotal(items);
     const { breakdown: discountBreakdown, formattedNetTotal } =
-      computeDiscountBreakdown(total, discounts);
+      computeDiscountBreakdown(rest.total, rest.discounts);
 
-    const enrichedOrder: Omit<
-      SalesOrder,
-      "_id" | "soNumber" | "createdAt" | "updatedAt"
-    > = {
-      customer: customer.trim().toUpperCase(),
-      address: address.trim().toUpperCase(),
-      contactNumber: contactNumber.trim().toUpperCase(),
-      salesPerson: salesPerson.trim().toUpperCase(),
+    const enrichedOrder = {
+      ...rest,
       warehouse: warehouse.trim().toUpperCase(),
-      transactionDate,
-      deliveryDate,
-      shippingAddress: shippingAddress?.trim() || "",
-      notes: notes?.trim() || "",
-      status,
       items,
-      discounts,
-      total,
       totalQuantity,
-      creationDate,
       formattedWeight,
       formattedCBM,
       formattedTotal,
@@ -91,7 +62,29 @@ export async function POST(request: NextRequest) {
     };
 
     const newOrder = await SalesOrderModel.create(enrichedOrder);
-    await adjustInventoryReservation(items, warehouse, "reserve");
+
+    // 🔹 Reserve inventory: move from availableQuantity → quantityOnHold
+    for (const item of items) {
+      if (!item.itemCode) continue; // skip if no itemCode
+      const itemCode = item.itemCode.trim().toUpperCase();
+      const quantity = item.quantity;
+
+      if (!quantity || quantity <= 0) continue; // skip invalid quantities
+
+      await InventoryMain.findOneAndUpdate(
+        { itemCode, warehouse: warehouse.trim().toUpperCase() },
+        {
+          $inc: {
+            availableQuantity: -quantity, // deduct from available
+            quantityOnHold: quantity, // add to on-hold
+          },
+        },
+        { new: true, upsert: true }
+      );
+    }
+
+    // Optional: keep your old function for tracking reservations
+    // await adjustInventoryReservation(items, warehouse, "reserve");
 
     return NextResponse.json(
       { message: "Sales order created", order: newOrder },

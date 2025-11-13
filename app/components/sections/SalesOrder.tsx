@@ -2625,16 +2625,18 @@ export default function SalesOrder({ onSuccess }: Props) {
                         {itemsData.map((item, index) => (
                           <div
                             key={index}
-                            className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center  border-border text-sm m-0">
+                            className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center 
+      border border-border rounded-lg mb-1 bg-white hover:shadow-sm transition-all
+      ${index % 2 === 0 ? "bg-muted/40" : "bg-white"}`}>
                             {/* Item Code */}
                             <input
                               type="text"
                               value={item.itemCode || ""}
                               readOnly
-                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                              className="w-full px-3 py-2 border-r border-border text-sm bg-gray-50 text-gray-700 rounded-l-lg"
                             />
 
-                            {/* Item Name */}
+                            {/* Item Name + Suggestions */}
                             <div className="relative w-full">
                               <input
                                 id={`item-name-${index}`}
@@ -2673,30 +2675,42 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                                   setShowItemSuggestions(index);
                                 }}
-                                placeholder="Search item name"
-                                className="text-sm uppercase w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8"
+                                placeholder="🔍 Search item"
+                                className="text-sm uppercase w-full px-3 py-2 border-none bg-transparent focus:ring-2 focus:ring-primary/60 focus:bg-white rounded-none transition-all"
                               />
 
-                              {/* Magnifying Glass Icon */}
-                              <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
-                                <svg
-                                  xmlns="http://www.w3.org/2000/svg"
-                                  className="h-4 w-4 text-muted-foreground"
-                                  fill="none"
-                                  viewBox="0 0 24 24"
-                                  stroke="currentColor"
-                                  strokeWidth={2}>
-                                  <path
-                                    strokeLinecap="round"
-                                    strokeLinejoin="round"
-                                    d="M21 21l-4.35-4.35m0 0A7.5 7.5 0 104.5 4.5a7.5 7.5 0 0012.15 12.15z"
-                                  />
-                                </svg>
-                              </div>
+                              {/* Stock Indicator */}
+                              {(() => {
+                                const inventory = inventoryItems.find(
+                                  (inv) => inv.itemCode === item.itemCode
+                                );
+                                const availableQty =
+                                  Number(inventory?.availableQuantity) || 0;
 
-                              {/* Live Suggestions */}
+                                return (
+                                  <div className="text-xs text-gray-600 mt-1 ml-1">
+                                    {item.itemName ? (
+                                      availableQty > 0 ? (
+                                        <span className="text-green-600 font-medium">
+                                          🟢 {availableQty} available
+                                        </span>
+                                      ) : (
+                                        <span className="text-red-500 font-medium">
+                                          🔴 Out of Stock
+                                        </span>
+                                      )
+                                    ) : (
+                                      <span className="text-muted-foreground">
+                                        Select item to view stock
+                                      </span>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+
+                              {/* Dropdown Suggestions */}
                               {showItemSuggestions === index && (
-                                <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                                <ul className="absolute top-full left-0 w-full z-20 bg-white border border-border rounded-md shadow-lg max-h-56 overflow-y-auto text-sm mt-1 animate-in fade-in-0 zoom-in-95">
                                   {(() => {
                                     const input =
                                       item.itemName?.toUpperCase().trim() || "";
@@ -2712,8 +2726,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                                           ?.trim()
                                           .toUpperCase();
                                         const availableQty =
-                                          (Number(option.quantity) || 0) -
-                                          (Number(option.reserved) || 0);
+                                          Number(option.availableQuantity) || 0;
 
                                         return (
                                           normalized &&
@@ -2726,8 +2739,8 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                                     if (filtered.length === 0) {
                                       return (
-                                        <li className="px-3 py-2 text-muted-foreground">
-                                          No matching items found
+                                        <li className="px-3 py-2 text-muted-foreground text-center">
+                                          No items found
                                         </li>
                                       );
                                     }
@@ -2736,10 +2749,13 @@ export default function SalesOrder({ onSuccess }: Props) {
                                       const normalized = option.itemName
                                         ?.trim()
                                         .toUpperCase();
+                                      const availableQty =
+                                        option.availableQuantity ?? 0;
+
                                       return (
                                         <li
                                           key={option.itemCode || normalized}
-                                          className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                          className="px-3 py-2 hover:bg-primary/10 cursor-pointer transition-colors flex justify-between items-center"
                                           onClick={() => {
                                             const enriched = {
                                               itemName: normalized,
@@ -2747,6 +2763,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                                               unitType: option.unitType || "",
                                               price: option.salesPrice ?? 0,
                                               quantity: 1,
+                                              availableQuantity: availableQty,
                                             };
 
                                             setItemsData((prev) => {
@@ -2774,9 +2791,12 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                                             setShowItemSuggestions(null);
                                           }}>
-                                          {normalized ||
-                                            option.itemCode ||
-                                            "Unnamed Item"}
+                                          <span className="font-medium">
+                                            {normalized}
+                                          </span>
+                                          <span className="text-xs text-gray-500">
+                                            {availableQty} available
+                                          </span>
                                         </li>
                                       );
                                     });
@@ -2786,63 +2806,49 @@ export default function SalesOrder({ onSuccess }: Props) {
                             </div>
 
                             {/* Quantity */}
-                            <Input
-                              type="text"
+                            <input
+                              type="number"
                               inputMode="decimal"
-                              pattern="^\d*\.?\d*$"
-                              value={
-                                item.itemName
-                                  ? item.quantity !== null &&
-                                    item.quantity !== undefined
-                                    ? item.quantity.toString()
-                                    : ""
-                                  : ""
-                              }
+                              value={item.quantity ?? ""}
                               disabled={!item.itemName}
                               onChange={(e) => {
                                 const value = e.target.value;
-
                                 if (value === "") {
                                   updateQuantity(index, null);
                                   return;
                                 }
-
                                 if (/^\d*\.?\d*$/.test(value)) {
                                   const parsed = parseFloat(value);
                                   if (!isNaN(parsed)) {
                                     const inventory = inventoryItems.find(
                                       (inv) => inv.itemCode === item.itemCode
                                     );
-
                                     const availableQty =
-                                      (Number(inventory?.quantity) || 0) -
-                                      (Number(inventory?.reserved) || 0);
-
-                                    const maxQty = Math.max(availableQty, 0); // prevent negative clamp
+                                      Number(inventory?.availableQuantity) || 0;
                                     const clamped = Math.min(
                                       Math.max(parsed, 1),
-                                      maxQty
+                                      availableQty
                                     );
-
                                     updateQuantity(index, clamped);
                                   }
                                 }
                               }}
-                              placeholder="e.g. 5"
-                              className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 text-end bg-white focus:outline-none focus:ring-1 focus:ring-primary ${
+                              placeholder="0"
+                              className={`w-full text-end px-2 py-2 border-l border-border bg-white focus:ring-2 focus:ring-primary/60 rounded-none text-sm ${
                                 !item.itemName
                                   ? "bg-muted text-muted-foreground cursor-not-allowed"
                                   : ""
                               }`}
                             />
 
-                            {/* Unit Type */}
+                            {/* Unit */}
                             <input
                               type="text"
                               value={item.unitType || ""}
                               readOnly
-                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                              className="w-full px-2 py-2 border-l border-border text-center text-gray-700 bg-gray-50"
                             />
+
                             {/* Price */}
                             <input
                               type="text"
@@ -2857,8 +2863,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                                   : "";
                               })()}
                               readOnly
-                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right text-sm"
-                              placeholder="₱0.00"
+                              className="w-full px-2 py-2 border-l border-border text-right bg-gray-50 text-gray-700 text-sm"
                             />
 
                             {/* Amount */}
@@ -2867,8 +2872,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                               value={(() => {
                                 const key = item.itemName?.trim().toUpperCase();
                                 const price = salesPriceMap[key] ?? 0;
-                                const quantity = item.quantity ?? 0;
-                                const amount = price * quantity;
+                                const qty = item.quantity ?? 0;
+                                const amount = price * qty;
                                 return amount > 0
                                   ? amount.toLocaleString("en-PH", {
                                       style: "currency",
@@ -2877,15 +2882,14 @@ export default function SalesOrder({ onSuccess }: Props) {
                                   : "";
                               })()}
                               readOnly
-                              className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right text-sm"
-                              placeholder="₱0.00"
+                              className="w-full px-2 py-2 border-l border-border text-right bg-gray-50 text-gray-700 text-sm"
                             />
 
-                            {/* Trash Button */}
+                            {/* Trash */}
                             <Button
                               variant="ghost"
                               size="icon"
-                              className="text-red-600 hover:text-red-800 pb-1"
+                              className="text-red-600 hover:text-red-800 hover:bg-red-50 rounded-r-lg"
                               onClick={() => handleRemoveItem(index)}
                               title="Remove item">
                               <Trash2 className="w-4 h-4" />
@@ -3852,13 +3856,15 @@ export default function SalesOrder({ onSuccess }: Props) {
                     itemsData.map((item, index) => (
                       <div
                         key={index}
-                        className="grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] items-center border-border text-sm m-0">
+                        className={`grid w-full grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr_40px] 
+      items-center text-sm border border-border rounded-md mb-1
+      bg-white hover:bg-muted/50 hover:shadow-sm transition-all`}>
                         {/* Item Code */}
                         <input
                           type="text"
                           value={item.itemCode || ""}
                           readOnly
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                          className="w-full px-3 py-2 border-r border-border bg-gray-50 text-gray-700 rounded-l-md"
                         />
 
                         {/* Item Name */}
@@ -3898,12 +3904,13 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                               setShowItemSuggestions(index);
                             }}
-                            placeholder="Search item name"
-                            className="text-sm uppercase w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8"
+                            placeholder="🔍 Search item name"
+                            className="w-full text-sm uppercase px-3 py-2 border-none bg-transparent 
+          focus:ring-2 focus:ring-primary/60 rounded-none pr-8 transition-all"
                           />
 
-                          {/* Magnifying Glass Icon */}
-                          <div className="absolute inset-y-0 right-2 flex items-center pointer-events-none">
+                          {/* Search Icon */}
+                          <div className="absolute inset-y-0 right-3 flex items-center pointer-events-none">
                             <svg
                               xmlns="http://www.w3.org/2000/svg"
                               className="h-4 w-4 text-muted-foreground"
@@ -3919,9 +3926,9 @@ export default function SalesOrder({ onSuccess }: Props) {
                             </svg>
                           </div>
 
-                          {/* Live Suggestions */}
+                          {/* Suggestions Dropdown */}
                           {showItemSuggestions === index && (
-                            <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
+                            <ul className="absolute top-full left-0 w-full z-20 bg-white border border-border rounded-md shadow-lg max-h-56 overflow-y-auto text-sm mt-1 animate-in fade-in-0 zoom-in-95">
                               {(() => {
                                 const input =
                                   item.itemName?.toUpperCase().trim() || "";
@@ -3934,7 +3941,7 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                                 if (filtered.length === 0) {
                                   return (
-                                    <li className="px-3 py-2 text-muted-foreground">
+                                    <li className="px-3 py-2 text-center text-muted-foreground">
                                       No matching items found
                                     </li>
                                   );
@@ -3947,7 +3954,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                                   return (
                                     <li
                                       key={option.itemCode || normalized}
-                                      className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                      className="px-3 py-2 hover:bg-primary/10 cursor-pointer transition-colors flex justify-between items-center"
                                       onClick={() => {
                                         const enriched = {
                                           itemName: normalized,
@@ -3980,9 +3987,14 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                                         setShowItemSuggestions(null);
                                       }}>
-                                      {normalized ||
-                                        option.itemCode ||
-                                        "Unnamed Item"}
+                                      <span>
+                                        {normalized ||
+                                          option.itemCode ||
+                                          "Unnamed Item"}
+                                      </span>
+                                      <span className="text-xs text-gray-500">
+                                        Avail: {option.availableQuantity ?? 0}
+                                      </span>
                                     </li>
                                   );
                                 });
@@ -4008,13 +4020,11 @@ export default function SalesOrder({ onSuccess }: Props) {
                           onChange={(e) => {
                             const value = e.target.value;
 
-                            // Allow empty string → treat as null
                             if (value === "") {
                               updateQuantity(index, null);
                               return;
                             }
 
-                            // Only allow valid numeric input
                             if (/^\d*\.?\d*$/.test(value)) {
                               const parsed = parseFloat(value);
                               if (!isNaN(parsed)) {
@@ -4031,7 +4041,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                             }
                           }}
                           placeholder="e.g. 5"
-                          className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary text-end ${
+                          className={`w-full text-end px-3 py-2 border-l border-border bg-white focus:ring-2 focus:ring-primary/60 text-sm rounded-none ${
                             !item.itemName
                               ? "cursor-not-allowed opacity-50"
                               : ""
@@ -4043,8 +4053,9 @@ export default function SalesOrder({ onSuccess }: Props) {
                           type="text"
                           value={item.unitType || ""}
                           readOnly
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white"
+                          className="w-full px-3 py-2 border-l border-border text-center text-gray-700 bg-gray-50"
                         />
+
                         {/* Price */}
                         <input
                           type="text"
@@ -4059,7 +4070,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                               : "";
                           })()}
                           readOnly
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right text-sm"
+                          className="w-full px-3 py-2 border-l border-border text-right bg-gray-50 text-gray-700 text-sm"
                           placeholder="₱0.00"
                         />
 
@@ -4079,7 +4090,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                               : "";
                           })()}
                           readOnly
-                          className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right text-sm"
+                          className="w-full px-3 py-2 border-l border-border text-right bg-gray-50 text-gray-700 text-sm"
                           placeholder="₱0.00"
                         />
 
@@ -4087,7 +4098,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                         <Button
                           variant="ghost"
                           size="icon"
-                          className="text-red-600 hover:text-red-800 pb-1"
+                          className="text-red-600 hover:text-red-800 hover:bg-red-50 rounded-r-md"
                           onClick={() => handleRemoveItem(index)}
                           title="Remove item">
                           <Trash2 className="w-4 h-4" />

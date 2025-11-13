@@ -210,6 +210,7 @@ export type InventoryItem = {
   createdAt?: Date;
   inQty?: number;
   outQty?: number;
+  availableQuantity?: number;
 };
 
 export type InventoryType = {
