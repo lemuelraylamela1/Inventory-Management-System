@@ -189,19 +189,18 @@ export async function POST(request: Request) {
       } else {
         inventoryDoc.items.push(newEntry);
 
-        const totalOnhand = inventoryDoc.items
-          .filter((i: InventoryItem) => i.itemName === itemName)
-          .reduce((sum: number, i: InventoryItem) => sum + i.quantity, 0);
+        const itemTransactions = inventoryDoc.items.filter(
+          (i: InventoryItem) => i.itemCode === itemCode
+        );
 
-        // Lock past transactions by leaving their currentOnhand untouched
-        // Only update the latest transaction
-        const latestIndex = inventoryDoc.items.length - 1;
-        inventoryDoc.items[latestIndex].currentOnhand = inventoryDoc.items
-          .filter((i: InventoryItem) => i.itemName === itemName)
-          .reduce((sum: number, i: InventoryItem) => sum + i.quantity, 0);
+        const runningOnhand = itemTransactions.reduce(
+          (sum: number, i: InventoryItem) =>
+            sum + (i.inQty ?? 0) - (i.outQty ?? 0),
+          0
+        );
 
         inventoryDoc.items[inventoryDoc.items.length - 1].currentOnhand =
-          totalOnhand;
+          runningOnhand;
 
         await inventoryDoc.save();
         console.log(`📥 Appended transaction for ${itemCode} in ${warehouse}`);
