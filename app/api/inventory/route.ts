@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import connectMongoDB from "../../../libs/mongodb";
 import Inventory, { InventoryItem } from "@/models/inventory";
 
-// GET: Fetch all inventory records
+// 📦 GET: Fetch all inventory records or specific item/warehouse
 export async function GET(request: Request) {
   try {
     await connectMongoDB();
@@ -47,10 +47,10 @@ export async function GET(request: Request) {
   }
 }
 
-// POST: Create or update inventory for a warehouse
+// 🧾 POST: Create or update inventory for a warehouse
 export async function POST(request: Request) {
   try {
-    await connectMongoDB(); // ✅ Ensure DB connection
+    await connectMongoDB();
 
     const body = await request.json();
     const warehouse = body.warehouse?.trim().toUpperCase();
@@ -73,7 +73,7 @@ export async function POST(request: Request) {
         unitType: item.unitType?.trim().toUpperCase() || "",
         purchasePrice: Number(item.purchasePrice) || 0,
         source: item.source?.trim().toUpperCase() || "",
-        referenceNumber: item.referenceNumber?.trim().toUpperCase() || "", // ✅ added
+        referenceNumber: item.referenceNumber?.trim().toUpperCase() || "",
         updatedAt: now,
         receivedAt: item.receivedAt ? new Date(item.receivedAt) : now,
         createdAt: item.createdAt ? new Date(item.createdAt) : now,
@@ -95,5 +95,40 @@ export async function POST(request: Request) {
     const message =
       error instanceof Error ? error.message : "Failed to update inventory";
     return NextResponse.json({ error: message }, { status: 500 });
+  }
+}
+
+// 🗑️ DELETE: Delete all inventory or by warehouse
+export async function DELETE(request: Request) {
+  try {
+    await connectMongoDB();
+
+    const { searchParams } = new URL(request.url);
+    const warehouse = searchParams.get("warehouse")?.trim().toUpperCase();
+
+    let deleteResult;
+
+    if (warehouse) {
+      deleteResult = await Inventory.deleteMany({ warehouse });
+    } else {
+      deleteResult = await Inventory.deleteMany({});
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        deletedCount: deleteResult.deletedCount,
+        message: warehouse
+          ? `All inventory records for warehouse ${warehouse} deleted.`
+          : "All inventory records deleted.",
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("❌ Error deleting inventory:", error);
+    return NextResponse.json(
+      { error: "Failed to delete inventory records" },
+      { status: 500 }
+    );
   }
 }

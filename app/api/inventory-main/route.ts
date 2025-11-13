@@ -3,6 +3,7 @@ import connectMongoDB from "@/libs/mongodb";
 import InventoryMain from "@/models/inventoryMain";
 import { InventoryItem } from "@/models/inventory"; // ✅ for typing
 
+// 📦 CREATE or UPDATE inventory_main
 export async function POST(request: Request) {
   try {
     await connectMongoDB();
@@ -93,6 +94,7 @@ export async function POST(request: Request) {
   }
 }
 
+// 📋 READ inventory_main
 export async function GET(request: Request) {
   try {
     await connectMongoDB();
@@ -115,6 +117,41 @@ export async function GET(request: Request) {
     console.error("❌ Error fetching inventory_main:", error);
     return NextResponse.json(
       { error: "Failed to retrieve inventory_main" },
+      { status: 500 }
+    );
+  }
+}
+
+// 🗑️ DELETE ALL (or by warehouse)
+export async function DELETE(request: Request) {
+  try {
+    await connectMongoDB();
+
+    const { searchParams } = new URL(request.url);
+    const warehouse = searchParams.get("warehouse")?.trim().toUpperCase();
+
+    let deleteResult;
+
+    if (warehouse) {
+      deleteResult = await InventoryMain.deleteMany({ warehouse });
+    } else {
+      deleteResult = await InventoryMain.deleteMany({});
+    }
+
+    return NextResponse.json(
+      {
+        success: true,
+        deletedCount: deleteResult.deletedCount,
+        message: warehouse
+          ? `All records for warehouse ${warehouse} deleted.`
+          : "All inventory_main records deleted.",
+      },
+      { status: 200 }
+    );
+  } catch (error) {
+    console.error("❌ Error deleting inventory_main:", error);
+    return NextResponse.json(
+      { error: "Failed to delete inventory_main records" },
       { status: 500 }
     );
   }

@@ -337,7 +337,13 @@ export default function InventorySummary() {
                     <TableHead>Item Name</TableHead>
                     <TableHead>Category</TableHead>
                     <TableHead>Warehouse</TableHead>
-                    <TableHead className="text-right">Quantity</TableHead>
+                    <TableHead className="text-right">
+                      Quantity onHold
+                    </TableHead>
+                    <TableHead className="text-right">
+                      Available Quantity
+                    </TableHead>
+                    <TableHead className="text-right">Total Quantity</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -370,10 +376,15 @@ export default function InventorySummary() {
                         <TableCell style={{ textTransform: "uppercase" }}>
                           {item.itemName}
                         </TableCell>
-
                         <TableCell>{item.category}</TableCell>
                         <TableCell>{item.warehouse}</TableCell>
-                        <TableCell className="text-right">
+                        <TableCell className="text-right text-yellow-600">
+                          {(item.quantityOnHold ?? 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right text-green-600">
+                          {(item.availableQuantity ?? 0).toLocaleString()}
+                        </TableCell>
+                        <TableCell className="text-right text-blue-600">
                           {item.quantity.toLocaleString()}
                         </TableCell>
                       </TableRow>

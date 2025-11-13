@@ -210,7 +210,6 @@ export type InventoryItem = {
   createdAt?: Date;
   inQty?: number;
   outQty?: number;
-  reserved?: number;
 };
 
 export type InventoryType = {
@@ -232,6 +231,8 @@ export type InventoryType = {
   createdAt?: Date;
   updatedAt?: Date;
   unitType?: string;
+  quantityOnHold?: number;
+  availableQuantity?: number;
 };
 
 import type { Types } from "mongoose";

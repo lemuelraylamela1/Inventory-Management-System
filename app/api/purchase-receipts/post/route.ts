@@ -222,12 +222,15 @@ export async function POST(request: Request) {
           $set: {
             itemName,
             unitType,
-            quantity: totalMainQty,
             updatedAt: now,
+          },
+          $inc: {
+            quantity: quantity, // increase physical stock
+            availableQuantity: quantity, // increase free-to-sell stock
           },
           $setOnInsert: { warehouse },
         },
-        { upsert: true }
+        { upsert: true, new: true }
       );
     }
 
