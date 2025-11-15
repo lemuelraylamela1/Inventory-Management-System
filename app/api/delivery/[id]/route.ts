@@ -7,10 +7,8 @@ import { Delivery, DeliveryItem } from "@/app/components/sections/type";
 type DeliveryUpdatePayload = Partial<Delivery> & { items?: DeliveryItem[] };
 
 // GET /api/delivery/:id
-export async function GET(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     await connectMongoDB();
     const delivery = await DeliveryModel.findById(params.id);
@@ -33,10 +31,8 @@ export async function GET(
 }
 
 // PATCH /api/delivery/:id
-export async function PATCH(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     await connectMongoDB();
     const body: DeliveryUpdatePayload = await req.json();
@@ -83,10 +79,8 @@ export async function PATCH(
 }
 
 // DELETE /api/delivery/:id
-export async function DELETE(
-  req: NextRequest,
-  { params }: { params: { id: string } }
-) {
+export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   try {
     await connectMongoDB();
     const deleted = await DeliveryModel.findByIdAndDelete(params.id);
