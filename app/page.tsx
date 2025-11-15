@@ -36,6 +36,7 @@ import AtcCodes from "./components/sections/AtcCodes";
 import ChartOfAccount from "./components/sections/ChartOfAccount";
 import AccountsReceivable from "./components/sections/AccountsReceivable";
 import AccountsPayable from "./components/sections/AccountsPayable";
+import Delivery from "./components/sections/Delivery";
 
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -88,6 +89,8 @@ export default function App() {
         return <Customer />;
       case "customer-type":
         return <CustomerType />;
+      case "delivery":
+        return <Delivery />;
       case "inventory-adjustment":
         return <InventoryAdjustment />;
       case "inventory-summary":

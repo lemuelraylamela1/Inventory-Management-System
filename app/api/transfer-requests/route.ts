@@ -4,6 +4,7 @@ import { TransferRequestModel } from "@/models/transferRequest";
 import { generateStockTransferNo } from "@/libs/generateStockTransferNo";
 import type { TransferRequestItem } from "../../components/sections/type";
 import Item from "@/models/item";
+import InventoryMain from "@/models/inventoryMain";
 
 export async function POST(req: Request) {
   await connectMongoDB();
@@ -21,7 +22,6 @@ export async function POST(req: Request) {
   } = body;
 
   try {
-    // 🧾 Validate required fields
     if (
       !requestingWarehouse ||
       !sourceWarehouse ||
@@ -34,31 +34,45 @@ export async function POST(req: Request) {
       );
     }
 
-    // 🔢 Generate request number
     const requestNo = await generateStockTransferNo();
 
-    // 📦 Normalize items and add itemName
-    // 📦 Normalize items and include itemName
+    // Normalize items
     const normalizedItems = await Promise.all(
       items
         .filter((item: TransferRequestItem) => Number(item.quantity) > 0)
         .map(async (item: TransferRequestItem) => {
           const code = item.itemCode?.trim().toUpperCase() || "";
-
-          // Lookup item name from inventory
           const inventoryItem = await Item.findOne({ itemCode: code });
+
+          const qty = Math.max(Number(item.quantity) || 1, 1);
+
+          // 🔁 Update inventory: move from availableQuantity → quantityOnHold
+          if (code) {
+            const invDoc = await InventoryMain.findOne({
+              warehouse: sourceWarehouse.trim().toUpperCase(),
+              itemCode: code,
+            });
+            if (invDoc) {
+              invDoc.availableQuantity = Math.max(
+                (invDoc.availableQuantity || 0) - qty,
+                0
+              );
+              invDoc.quantityOnHold = (invDoc.quantityOnHold || 0) + qty;
+              await invDoc.save();
+              console.log(`Moved ${qty} of ${code} to quantityOnHold`);
+            }
+          }
 
           return {
             itemCode: code,
             itemName:
               inventoryItem?.itemName || item.itemName || "UNNAMED ITEM",
-            quantity: Math.max(Number(item.quantity) || 1, 1),
+            quantity: qty,
             unitType: item.unitType?.trim().toUpperCase() || "",
           };
         })
     );
 
-    // 🧮 Construct payload
     const payload = {
       requestNo,
       requestingWarehouse: requestingWarehouse.trim().toUpperCase(),
@@ -68,7 +82,7 @@ export async function POST(req: Request) {
       preparedBy: preparedBy?.trim() || "system",
       reference: reference?.trim() || "",
       notes: notes?.trim() || "",
-      items: normalizedItems, // ✅ items now include itemName
+      items: normalizedItems,
       status: "PENDING",
     };
 

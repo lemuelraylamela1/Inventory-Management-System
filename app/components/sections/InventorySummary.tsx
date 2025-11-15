@@ -328,29 +328,38 @@ export default function InventorySummary() {
           </div>
         </fieldset>
 
-        <Card>
+        <Card className="shadow-lg rounded-2xl border border-gray-200">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
-              <Table>
-                <TableHeader className="sticky top-0 bg-background z-10 border-b">
+              <Table className="min-w-full">
+                <TableHeader className="sticky top-0 bg-background z-10 border-b shadow-sm">
                   <TableRow>
-                    <TableHead>Item Name</TableHead>
-                    <TableHead>Category</TableHead>
-                    <TableHead>Warehouse</TableHead>
-                    <TableHead className="text-right">
-                      Quantity onHold
+                    <TableHead className="text-left px-4 py-2">
+                      Item Name
                     </TableHead>
-                    <TableHead className="text-right">
+                    <TableHead className="text-left px-4 py-2">
+                      Category
+                    </TableHead>
+                    <TableHead className="text-left px-4 py-2">
+                      Warehouse
+                    </TableHead>
+                    <TableHead className="text-right px-4 py-2 text-blue-600">
+                      Total Quantity
+                    </TableHead>
+                    <TableHead className="text-right px-4 py-2 text-yellow-600">
+                      Quantity on Hold
+                    </TableHead>
+                    <TableHead className="text-right px-4 py-2 text-green-600">
                       Available Quantity
                     </TableHead>
-                    <TableHead className="text-right">Total Quantity</TableHead>
                   </TableRow>
                 </TableHeader>
+
                 <TableBody>
                   {isLoading ? (
                     <TableRow>
                       <TableCell
-                        colSpan={4}
+                        colSpan={6}
                         className="py-6 text-center text-muted-foreground">
                         <div className="inline-flex items-center justify-center gap-2">
                           <Loader2 className="w-5 h-5 animate-spin text-primary" />
@@ -363,32 +372,49 @@ export default function InventorySummary() {
                   ) : filteredData.length === 0 ? (
                     <TableRow>
                       <TableCell
-                        colSpan={4}
-                        className="text-center text-muted-foreground">
+                        colSpan={6}
+                        className="py-4 text-center text-muted-foreground">
                         No inventory data found
                       </TableCell>
                     </TableRow>
                   ) : (
-                    filteredData.map((item, index) => (
-                      <TableRow
-                        key={`${item.itemCode}-${item.warehouse}-${index}`}
-                        className={index % 2 === 0 ? "bg-muted/20" : ""}>
-                        <TableCell style={{ textTransform: "uppercase" }}>
-                          {item.itemName}
-                        </TableCell>
-                        <TableCell>{item.category}</TableCell>
-                        <TableCell>{item.warehouse}</TableCell>
-                        <TableCell className="text-right text-yellow-600">
-                          {(item.quantityOnHold ?? 0).toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-right text-green-600">
-                          {(item.availableQuantity ?? 0).toLocaleString()}
-                        </TableCell>
-                        <TableCell className="text-right text-blue-600">
-                          {item.quantity.toLocaleString()}
-                        </TableCell>
-                      </TableRow>
-                    ))
+                    filteredData.map((item, index) => {
+                      const available = item.availableQuantity ?? 0;
+                      const availableClass =
+                        available === 0
+                          ? "text-red-600 font-semibold"
+                          : available < 10
+                          ? "text-orange-500 font-medium"
+                          : "text-green-600 font-medium";
+
+                      return (
+                        <TableRow
+                          key={`${item.itemCode}-${item.warehouse}-${index}`}
+                          className={`transition-colors hover:bg-muted/30 ${
+                            index % 2 === 0 ? "bg-muted/10" : ""
+                          }`}>
+                          <TableCell className="px-4 py-2 uppercase font-medium">
+                            {item.itemName}
+                          </TableCell>
+                          <TableCell className="px-4 py-2">
+                            {item.category}
+                          </TableCell>
+                          <TableCell className="px-4 py-2">
+                            {item.warehouse}
+                          </TableCell>
+                          <TableCell className="px-4 py-2 text-right text-blue-600 font-medium">
+                            {item.quantity.toLocaleString()}
+                          </TableCell>
+                          <TableCell className="px-4 py-2 text-right text-yellow-600 font-medium">
+                            {(item.quantityOnHold ?? 0).toLocaleString()}
+                          </TableCell>
+                          <TableCell
+                            className={`px-4 py-2 text-right ${availableClass}`}>
+                            {available.toLocaleString()}
+                          </TableCell>
+                        </TableRow>
+                      );
+                    })
                   )}
                 </TableBody>
               </Table>

@@ -126,7 +126,7 @@ export default function TransferRequestPage() {
     status: "PENDING",
     transferDate: "",
     preparedBy: "",
-    items: [{ itemCode: "", quantity: 1, unitType: "" }],
+    items: [{ itemCode: "", quantity: 0, unitType: "" }],
   });
 
   const getInitialFormData = (): TransferRequest => ({
@@ -208,7 +208,7 @@ export default function TransferRequestPage() {
         .map((item) => ({
           itemCode: item.itemCode.trim().toUpperCase(),
           itemName: item.itemName?.trim() || "",
-          quantity: Math.max(Number(item.quantity) || 1, 1),
+          quantity: Math.max(Number(item.quantity) || 0, 0),
           unitType: item.unitType.trim().toUpperCase(),
         }));
 
@@ -599,6 +599,78 @@ export default function TransferRequestPage() {
     } catch (err) {
       console.error("❌ Bulk delete failed:", err);
       toast.error("Failed to delete selected transfer requests.");
+    }
+  };
+
+  // Reset items when source warehouse changes
+  useEffect(() => {
+    // Only run this logic in CREATE mode
+    if (!isCreateDialogOpen) return;
+
+    // Do nothing if warehouse empty
+    if (!formData.sourceWarehouse) return;
+
+    // Reset items
+    setFormData((prev) => ({
+      ...prev,
+      items: [
+        {
+          itemCode: "",
+          itemName: "",
+          quantity: 0,
+          unitType: "",
+        },
+      ],
+    }));
+
+    setShowItemSuggestions(null);
+  }, [formData.sourceWarehouse, isCreateDialogOpen]);
+
+  const getTotalQuantityForItem = (
+    itemCode: string,
+    indexToExclude?: number
+  ) => {
+    return formData.items.reduce((total, item, idx) => {
+      if (idx === indexToExclude) return total;
+      return item.itemCode === itemCode
+        ? total + Number(item.quantity || 0)
+        : total;
+    }, 0);
+  };
+
+  const updateQuantity = (index: number, newQty: number) => {
+    const updatedItems = [...formData.items];
+    const item = updatedItems[index];
+
+    const normalizedCode = item.itemCode?.trim().toUpperCase();
+    const inventoryMatch = inventoryItems.find(
+      (i) => i.itemCode?.trim().toUpperCase() === normalizedCode
+    );
+
+    const available = inventoryMatch?.availableQuantity || 0;
+
+    // Total quantity already used by SAME ITEM
+    const alreadyUsed = getTotalQuantityForItem(item.itemCode, index);
+
+    // Max allowed for this specific row
+    const remaining = available - alreadyUsed;
+
+    // Prevent negative
+    const maxForThisRow = Math.max(remaining, 0);
+
+    const finalQty = Math.min(Math.max(newQty, 1), maxForThisRow);
+
+    updatedItems[index].quantity = finalQty;
+
+    setFormData((prev) => ({
+      ...prev,
+      items: updatedItems,
+    }));
+
+    if (newQty > maxForThisRow) {
+      toast.error(
+        `Total quantity for ${item.itemCode} cannot exceed ${available}. Remaining allowed: ${remaining}.`
+      );
     }
   };
 
@@ -1506,29 +1578,42 @@ export default function TransferRequestPage() {
                         {showItemSuggestions === index && (
                           <div className="absolute top-full mt-1 w-full z-50">
                             <ul className="bg-white border border-border rounded-md shadow-lg max-h-32 overflow-y-auto text-sm">
-                              {inventoryItems
-                                .filter((option) => {
-                                  const code = option.itemCode
-                                    ?.trim()
-                                    .toUpperCase();
-                                  const isSelected = formData.items.some(
-                                    (itm, i) =>
-                                      i !== index &&
-                                      itm.itemCode?.trim().toUpperCase() ===
-                                        code
-                                  );
+                              {(() => {
+                                const filtered = inventoryItems.filter(
+                                  (option) => {
+                                    const code = option.itemCode
+                                      ?.trim()
+                                      .toUpperCase();
+                                    const isSelected = formData.items.some(
+                                      (itm, i) =>
+                                        i !== index &&
+                                        itm.itemCode?.trim().toUpperCase() ===
+                                          code
+                                    );
+
+                                    return (
+                                      option.warehouse?.trim().toUpperCase() ===
+                                        formData.sourceWarehouse
+                                          ?.trim()
+                                          .toUpperCase() &&
+                                      code?.includes(
+                                        item.itemCode?.toUpperCase() || ""
+                                      ) &&
+                                      !isSelected &&
+                                      (option.availableQuantity || 0) > 0 // exclude 0 stock
+                                    );
+                                  }
+                                );
+
+                                if (filtered.length === 0) {
                                   return (
-                                    option.warehouse?.trim().toUpperCase() ===
-                                      formData.sourceWarehouse
-                                        ?.trim()
-                                        .toUpperCase() &&
-                                    code?.includes(
-                                      item.itemCode?.toUpperCase() || ""
-                                    ) &&
-                                    !isSelected
+                                    <li className="px-3 py-2 text-muted-foreground cursor-default">
+                                      No available items
+                                    </li>
                                   );
-                                })
-                                .map((option) => {
+                                }
+
+                                return filtered.map((option) => {
                                   const code = option.itemCode
                                     ?.trim()
                                     .toUpperCase();
@@ -1543,10 +1628,7 @@ export default function TransferRequestPage() {
                                           itemCode: code,
                                           itemName: option.itemName || "",
                                           unitType: option.unitType || "",
-                                          quantity: Math.min(
-                                            updated[index].quantity || 1,
-                                            option.quantity || 1
-                                          ),
+                                          quantity: 0, // or 1 if you prefer
                                         };
                                         setFormData((prev) => ({
                                           ...prev,
@@ -1557,7 +1639,8 @@ export default function TransferRequestPage() {
                                       {code} - {option.itemName}
                                     </li>
                                   );
-                                })}
+                                });
+                              })()}
                             </ul>
                           </div>
                         )}
@@ -1572,17 +1655,13 @@ export default function TransferRequestPage() {
                       />
 
                       {/* Quantity */}
+
                       <Input
                         type="number"
-                        min={1}
-                        max={maxQty}
                         value={item.quantity}
                         onChange={(e) => {
                           const raw = Number(e.target.value) || 0;
-                          const clamped = Math.max(raw, 1);
-                          const updated = [...formData.items];
-                          updated[index].quantity = Math.min(clamped, maxQty);
-                          setFormData((prev) => ({ ...prev, items: updated }));
+                          updateQuantity(index, raw);
                         }}
                         className="text-end"
                       />

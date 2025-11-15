@@ -227,89 +227,120 @@ export default function InventoryTracker() {
       </div>
 
       {/* Table */}
-      <div className="overflow-x-auto rounded-md border">
-        <Table>
-          <TableHeader className="bg-muted/50">
+      <div className="overflow-x-auto rounded-xl border border-gray-200 shadow-sm">
+        <Table className="min-w-full">
+          <TableHeader className="bg-muted/50 sticky top-0 z-10 shadow-sm">
             <TableRow>
-              <TableHead>Date</TableHead>
-              <TableHead>Item Name</TableHead>
-              <TableHead>Warehouse</TableHead>
-              <TableHead>Reference No.</TableHead>
-              <TableHead>Particulars</TableHead>
-              <TableHead className="text-green-600">In</TableHead>
-              <TableHead className="text-red-600">Out</TableHead>
-              <TableHead>Current Onhand</TableHead>
-              <TableHead>Activity</TableHead>
-              <TableHead>User</TableHead>
+              <TableHead className="px-4 py-2 text-left">Date</TableHead>
+              <TableHead className="px-4 py-2 text-left">Item Name</TableHead>
+              <TableHead className="px-4 py-2 text-left">Warehouse</TableHead>
+              <TableHead className="px-4 py-2 text-left">
+                Reference No.
+              </TableHead>
+              <TableHead className="px-4 py-2 text-left">Particulars</TableHead>
+              <TableHead className="px-4 py-2 text-right text-green-600">
+                In
+              </TableHead>
+              <TableHead className="px-4 py-2 text-right text-red-600">
+                Out
+              </TableHead>
+              <TableHead className="px-4 py-2 text-right">
+                Current Onhand
+              </TableHead>
+              <TableHead className="px-4 py-2 text-left">Activity</TableHead>
+              <TableHead className="px-4 py-2 text-left">User</TableHead>
             </TableRow>
           </TableHeader>
+
           <TableBody>
             {sortedPaginatedData.length === 0 ? (
               <TableRow>
                 <TableCell
                   colSpan={10}
-                  className="text-center text-muted-foreground">
+                  className="py-6 text-center text-muted-foreground">
                   No inventory data found
                 </TableCell>
               </TableRow>
             ) : (
-              sortedPaginatedData.map((item, index) => (
-                <TableRow key={`${item.itemCode}-${item.warehouse}-${index}`}>
-                  <TableCell>
-                    {item.updatedAt || item.createdAt
-                      ? new Date(
-                          item.updatedAt ?? item.createdAt!
-                        ).toLocaleDateString("en-PH", {
-                          year: "numeric",
-                          month: "short",
-                          day: "numeric",
-                        })
-                      : "—"}
-                  </TableCell>
+              sortedPaginatedData.map((item, index) => {
+                // Determine row styling
+                const rowStyle = index % 2 === 0 ? "bg-muted/10" : "";
+                const hoverStyle = "hover:bg-muted/30 transition-colors";
 
-                  <TableCell>{item.itemName ?? "—"}</TableCell>
-                  <TableCell>{item.warehouse ?? "—"}</TableCell>
-                  <TableCell>
-                    <div
-                      className="max-w-xs truncate"
+                // Determine activity color
+                const activityColor =
+                  item.activity === "PURCHASE"
+                    ? "text-green-600"
+                    : item.activity === "SALE"
+                    ? "text-red-600"
+                    : item.activity === "RETURNED"
+                    ? "text-blue-600"
+                    : "text-yellow-600";
+
+                return (
+                  <TableRow
+                    key={`${item.itemCode}-${item.warehouse}-${index}`}
+                    className={`${rowStyle} ${hoverStyle}`}>
+                    <TableCell className="px-4 py-2 whitespace-nowrap">
+                      {item.updatedAt || item.createdAt
+                        ? new Date(
+                            item.updatedAt ?? item.createdAt!
+                          ).toLocaleDateString("en-PH", {
+                            year: "numeric",
+                            month: "short",
+                            day: "numeric",
+                          })
+                        : "—"}
+                    </TableCell>
+
+                    <TableCell className="px-4 py-2">
+                      {item.itemName ?? "—"}
+                    </TableCell>
+                    <TableCell className="px-4 py-2">
+                      {item.warehouse ?? "—"}
+                    </TableCell>
+
+                    <TableCell
+                      className="px-4 py-2 max-w-xs truncate"
                       title={item.referenceNumber}>
                       {item.referenceNumber?.trim() || "—"}
-                    </div>
-                  </TableCell>
-                  <TableCell>
-                    <div className="max-w-xs truncate" title={item.particulars}>
-                      {item.particulars ?? "—"}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-green-600">
-                    {item.inQty > 0 ? item.inQty : "-"}
-                  </TableCell>
-                  <TableCell className="text-red-600">
-                    {item.outQty > 0 ? item.outQty : "-"}
-                  </TableCell>
-                  <TableCell>{item.currentOnhand ?? "—"}</TableCell>
-                  <TableCell>
-                    {item.activity ? (
-                      <span
-                        className={`inline-block rounded-full  py-1   ${
-                          item.activity === "PURCHASE"
-                            ? "inline-flex items-center gap-1 text-green-600"
-                            : item.activity === "SALE"
-                            ? "inline-flex items-center gap-1 text-red-600"
-                            : item.activity === "RETURNED"
-                            ? "inline-flex items-center gap-1 text-blue-600"
-                            : "inline-flex items-center gap-1 text-yellow-600"
-                        }`}>
-                        {item.activity}
-                      </span>
-                    ) : (
-                      "—"
-                    )}
-                  </TableCell>
+                    </TableCell>
 
-                  <TableCell>{item.user ?? "—"}</TableCell>
-                </TableRow>
-              ))
+                    <TableCell
+                      className="px-4 py-2 max-w-xs truncate"
+                      title={item.particulars}>
+                      {item.particulars ?? "—"}
+                    </TableCell>
+
+                    <TableCell className="px-4 py-2 text-right text-green-600 font-medium">
+                      {item.inQty > 0 ? item.inQty : "-"}
+                    </TableCell>
+
+                    <TableCell className="px-4 py-2 text-right text-red-600 font-medium">
+                      {item.outQty > 0 ? item.outQty : "-"}
+                    </TableCell>
+
+                    <TableCell className="px-4 py-2 text-right">
+                      {item.currentOnhand ?? "—"}
+                    </TableCell>
+
+                    <TableCell className="px-4 py-2">
+                      {item.activity ? (
+                        <span
+                          className={`inline-flex items-center gap-1 font-medium ${activityColor} px-2 py-1 rounded-full bg-muted/20`}>
+                          {item.activity}
+                        </span>
+                      ) : (
+                        "—"
+                      )}
+                    </TableCell>
+
+                    <TableCell className="px-4 py-2">
+                      {item.user ?? "—"}
+                    </TableCell>
+                  </TableRow>
+                );
+              })
             )}
           </TableBody>
         </Table>

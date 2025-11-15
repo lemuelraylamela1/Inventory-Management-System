@@ -367,6 +367,7 @@ export type TransferRequestItem = {
   itemName?: string;
   quantity: number;
   unitType: string;
+  originalQuantity?: number;
 };
 
 export type TransferRequest = {
@@ -467,4 +468,31 @@ export type AccountsReceivable = {
   status: "UNPAID" | "PARTIAL" | "PAID";
   createdAt: Date;
   updatedAt: Date;
+};
+
+export type Delivery = {
+  _id: string;
+  drNo: string;
+  soNumber: string;
+  customer: string;
+  warehouse: string;
+  shippingAddress: string;
+  deliveryDate: string; // or Date if you prefer
+  remarks: string;
+  status: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type DeliveryItem = {
+  itemCode?: string;
+  itemName: string;
+  availableQuantity: number; // original SO quantity
+  quantity: number; // editable quantity
+  selected: boolean; // checkbox
+  unitType: string;
+  price: number;
+  amount: number;
+  weight?: number;
+  cbm?: number;
 };

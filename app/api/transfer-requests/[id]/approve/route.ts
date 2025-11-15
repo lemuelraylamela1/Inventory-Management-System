@@ -195,6 +195,10 @@ async function processTransferItem({
  * PATCH — APPROVE TRANSFER REQUEST
  * --------------------------------------------- */
 
+/* ---------------------------------------------
+ * PATCH — APPROVE TRANSFER REQUEST
+ * --------------------------------------------- */
+
 export async function PATCH(
   req: Request,
   props: { params: Promise<{ id: string }> }
@@ -204,10 +208,7 @@ export async function PATCH(
   try {
     await connectMongoDB();
 
-    const requestDoc = (await TransferRequestModel.findById(
-      id
-    )) as HydratedDocument<TransferRequestDocument> | null;
-
+    const requestDoc = await TransferRequestModel.findById(id);
     if (!requestDoc) {
       return NextResponse.json(
         { error: "Transfer request not found" },
@@ -219,46 +220,149 @@ export async function PATCH(
       return NextResponse.json({ error: "Already approved" }, { status: 400 });
     }
 
-    /* Normalize items */
-    const normalizedItems: NormalizedTransferItem[] = requestDoc.items
-      .map((item) => {
-        const qty = Number(item.quantity);
-        if (qty < 1) return null;
+    const sourceWarehouse = requestDoc.sourceWarehouse.trim().toUpperCase();
+    const destWarehouse = requestDoc.requestingWarehouse.trim().toUpperCase();
 
-        return {
-          itemCode: item.itemCode,
-          unitType: item.unitType,
-          itemName: item.itemName,
-          quantity: qty,
-        };
-      })
-      .filter((i): i is NormalizedTransferItem => i !== null);
-
-    if (normalizedItems.length === 0) {
-      return NextResponse.json(
-        { error: "All items invalid after normalization." },
-        { status: 400 }
-      );
-    }
-
-    /* Process items */
     const results: Record<string, ProcessedResult> = {};
 
-    for (const item of normalizedItems) {
-      const result = await processTransferItem({
-        ...item,
-        sourceWarehouse: requestDoc.sourceWarehouse,
-        requestingWarehouse: requestDoc.requestingWarehouse,
+    for (const item of requestDoc.items) {
+      const qty = Number(item.quantity);
+      if (qty <= 0) continue;
+
+      const itemCode = item.itemCode.trim().toUpperCase();
+      const itemData = await Item.findOne({ itemCode });
+      const itemName = itemData?.itemName || item.itemName || "UNNAMED ITEM";
+      const category = itemData?.category || "UNCATEGORIZED";
+
+      /* -----------------------
+       * Update source warehouse
+       * ----------------------- */
+      let sourceDoc = await InventoryMain.findOne({
+        itemCode,
+        warehouse: sourceWarehouse,
       });
-      results[item.itemCode] = result;
+
+      if (!sourceDoc) {
+        // If source item does not exist, create with initial 0 qty
+        sourceDoc = await InventoryMain.create({
+          itemCode,
+          itemName,
+          unitType: item.unitType,
+          category,
+          warehouse: sourceWarehouse,
+          quantity: 0,
+          quantityOnHold: 0,
+          availableQuantity: 0,
+        });
+      }
+
+      sourceDoc.quantity = Math.max((sourceDoc.quantity || 0) - qty, 0);
+      sourceDoc.quantityOnHold = Math.max(
+        (sourceDoc.quantityOnHold || 0) - qty,
+        0
+      );
+      sourceDoc.availableQuantity = Math.max(
+        (sourceDoc.quantity || 0) - (sourceDoc.quantityOnHold || 0),
+        0
+      );
+      await sourceDoc.save();
+
+      /* ---------------------------
+       * Update destination warehouse
+       * --------------------------- */
+      let destDoc = await InventoryMain.findOne({
+        itemCode,
+        warehouse: destWarehouse,
+      });
+
+      if (!destDoc) {
+        destDoc = await InventoryMain.create({
+          itemCode,
+          itemName,
+          unitType: item.unitType,
+          category,
+          warehouse: destWarehouse,
+          quantity: qty,
+          quantityOnHold: 0,
+          availableQuantity: qty,
+        });
+      } else {
+        destDoc.quantity = (destDoc.quantity || 0) + qty;
+        destDoc.availableQuantity = (destDoc.availableQuantity || 0) + qty;
+        await destDoc.save();
+      }
+
+      /* -------------------
+       * Inventory tracker logs
+       * ------------------- */
+      const timestamp = new Date();
+
+      const sourceInv = await Inventory.findOne({ warehouse: sourceWarehouse });
+      const destInv = await Inventory.findOne({ warehouse: destWarehouse });
+
+      const sourceEntry = {
+        itemCode,
+        itemName,
+        category,
+        unitType: item.unitType,
+        inQty: 0,
+        outQty: qty,
+        currentOnhand: sourceDoc.quantity,
+        quantity: sourceDoc.quantity,
+        particulars: `Transferred to ${destWarehouse}`,
+        activity: "TRANSFER",
+        date: timestamp.toISOString(),
+        receivedAt: timestamp,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      const destEntry = {
+        itemCode,
+        itemName,
+        category,
+        unitType: item.unitType,
+        inQty: qty,
+        outQty: 0,
+        currentOnhand: destDoc.quantity,
+        quantity: destDoc.quantity,
+        particulars: `Received from ${sourceWarehouse}`,
+        activity: "TRANSFER",
+        date: timestamp.toISOString(),
+        receivedAt: timestamp,
+        createdAt: timestamp,
+        updatedAt: timestamp,
+      };
+
+      if (sourceInv) {
+        sourceInv.items.push(sourceEntry);
+        await sourceInv.save();
+      } else {
+        await Inventory.create({
+          warehouse: sourceWarehouse,
+          items: [sourceEntry],
+        });
+      }
+
+      if (destInv) {
+        destInv.items.push(destEntry);
+        await destInv.save();
+      } else {
+        await Inventory.create({
+          warehouse: destWarehouse,
+          items: [destEntry],
+        });
+      }
+
+      results[itemCode] = {
+        itemCode,
+        source: sourceDoc.quantity,
+        destination: destDoc.quantity,
+      };
     }
 
-    /* Update request */
+    // Update transfer request status
     requestDoc.status = "APPROVED";
-    requestDoc.items =
-      normalizedItems as unknown as TransferRequestItemSubdoc[];
-
-    requestDoc.markModified("items");
     await requestDoc.save();
 
     return NextResponse.json(

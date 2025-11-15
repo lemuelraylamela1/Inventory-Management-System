@@ -98,6 +98,7 @@ export function Sidebar({
 
   const sales = [
     { id: "sales-order", label: "Sales Order", icon: ShoppingCart },
+    { id: "delivery", label: "Delivery", icon: Truck },
     { id: "sales-invoice", label: "Sales Invoice", icon: FileText },
   ];
 
