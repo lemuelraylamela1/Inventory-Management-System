@@ -1024,7 +1024,7 @@ export default function SalesOrder({ onSuccess }: Props) {
 
   const allowedStatuses: SalesOrder["status"][] = [
     "PENDING",
-    "TO PREPARE",
+    "PREPARED",
     "CANCELLED",
     "COMPLETED",
   ];
@@ -3243,13 +3243,40 @@ export default function SalesOrder({ onSuccess }: Props) {
                       <TableCell>{so.customer || "—"}</TableCell>
 
                       <TableCell>{so.formattedNetTotal}</TableCell>
-
+                      {/* 
                       <TableCell>
                         <StatusStepperButton
                           soId={String(so._id)}
                           currentStatus={so.status}
                           handleUpdateStatus={handleUpdateStatus}
                         />
+                      </TableCell> */}
+                      <TableCell>
+                        {so.status === "PENDING" ? (
+                          <span className="inline-flex items-center gap-1 text-yellow-700 font-bold">
+                            PENDING
+                          </span>
+                        ) : so.status === "PREPARED" ? (
+                          <span className="inline-flex items-center gap-1 text-blue-700 font-bold">
+                            PREPARED
+                          </span>
+                        ) : so.status === "COMPLETED" ? (
+                          <span className="inline-flex items-center gap-1 text-green-700 font-bold">
+                            COMPLETED
+                          </span>
+                        ) : so.status === "PARTIAL" ? (
+                          <span className="inline-flex items-center gap-1 text-orange-700 font-bold">
+                            PARTIAL
+                          </span>
+                        ) : so.status === "DELIVERED" ? (
+                          <span className="inline-flex items-center gap-1 text-teal-600 font-bold">
+                            DELIVERED
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-red-700 font-bold">
+                            CANCELLED
+                          </span>
+                        )}
                       </TableCell>
 
                       <TableCell>
@@ -4358,12 +4385,18 @@ export default function SalesOrder({ onSuccess }: Props) {
                     <span
                       className={`font-semibold ${
                         formData.status === "COMPLETED"
-                          ? "text-green-600"
-                          : formData.status === "TO PREPARE"
-                          ? "text-blue-600"
+                          ? "text-green-700 font-bold"
+                          : formData.status === "PREPARED"
+                          ? "text-blue-600 font-bold"
                           : formData.status === "PENDING"
-                          ? "text-yellow-600"
-                          : "text-gray-500"
+                          ? "text-yellow-600 font-bold"
+                          : formData.status === "PARTIAL"
+                          ? "text-orange-600 font-bold"
+                          : formData.status === "CANCELLED"
+                          ? "text-red-600"
+                          : formData.status === "DELIVERED"
+                          ? "text-teal-700 font-bold"
+                          : "text-gray-500 font-bold"
                       }`}>
                       {formData.status}
                     </span>

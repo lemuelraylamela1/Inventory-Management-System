@@ -29,6 +29,7 @@ import {
   Inbox,
   Search,
   Plus,
+  CheckCircle,
 } from "lucide-react";
 import {
   AlertDialog,
@@ -60,6 +61,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import toast from "react-hot-toast";
 
 import type { Delivery, SalesOrder, DeliveryItem } from "./type";
 export default function Delivery() {
@@ -426,6 +428,38 @@ export default function Delivery() {
     }
   };
 
+  const handleMarkDelivered = async (id: string) => {
+    if (!id) {
+      toast.error("Invalid delivery ID.");
+      return;
+    }
+
+    try {
+      const res = await fetch(`/api/delivery/${id}`, {
+        method: "PATCH",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ status: "DELIVERED" }),
+      });
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => null);
+        throw new Error(error?.message || "Failed to update delivery");
+      }
+
+      toast.success("Delivery marked as DELIVERED!");
+
+      // ✅ Update UI list immediately
+      setDeliveries((prev) =>
+        prev.map((d) => (d._id === id ? { ...d, status: "DELIVERED" } : d))
+      );
+    } catch (err) {
+      console.error("handleMarkDelivered error:", err);
+      toast.error("Failed to mark as delivered.");
+    }
+  };
+
   return (
     <Card className="w-full">
       <CardHeader>
@@ -556,11 +590,30 @@ export default function Delivery() {
                         <span className="text-blue-700 font-bold">
                           PREPARED
                         </span>
+                      ) : delivery.status === "DELIVERED" ? (
+                        <span className="text-teal-600 font-bold">
+                          DELIVERED
+                        </span>
+                      ) : delivery.status === "COMPLETED" ? (
+                        <span className="text-green-700 font-bold">
+                          COMPLETED
+                        </span>
                       ) : (
-                        <span className="text-red-600">INACTIVE</span>
+                        <span className="text-red-700 font-bold">
+                          CANCELLED
+                        </span>
                       )}
                     </TableCell>
                     <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleMarkDelivered(delivery._id!)}
+                        disabled={delivery.status !== "PREPARED"}
+                        title="Mark as Delivered">
+                        <CheckCircle className="w-4 h-4 text-green-600" />
+                      </Button>
+
                       <Button
                         variant="ghost"
                         size="sm"
@@ -1391,6 +1444,27 @@ export default function Delivery() {
                     : ""}
                 </span>
               </p>
+              <p>
+                Status:{" "}
+                <span
+                  className={`font-semibold ${
+                    formData.status === "COMPLETED"
+                      ? "text-green-700 font-bold"
+                      : formData.status === "PREPARED"
+                      ? "text-blue-600 font-bold"
+                      : formData.status === "PENDING"
+                      ? "text-yellow-600 font-bold"
+                      : formData.status === "PARTIAL"
+                      ? "text-orange-600 font-bold"
+                      : formData.status === "CANCELLED"
+                      ? "text-red-600"
+                      : formData.status === "DELIVERED"
+                      ? "text-teal-700 font-bold"
+                      : "text-gray-500 font-bold"
+                  }`}>
+                  {formData.status}
+                </span>
+              </p>
             </div>
           </div>
 
@@ -1442,7 +1516,6 @@ export default function Delivery() {
                 <table className="min-w-full">
                   <thead className="bg-primary text-white">
                     <tr>
-                      <th className="p-2">#</th>
                       <th className="p-2 text-left">Item Code</th>
                       <th className="p-2 text-left">Item Name</th>
                       <th className="p-2 text-right">Available Qty</th>
@@ -1454,7 +1527,6 @@ export default function Delivery() {
                       <tr
                         key={item.itemCode || idx}
                         className="hover:bg-gray-50">
-                        <td className="p-2 text-center">{idx + 1}</td>
                         <td className="p-2 text-left font-medium">
                           {item.itemCode}
                         </td>

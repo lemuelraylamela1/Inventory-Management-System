@@ -274,7 +274,13 @@ export type SalesOrder = {
   deliveryDate?: string;
   shippingAddress?: string;
   notes?: string;
-  status: "PENDING" | "TO PREPARE" | "COMPLETED" | "CANCELLED";
+  status:
+    | "PENDING"
+    | "PREPARED"
+    | "COMPLETED"
+    | "CANCELLED"
+    | "PARTIAL"
+    | "DELIVERED";
   items: SalesOrderItem[];
   discounts?: string[];
   discountBreakdown: DiscountStep[];
@@ -311,7 +317,7 @@ export interface SalesOrderMeta {
   deliveryDate?: string;
   shippingAddress?: string;
   notes?: string;
-  status: "PENDING" | "TO PREPARE" | "COMPLETED" | "CANCELLED";
+  status: "PENDING" | "PREPARED" | "COMPLETED" | "CANCELLED";
   items: SalesOrderItem[];
   discounts?: string[];
   discountBreakdown: DiscountStep[];
@@ -333,10 +339,15 @@ export type SalesInvoice = {
   _id: string;
   invoiceNo: string; // e.g. "SI0000000001"
   invoiceDate: Date;
+  drNo?: string; // Delivery Receipt reference (optional)
   customer: string; // uppercase name
   customerRef?: string; // ObjectId reference
   salesPerson: string;
-  salesOrder?: string; // ObjectId reference
+  soNumber?: string; // optional sales order reference
+  warehouse?: string;
+  shippingAddress?: string;
+  deliveryDate?: string;
+  remarks?: string;
   amount: number;
   balance: number;
   status: "UNPAID" | "PARTIAL" | "PAID" | "VOID";
@@ -352,7 +363,7 @@ export type SalesInvoice = {
 };
 
 export type SalesInvoiceItem = {
-  _id: string;
+  _id?: string;
   itemCode: string;
   itemName: string;
   description: string;
@@ -480,13 +491,14 @@ export type Delivery = {
   deliveryDate: string; // or Date if you prefer
   remarks: string;
   status: string;
-  createdAt?: string;
-  updatedAt?: string;
+  createdAt?: Date;
+  updatedAt?: Date;
 };
 
 export type DeliveryItem = {
   itemCode?: string;
   itemName: string;
+  description?: string;
   availableQuantity: number; // original SO quantity
   quantity: number; // editable quantity
   selected: boolean; // checkbox

@@ -2,12 +2,16 @@ import { NextRequest, NextResponse } from "next/server";
 import connectMongoDB from "@/libs/mongodb";
 import DeliveryModel from "@/models/delivery";
 import { Delivery, DeliveryItem } from "@/app/components/sections/type";
+import SalesOrderModel from "@/models/salesOrder";
 
 // Define payload type for PATCH
 type DeliveryUpdatePayload = Partial<Delivery> & { items?: DeliveryItem[] };
 
 // GET /api/delivery/:id
-export async function GET(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+export async function GET(
+  req: NextRequest,
+  props: { params: Promise<{ id: string }> }
+) {
   const params = await props.params;
   try {
     await connectMongoDB();
@@ -31,8 +35,13 @@ export async function GET(req: NextRequest, props: { params: Promise<{ id: strin
 }
 
 // PATCH /api/delivery/:id
-export async function PATCH(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+
+export async function PATCH(
+  req: NextRequest,
+  props: { params: Promise<{ id: string }> }
+) {
   const params = await props.params;
+
   try {
     await connectMongoDB();
     const body: DeliveryUpdatePayload = await req.json();
@@ -55,6 +64,7 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
         delete updatedFields[key as keyof DeliveryUpdatePayload]
     );
 
+    // Update delivery
     const updated = await DeliveryModel.findByIdAndUpdate(
       params.id,
       { $set: updatedFields },
@@ -65,6 +75,14 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
       return NextResponse.json(
         { error: "Delivery not found" },
         { status: 404 }
+      );
+    }
+
+    // ✅ Update linked Sales Order if status changed to DELIVERED
+    if (body.status === "DELIVERED" && updated.soNumber) {
+      await SalesOrderModel.findOneAndUpdate(
+        { soNumber: updated.soNumber },
+        { status: "DELIVERED" }
       );
     }
 
@@ -79,7 +97,10 @@ export async function PATCH(req: NextRequest, props: { params: Promise<{ id: str
 }
 
 // DELETE /api/delivery/:id
-export async function DELETE(req: NextRequest, props: { params: Promise<{ id: string }> }) {
+export async function DELETE(
+  req: NextRequest,
+  props: { params: Promise<{ id: string }> }
+) {
   const params = await props.params;
   try {
     await connectMongoDB();

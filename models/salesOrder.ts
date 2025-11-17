@@ -60,7 +60,14 @@ const SalesOrderSchema = new Schema<SalesOrderDocument>(
     notes: { type: String, trim: true },
     status: {
       type: String,
-      enum: ["PENDING", "TO PREPARE", "COMPLETED", "CANCELLED"],
+      enum: [
+        "PENDING",
+        "PREPARED",
+        "COMPLETED",
+        "CANCELLED",
+        "PARTIAL",
+        "DELIVERED",
+      ],
       default: "PENDING",
     },
     items: {
