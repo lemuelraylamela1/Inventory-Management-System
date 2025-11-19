@@ -17,6 +17,7 @@ const ItemSchema = new Schema<SalesOrderItem>(
     itemName: { type: String, required: true, trim: true, uppercase: true },
     description: { type: String, trim: true },
     quantity: { type: Number, required: true, min: 0 },
+    availableQuantity: { type: Number, min: 0, default: 0 }, // ✅ default added
     unitType: { type: String, trim: true, uppercase: true },
     price: { type: Number, required: true, min: 0 },
     amount: { type: Number, required: true, min: 0 },
@@ -44,11 +45,7 @@ const SalesOrderSchema = new Schema<SalesOrderDocument>(
     soNumber: { type: String, unique: true },
     customer: { type: String, required: true, trim: true, uppercase: true },
     address: { type: String, trim: true },
-    contactNumber: {
-      type: String,
-
-      trim: true,
-    },
+    contactNumber: { type: String, trim: true },
     salesPerson: { type: String, required: true, trim: true, uppercase: true },
     warehouse: { type: String, required: true, trim: true, uppercase: true },
     transactionDate: {
@@ -118,15 +115,13 @@ SalesOrderSchema.pre("validate", async function (next) {
     if (!isNaN(parsed)) nextNumber = parsed + 1;
   }
 
-  const padded = String(nextNumber).padStart(10, "0");
-  so.soNumber = `SO${padded}`;
+  so.soNumber = `SO${String(nextNumber).padStart(10, "0")}`;
   next();
 });
 
-// 🧠 Inject computed fields before saving
+// 🧠 Compute derived fields (availableQuantity is just stored, no logic)
 SalesOrderSchema.pre("save", function (next) {
   const so = this as HydratedDocument<SalesOrderDocument>;
-
   const items = so.items ?? [];
   const discounts = so.discounts ?? [];
 

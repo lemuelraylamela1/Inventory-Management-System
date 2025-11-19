@@ -41,18 +41,24 @@ export async function POST(request: NextRequest) {
   await connectMongoDB();
 
   try {
-    // create order as before
-    const totalQuantity = computeTotalQuantity(items);
-    const formattedWeight = formatWeight(items);
-    const formattedCBM = formatCBM(items);
-    const formattedTotal = computeSubtotal(items);
+    // Set availableQuantity = quantity for each item
+    const itemsWithAvailable = items.map((item) => ({
+      ...item,
+      availableQuantity: item.quantity ?? 0, // 🔹 auto-store quantity
+    }));
+
+    // compute totals and discounts
+    const totalQuantity = computeTotalQuantity(itemsWithAvailable);
+    const formattedWeight = formatWeight(itemsWithAvailable);
+    const formattedCBM = formatCBM(itemsWithAvailable);
+    const formattedTotal = computeSubtotal(itemsWithAvailable);
     const { breakdown: discountBreakdown, formattedNetTotal } =
       computeDiscountBreakdown(rest.total, rest.discounts);
 
     const enrichedOrder = {
       ...rest,
       warehouse: warehouse.trim().toUpperCase(),
-      items,
+      items: itemsWithAvailable,
       totalQuantity,
       formattedWeight,
       formattedCBM,
@@ -63,28 +69,25 @@ export async function POST(request: NextRequest) {
 
     const newOrder = await SalesOrderModel.create(enrichedOrder);
 
-    // 🔹 Reserve inventory: move from availableQuantity → quantityOnHold
-    for (const item of items) {
-      if (!item.itemCode) continue; // skip if no itemCode
+    // 🔹 Reserve inventory if needed
+    for (const item of itemsWithAvailable) {
+      if (!item.itemCode) continue;
       const itemCode = item.itemCode.trim().toUpperCase();
       const quantity = item.quantity;
 
-      if (!quantity || quantity <= 0) continue; // skip invalid quantities
+      if (!quantity || quantity <= 0) continue;
 
       await InventoryMain.findOneAndUpdate(
         { itemCode, warehouse: warehouse.trim().toUpperCase() },
         {
           $inc: {
-            availableQuantity: -quantity, // deduct from available
-            quantityOnHold: quantity, // add to on-hold
+            availableQuantity: -quantity,
+            quantityOnHold: quantity,
           },
         },
         { new: true, upsert: true }
       );
     }
-
-    // Optional: keep your old function for tracking reservations
-    // await adjustInventoryReservation(items, warehouse, "reserve");
 
     return NextResponse.json(
       { message: "Sales order created", order: newOrder },

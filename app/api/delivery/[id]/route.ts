@@ -3,6 +3,9 @@ import connectMongoDB from "@/libs/mongodb";
 import DeliveryModel from "@/models/delivery";
 import { Delivery, DeliveryItem } from "@/app/components/sections/type";
 import SalesOrderModel from "@/models/salesOrder";
+import InventoryMain from "@/models/inventoryMain";
+import Inventory from "@/models/inventory";
+import { InventoryItem } from "../../../components/sections/type";
 
 // Define payload type for PATCH
 type DeliveryUpdatePayload = Partial<Delivery> & { items?: DeliveryItem[] };
@@ -79,11 +82,46 @@ export async function PATCH(
     }
 
     // ✅ Update linked Sales Order if status changed to DELIVERED
+    // ✅ Update linked Sales Order only if fully delivered
     if (body.status === "DELIVERED" && updated.soNumber) {
-      await SalesOrderModel.findOneAndUpdate(
-        { soNumber: updated.soNumber },
-        { status: "DELIVERED" }
-      );
+      const so = await SalesOrderModel.findOne({ soNumber: updated.soNumber });
+      if (so) {
+        let allDelivered = true;
+
+        for (const soItem of so.items) {
+          // Calculate total delivered quantity for this item
+          const deliveredQty = await DeliveryModel.aggregate([
+            { $match: { soNumber: so.soNumber, status: "DELIVERED" } },
+            { $unwind: "$items" },
+            { $match: { "items.itemCode": soItem.itemCode } },
+            {
+              $group: {
+                _id: "$items.itemCode",
+                totalDelivered: { $sum: "$items.quantity" },
+              },
+            },
+          ]);
+
+          const totalDelivered = deliveredQty[0]?.totalDelivered || 0;
+
+          if (totalDelivered < soItem.quantity) {
+            allDelivered = false;
+            break;
+          }
+        }
+
+        // Only set SO to DELIVERED if all items are fully delivered
+        if (allDelivered) {
+          await SalesOrderModel.findByIdAndUpdate(so._id, {
+            status: "DELIVERED",
+          });
+        } else {
+          // Optional: set to PARTIAL if some items delivered but not all
+          await SalesOrderModel.findByIdAndUpdate(so._id, {
+            status: "PARTIAL",
+          });
+        }
+      }
     }
 
     return NextResponse.json(updated, { status: 200 });

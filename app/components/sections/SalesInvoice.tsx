@@ -1,50 +1,5 @@
-"use client";
-
-import { useEffect, useMemo, useState, useRef } from "react";
-import { format } from "date-fns";
-import {
-  Eye,
-  Plus,
-  Trash2,
-  Loader2,
-  Search,
-  Filter,
-  CalendarDays,
-  User,
-  FileText,
-  Edit,
-} from "lucide-react";
-
-import { Checkbox } from "../ui/checkbox";
-import { Textarea } from "../ui/textarea";
-import { toast } from "sonner";
-import {
-  SalesInvoice,
-  Customer,
-  SalesOrder,
-  SalesOrderItem,
-  ItemType,
-} from "../sections/type";
-import { Button } from "../ui/button";
-import { Input } from "../ui/input";
-import {
-  Dialog,
-  DialogPanel,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogContent,
-  DialogFooter,
-} from "../ui/dialog";
-import { Label } from "../ui/label";
-import {
-  Table,
-  TableBody,
-  TableCell,
-  TableHead,
-  TableHeader,
-  TableRow,
-} from "../ui/table";
+import { useEffect, useState, useMemo, useRef } from "react";
+import { ScrollArea } from "../ui/scroll-area";
 import {
   Card,
   CardHeader,
@@ -53,182 +8,154 @@ import {
   CardDescription,
 } from "../ui/card";
 import {
+  Table,
+  TableHeader,
+  TableRow,
+  TableHead,
+  TableBody,
+  TableCell,
+} from "../ui/table";
+import { Checkbox } from "../ui/checkbox";
+import { Skeleton } from "../ui/skeleton";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Label } from "../ui/label";
+import {
+  Eye,
+  Edit,
+  Trash2,
+  Banknote,
+  Loader2,
+  Inbox,
+  Search,
+  Plus,
+  CheckCircle,
+} from "lucide-react";
+import {
+  AlertDialog,
+  AlertDialogTrigger,
+  AlertDialogContent,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogCancel,
+  AlertDialogAction,
+} from "../ui/alert-dialog";
+
+import {
+  Dialog,
+  DialogDescription,
+  DialogPanel,
+  DialogHeader,
+  DialogTitle,
+  DialogClose,
+  DialogFooter,
+  DialogContent,
+} from "../ui/dialog";
+
+import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
 } from "../ui/select";
+import toast from "react-hot-toast";
 
-import {
-  AlertDialog,
-  AlertDialogAction,
-  AlertDialogCancel,
-  AlertDialogContent,
-  AlertDialogDescription,
-  AlertDialogFooter,
-  AlertDialogHeader,
-  AlertDialogTitle,
-  AlertDialogTrigger,
-} from "../ui/alert-dialog";
-
-import { ScrollArea } from "@radix-ui/react-scroll-area";
-import { Separator } from "@radix-ui/react-separator";
-
-export default function SalesInvoicePage({
-  onSuccess,
-}: {
-  onSuccess?: () => void;
-}) {
-  const [salesInvoices, setSalesInvoices] = useState<SalesInvoice[]>([]);
-  const [customers, setCustomers] = useState<Customer[]>([]);
-  const [showCustomerSuggestions, setShowCustomerSuggestions] = useState(false);
-  const [itemCatalog, setItemCatalog] = useState<ItemType[]>([]);
-  const [isLoadingView, setIsLoadingView] = useState(false);
-  const [isLoadingCustomers, setIsLoadingCustomers] = useState(false);
-  const [paginatedSalesInvoices, setPaginatedSalesInvoices] = useState<
-    SalesInvoice[]
-  >([]);
-  const [dateFilter, setDateFilter] = useState("");
-  const [statusFilter, setStatusFilter] = useState("all");
+import type {
+  SalesInvoice,
+  Delivery,
+  SalesInvoiceItem,
+  DeliveryItem,
+  Customer,
+} from "./type";
+export default function SalesInvoice() {
+  const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
+  const [selectedIds, setSelectedIds] = useState<string[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState("");
-  const [currentPage, setCurrentPage] = useState(1);
   const [rowsPerPage, setRowsPerPage] = useState(10);
-  const [selectedInvoice, setSelectedInvoice] = useState<SalesInvoice | null>(
-    null
-  );
+  const [currentPage, setCurrentPage] = useState(1);
+  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
+  const [formData, setFormData] = useState<Partial<SalesInvoice>>({});
+  const [isCreating, setIsCreating] = useState(false);
+  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
 
-  const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
-  const [isLoading, setIsLoading] = useState(false);
-  const [isCreateDialogOpen, setIsCreateDialogOpen] = useState(false);
-  const [formData, setFormData] = useState<{
-    customer: string;
-    reference: string;
-    status: "UNPAID" | "PARTIAL" | "PAID" | "VOID";
-    invoiceDate: string;
-    dueDate: string;
-    notes: string;
-    salesPerson: string;
-    TIN: string;
-    terms: string;
-    address: string;
-    salesOrder: string;
-    salesOrderLabel: string;
-    soItems: SalesOrderItem[];
-    netTotal: string;
-    discounts: string[];
-    discountBreakdown: {
-      rate: number;
-      amount: number;
-      remaining: number;
-    }[];
-  }>({
-    customer: "",
-    reference: "",
-    status: "UNPAID",
-    invoiceDate: new Date().toISOString().split("T")[0],
-    dueDate: "",
-    notes: "",
-    salesPerson: "",
-    TIN: "",
-    terms: "",
-    address: "",
-    salesOrder: "",
-    salesOrderLabel: "",
-    soItems: [],
-    netTotal: "₱0.00",
-    discounts: [],
-    discountBreakdown: [],
-  });
+  const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>(
+    []
+  );
 
-  const [isCreating, setIsCreating] = useState(false);
+  const [soSuggestions, setSoSuggestions] = useState<string[]>([]);
+  const [isCustomerFocused, setIsCustomerFocused] = useState(false);
+  const [isSoFocused, setIsSoFocused] = useState(false);
+  const [items, setItems] = useState<DeliveryItem[]>([]);
 
-  const [salesOrderSuggestions, setSalesOrderSuggestions] = useState<
-    SalesOrder[]
-  >([]);
+  const filteredInvoices = useMemo(() => {
+    const query = searchTerm.toLowerCase();
+    return invoices.filter((inv) => {
+      const invoiceNo = inv.invoiceNo?.toLowerCase() || "";
+      const drNo = inv.drNo?.toLowerCase() || "";
+      const customer = inv.customer?.toLowerCase() || "";
+      return (
+        invoiceNo.includes(query) ||
+        drNo.includes(query) ||
+        customer.includes(query)
+      );
+    });
+  }, [invoices, searchTerm]);
 
-  const [usedSoNumbers, setUsedSoNumbers] = useState<string[]>([]);
+  const totalPages = Math.ceil(filteredInvoices.length / rowsPerPage);
 
-  const fetchUsedSoNumbers = async () => {
-    try {
-      const res = await fetch("/api/sales-invoices/used-sales-orders");
-      const raw = await res.json();
-      const normalized = Array.isArray(raw)
-        ? [...new Set(raw.map((num) => num.trim().toUpperCase()))]
-        : [];
-      setUsedSoNumbers(normalized);
-    } catch (err) {
-      console.error("❌ Failed to fetch used SO numbers:", err);
-      setUsedSoNumbers([]);
-    }
+  const paginatedInvoices: SalesInvoice[] = filteredInvoices.slice(
+    (currentPage - 1) * rowsPerPage,
+    currentPage * rowsPerPage
+  );
+
+  const resetForm = () => {
+    setFormData({});
   };
 
-  const normalizedUsedSoNumbers = useMemo(() => {
-    return [...new Set(usedSoNumbers.map((num) => num.trim().toUpperCase()))];
-  }, [usedSoNumbers]);
+  useEffect(() => {
+    if (!isCreateDialogOpen) {
+      setFormData({});
+      setIsCustomerFocused(false); // Reset focus when create dialog closes
+    }
+  }, [isCreateDialogOpen]);
 
   useEffect(() => {
-    if (formData.customer) fetchUsedSoNumbers();
-  }, [formData.customer]);
-
-  const [showSalesOrderSuggestions, setShowSalesOrderSuggestions] =
-    useState(false);
+    if (!isEditDialogOpen) {
+      setFormData({});
+      setIsCustomerFocused(false); // Reset focus when edit dialog closes
+    }
+  }, [isEditDialogOpen]);
 
   useEffect(() => {
-    const fetchSalesOrders = async () => {
-      const name = formData.customer?.trim().toUpperCase();
-      if (!name) return;
+    if (!isViewDialogOpen) {
+      setFormData({});
+      setIsCustomerFocused(false); // Reset focus when view dialog closes
+    }
+  }, [isViewDialogOpen]);
 
-      try {
-        const res = await fetch(
-          `/api/sales-orders/by-customer/${encodeURIComponent(name)}`
-        );
-        if (!res.ok) throw new Error(`HTTP ${res.status}`);
-        const { orders } = await res.json();
-        setSalesOrderSuggestions(orders || []);
-      } catch (err) {
-        console.error("❌ Failed to fetch sales orders:", err);
-        setSalesOrderSuggestions([]);
-      }
-    };
-
-    fetchSalesOrders();
-  }, [formData.customer]);
-
-  const descriptionMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    itemCatalog.forEach((item) => {
-      const key = item.itemName?.trim().toUpperCase();
-      map[key] = item.description?.trim() || "—";
-    });
-    return map;
-  }, [itemCatalog]);
-
-  // ✅ Fetch item catalog
   useEffect(() => {
-    const fetchItems = async () => {
-      try {
-        const res = await fetch("/api/items", { cache: "no-store" });
-        if (!res.ok) throw new Error("Failed to fetch items");
+    if (!isCreateDialogOpen) {
+      setFormData({});
+    }
+  }, [isCreateDialogOpen]);
 
-        const response = await res.json();
-        const data = Array.isArray(response)
-          ? response
-          : Array.isArray(response.items)
-          ? response.items
-          : [];
+  useEffect(() => {
+    if (!isEditDialogOpen) {
+      setFormData({});
+    }
+  }, [isEditDialogOpen]);
 
-        setItemCatalog(data);
-      } catch (err) {
-        console.error("Failed to fetch item catalog", err);
-        setItemCatalog([]);
-      }
-    };
-
-    fetchItems();
-  }, []);
+  useEffect(() => {
+    if (!isViewDialogOpen) {
+      setFormData({});
+    }
+  }, [isViewDialogOpen]);
 
   const isFirstFetch = useRef(true);
 
@@ -241,7 +168,7 @@ export default function SalesInvoicePage({
       try {
         const res = await fetch("/api/sales-invoices", { cache: "no-store" });
         const data = await res.json();
-        setSalesInvoices(data.invoices || []);
+        setInvoices(data.invoices || []);
       } catch (err) {
         console.error("❌ Failed to fetch invoices:", err);
       } finally {
@@ -259,1371 +186,462 @@ export default function SalesInvoicePage({
     return () => clearInterval(intervalId);
   }, []);
 
-  useEffect(() => {
-    console.log("Fetching customers...");
-
-    fetch("/api/customers")
+  const refreshInvoiceList = () => {
+    // Example: re-fetch invoices from your API
+    fetch("/api/sales-invoices")
       .then((res) => res.json())
-      .then((response) => {
-        console.log("Raw response:", response);
-
-        const data = Array.isArray(response?.items) ? response.items : [];
-
-        console.log("Parsed customers:", data);
-        setCustomers(data);
-      })
-      .catch((err) => console.error("Failed to fetch customers", err));
-  }, []);
-
-  const filteredSalesInvoices = useMemo(() => {
-    const query = searchTerm.trim().toLowerCase();
-
-    return salesInvoices.filter((inv) => {
-      const matchesSearch =
-        inv.invoiceNo.toLowerCase().includes(query) ||
-        inv.customer.toLowerCase().includes(query) ||
-        inv.status.toLowerCase().includes(query);
-
-      const matchesDate =
-        dateFilter === "" ||
-        (inv.invoiceDate &&
-          new Date(inv.invoiceDate).toISOString().split("T")[0] === dateFilter);
-
-      const matchesStatus =
-        statusFilter === "all" || inv.status === statusFilter;
-
-      return matchesSearch && matchesDate && matchesStatus;
-    });
-  }, [salesInvoices, searchTerm, dateFilter, statusFilter]);
-
-  const totalPages = useMemo(
-    () => Math.max(1, Math.ceil(filteredSalesInvoices.length / rowsPerPage)),
-    [filteredSalesInvoices.length, rowsPerPage]
-  );
-
-  useEffect(() => {
-    const start = (currentPage - 1) * rowsPerPage;
-    const end = currentPage * rowsPerPage;
-    setPaginatedSalesInvoices(filteredSalesInvoices.slice(start, end));
-  }, [filteredSalesInvoices, currentPage, rowsPerPage]);
-
-  const clearFilters = () => {
-    setDateFilter("");
-    setStatusFilter("all");
-    setSearchTerm("");
+      .then((data) => setInvoices(data))
+      .catch((err) => console.error("Failed to refresh invoices:", err));
   };
 
-  const [selectedIds, setSelectedIds] = useState<string[]>([]);
-
-  const toggleSelectAll = () => {
-    const visibleIds = paginatedSalesInvoices.map((inv) => inv._id);
-    const allSelected = visibleIds.every((id) => selectedIds.includes(id));
-    setSelectedIds(allSelected ? [] : visibleIds);
-  };
-
-  const toggleSelectOne = (id: string) => {
-    setSelectedIds((prev) =>
-      prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]
-    );
-  };
-
-  const isSelected = (id: string) => selectedIds.includes(id);
-
-  const handleView = (invoice: SalesInvoice) => {
-    setSelectedInvoice(invoice);
-    setIsViewDialogOpen(true);
-  };
-
-  const handleDelete = async (invoiceId: string) => {
-    if (!invoiceId || typeof invoiceId !== "string") {
-      console.warn("Invalid invoice ID:", invoiceId);
-      toast.error("Invalid sales invoice ID");
-      return;
-    }
-
+  const handleCustomerSearch = async (query: string) => {
     try {
-      const res = await fetch(`/api/sales-invoices/${invoiceId}`, {
-        method: "DELETE",
-      });
+      const res = await fetch("/api/customers"); // fetch all customers
+      if (!res.ok) throw new Error("Failed to fetch customers");
 
-      if (!res.ok) {
-        const error = await res.json();
-        throw new Error(error?.error || "Failed to delete sales invoice");
-      }
+      const json = await res.json();
+      const data: Customer[] = json.items ?? []; // extract items array
 
-      // Remove from local state
-      setSalesInvoices((prev) => prev.filter((inv) => inv._id !== invoiceId));
-
-      console.log("✅ Deleted sales invoice:", invoiceId);
-      toast.success(`Sales invoice #${invoiceId} deleted`);
-    } catch (error) {
-      console.error("❌ Error deleting sales invoice:", error);
-      toast.error(`Failed to delete invoice #${invoiceId}`);
-    }
-  };
-
-  const handleDeleteMany = async (_ids: string[]) => {
-    if (!_ids || _ids.length === 0) {
-      toast.error("No sales invoices selected for deletion.");
-      return;
-    }
-
-    try {
-      // Optimistically remove from UI
-      setSalesInvoices((prev) =>
-        prev.filter((inv) => !_ids.includes(String(inv._id)))
+      // filter by query
+      const filtered = data.filter((c) =>
+        c.customerName.toLowerCase().includes(query.toLowerCase())
       );
 
-      const results = await Promise.allSettled(
-        _ids.map(async (_id) => {
-          const res = await fetch(`/api/sales-invoices/${_id}`, {
-            method: "DELETE",
-          });
-
-          if (!res.ok) {
-            const error = await res.json();
-            console.warn(`❌ Failed to delete invoice ${_id}:`, error.message);
-            throw new Error(error.message || `Failed to delete invoice ${_id}`);
-          }
-
-          return res;
-        })
-      );
-
-      const failures = results.filter(
-        (result) => result.status === "rejected"
-      ) as PromiseRejectedResult[];
-
-      if (failures.length > 0) {
-        toast.warning(
-          `Some invoices could not be deleted (${failures.length} failed).`
-        );
-      } else {
-        toast.success("✅ Selected invoices deleted.");
-      }
-
-      setSelectedIds([]);
-      onSuccess?.(); // refresh list
+      setCustomerSuggestions(filtered);
     } catch (err) {
-      console.error("❌ Bulk delete failed:", err);
-      toast.error("Failed to delete selected invoices.");
+      console.error("Customer search error:", err);
+      setCustomerSuggestions([]);
     }
   };
 
-  const formatCurrency = (value?: number) =>
-    typeof value === "number" ? `₱${value.toFixed(2)}` : "₱0.00";
+  const handleCustomerSelect = async (customerId: string) => {
+    if (!customerId) return console.warn("Customer ID is required");
 
-  function applySequentialDiscounts(base: number, rates: number[]): number {
-    return rates.reduce((remaining, rate) => {
-      return remaining - remaining * (rate / 100);
-    }, base);
-  }
+    try {
+      const res = await fetch(`/api/customers/${customerId}`);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData?.error || "Customer not found");
+      }
 
-  const [validationErrors, setValidationErrors] = useState<
-    Record<
-      keyof Omit<SalesInvoice, "_id" | "createdAt" | "updatedAt" | "items">,
-      string
-    >
-  >({
-    invoiceNo: "",
-    invoiceDate: "",
-    customer: "",
-    customerRef: "",
-    salesPerson: "",
-    salesOrder: "",
-    amount: "",
-    balance: "",
-    status: "",
-    reference: "",
-    TIN: "",
-    terms: "",
-    address: "",
-    dueDate: "",
-    notes: "",
-  });
+      const customer: Customer = await res.json();
 
-  const validateForm = (): boolean => {
-    const errors: Record<
-      keyof Omit<SalesInvoice, "_id" | "createdAt" | "updatedAt" | "items">,
-      string
-    > = {
-      invoiceNo: "",
-      invoiceDate: "",
-      customer: "",
-      customerRef: "",
-      salesPerson: "",
-      salesOrder: "",
-      amount: "",
-      balance: "",
-      status: "",
-      reference: "",
-      TIN: "",
-      terms: "",
-      address: "",
-      dueDate: "",
-      notes: "",
+      setFormData((prev) => ({
+        ...prev,
+        customer: customer.customerName,
+        TIN: customer.TIN,
+        address: customer.address,
+        terms: customer.terms,
+        salesPerson: customer.salesAgent,
+        salesOrder: "",
+        drNo: "",
+      }));
+
+      // Enable DR input
+      setIsDrFocused(true);
+      setDrSuggestions([]);
+      setItems([]);
+      setCustomerSuggestions([]); // clear suggestions after select
+    } catch (err) {
+      console.error("Failed to select customer:", err);
+    }
+  };
+
+  const [drSuggestions, setDrSuggestions] = useState<
+    { _id: string; drNo: string }[]
+  >([]);
+
+  const [isDrFocused, setIsDrFocused] = useState(false);
+
+  const handleDrSearch = async (customer: string, query: string) => {
+    if (!customer) return setDrSuggestions([]);
+
+    try {
+      const res = await fetch("/api/delivery"); // get deliveries
+      if (!res.ok) throw new Error("Failed to fetch deliveries");
+
+      const data: Delivery[] = await res.json();
+
+      const filtered = data
+        .filter(
+          (d) =>
+            d.customer === customer &&
+            d.drNo.toLowerCase().includes(query.toLowerCase())
+        )
+        .map((d) => ({ _id: d._id, drNo: d.drNo }));
+
+      setDrSuggestions(filtered);
+    } catch (err) {
+      console.error("DR search error:", err);
+      setDrSuggestions([]);
+    }
+  };
+
+  const handleDrSelect = async (deliveryId: string) => {
+    if (!deliveryId) return console.warn("Delivery ID is required");
+
+    try {
+      const res = await fetch(`/api/delivery/${deliveryId}`);
+      if (!res.ok) {
+        const errorData = await res.json();
+        throw new Error(errorData?.error || "Failed to fetch delivery details");
+      }
+
+      // Backend response
+      const delivery: Delivery & { items?: DeliveryItem[] } = await res.json();
+
+      // Allowed invoice statuses
+      type InvoiceStatus = "UNPAID" | "PARTIAL" | "PAID" | "VOID";
+      const isInvoiceStatus = (status: string): status is InvoiceStatus =>
+        ["UNPAID", "PARTIAL", "PAID", "VOID"].includes(status);
+
+      // Update main form data
+      setFormData((prev) => ({
+        ...prev,
+        drNo: delivery.drNo || "",
+        warehouse: delivery.warehouse || "",
+        shippingAddress: delivery.shippingAddress || "",
+        deliveryDate: delivery.deliveryDate || "",
+        remarks: delivery.remarks || "",
+        status: isInvoiceStatus(delivery.status) ? delivery.status : "UNPAID",
+        _id: delivery._id,
+        items:
+          delivery.items?.map((item) => ({
+            itemCode: item.itemCode || "",
+            itemName: item.itemName || "",
+            description: item.description || "",
+            unitType: item.unitType || "",
+            quantity: item.quantity || 0,
+            price: item.price || 0,
+            amount: (item.quantity || 0) * (item.price || 0),
+          })) || [],
+      }));
+
+      // Optionally preselect all items in a separate state
+      setItems(
+        delivery.items?.map((item) => ({
+          ...item,
+          selected: true,
+          quantity: item.quantity || 0,
+          availableQuantity: item.availableQuantity || 0,
+        })) || []
+      );
+    } catch (err) {
+      console.error("Failed to select DR:", err);
+    }
+  };
+
+  const handleCreate = async (
+    formData: Partial<SalesInvoice>,
+    items: DeliveryItem[]
+  ) => {
+    if (!formData.drNo || !formData.customer) {
+      console.warn("DR Number and Customer are required.");
+      return;
+    }
+
+    const selectedInvoiceItems = items
+      .filter((i) => i.selected)
+      .map((i) => ({
+        itemCode: i.itemCode || "",
+        itemName: i.itemName || "",
+        description: i.description || "",
+        quantity: Number(i.quantity) || 0,
+        unitType: i.unitType || "",
+        price: Number(i.price) || 0,
+        amount: (Number(i.quantity) || 0) * (Number(i.price) || 0),
+      }));
+
+    if (selectedInvoiceItems.length === 0) {
+      console.warn("No items selected for invoicing.");
+      return;
+    }
+
+    const payload: Omit<Partial<SalesInvoice>, "_id" | "invoiceNo"> = {
+      drNo: formData.drNo,
+      customer: formData.customer,
+      salesPerson: formData.salesPerson,
+      address: formData.address,
+      TIN: formData.TIN,
+      terms: formData.terms,
+      dueDate: formData.dueDate,
+      notes: formData.notes?.trim() || "",
+      status: formData.status || "UNPAID",
+      items: selectedInvoiceItems,
     };
 
-    let hasError = false;
-
-    if (!formData.customer?.trim()) {
-      errors.customer = "Customer is required.";
-      hasError = true;
-    }
-
-    if (!formData.invoiceDate) {
-      errors.invoiceDate = "Invoice date is required.";
-      hasError = true;
-    }
-
-    // 🔹 Required: salesOrder
-    if (!formData.salesOrder?.trim()) {
-      errors.salesOrder = "Sales Order is required.";
-      hasError = true;
-    }
-
-    if (!formData.dueDate) {
-      errors.dueDate = "Due date is required.";
-      hasError = true;
-    } else {
-      const due = new Date(formData.dueDate);
-      const today = new Date();
-      today.setHours(0, 0, 0, 0);
-      if (due < today) {
-        errors.dueDate = "Due date cannot be in the past.";
-        hasError = true;
-      }
-    }
-
-    if (!formData.soItems || formData.soItems.length === 0) {
-      errors.amount = "At least one item is required.";
-      hasError = true;
-    }
-
-    const itemErrors = formData.soItems.map((item) => {
-      const itemError: Record<string, string> = {};
-      if (!item.itemName?.trim()) {
-        itemError.itemName = "Item name is required.";
-        hasError = true;
-      }
-      if (Number(item.quantity) <= 0) {
-        itemError.quantity = "Quantity must be greater than 0.";
-        hasError = true;
-      }
-      if (Number(item.price) < 0) {
-        itemError.price = "Price must be zero or greater.";
-        hasError = true;
-      }
-      return itemError;
-    });
-
-    // Optional: set item-level errors
-    // setItemValidationErrors(itemErrors);
-
-    setValidationErrors(errors);
-    return !hasError;
-  };
-
-  const handleCreate = async () => {
-    if (!validateForm()) return;
-
-    setIsCreating(true);
-
     try {
-      // 🧮 Parse discount rates
-      const discountRates = formData.discounts
-        .map((d) => parseFloat(d))
-        .filter((n) => !isNaN(n));
-
-      console.log("💡 Raw discounts:", formData.discounts);
-      console.log("🔢 Parsed discount rates:", discountRates);
-
-      // 🧩 Normalize items and apply discounts
-      const items = formData.soItems.map((item) => {
-        const key = item.itemName?.trim().toUpperCase();
-        const quantity = Math.max(Number(item.quantity) || 1, 1);
-        const grossPrice = Number(item.price) || 0;
-        const grossAmount = quantity * grossPrice;
-
-        const netPrice = applySequentialDiscounts(grossPrice, discountRates);
-        const netAmount = applySequentialDiscounts(grossAmount, discountRates);
-
-        console.log(
-          `🧮 ${key} → grossPrice: ${grossPrice}, grossAmount: ${grossAmount}`
-        );
-        console.log(
-          `✅ ${key} → netPrice: ${netPrice}, netAmount: ${netAmount}`
-        );
-
-        return {
-          itemCode: item.itemCode?.trim().toUpperCase() || "",
-          itemName: key,
-          description: item.description?.trim() || descriptionMap[key] || "—",
-          quantity,
-          unitType: item.unitType?.trim().toUpperCase() || "",
-          price: parseFloat(netPrice.toFixed(2)), // ✅ Inject discounted price
-          amount: parseFloat(netAmount.toFixed(2)), // ✅ Inject discounted amount
-        };
-      });
-
-      // 🧾 Compute totals
-      const grossTotal = items.reduce((sum, item) => sum + item.amount, 0);
-      const netTotal = items.reduce((sum, item) => sum + item.amount, 0);
-
-      // 📦 Build payload
-      const payload = {
-        customer: formData.customer.trim().toUpperCase(),
-        reference: formData.reference || "",
-        status: formData.status || "UNPAID",
-        invoiceDate: new Date(formData.invoiceDate).toLocaleDateString(
-          "en-PH",
-          {
-            year: "numeric",
-            month: "short",
-            day: "numeric",
-          }
-        ),
-        dueDate: formData.dueDate
-          ? new Date(formData.dueDate).toISOString()
-          : null,
-        salesPerson: formData.salesPerson?.trim() || "",
-        notes: formData.notes?.trim() || "",
-        salesOrder: formData.salesOrderLabel || "",
-        items,
-        amount: parseFloat(netTotal.toFixed(2)),
-        grossAmount: parseFloat(grossTotal.toFixed(2)),
-        discounts: formData.discounts,
-        discountBreakdown: formData.discountBreakdown,
-      };
-
-      console.log("📦 Creating Sales Invoice with payload:", payload);
-
       const res = await fetch("/api/sales-invoices", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(payload),
       });
 
-      const data = await res.json();
-      console.log("📨 Server response:", data);
+      if (!res.ok) throw new Error("Failed to create invoice");
 
-      if (res.ok) {
-        console.log("✅ Invoice created:", data.invoice);
-        setSalesInvoices((prev) => [data.invoice, ...prev]);
-        setIsCreateDialogOpen(false);
-        setFormData({
-          customer: "",
-          reference: "",
-          status: "UNPAID",
-          invoiceDate: new Date().toISOString().split("T")[0],
-          dueDate: "",
-          notes: "",
-          salesPerson: "",
-          TIN: "",
-          terms: "",
-          address: "",
-          salesOrder: "",
-          salesOrderLabel: "",
-          soItems: [],
-          netTotal: "₱0.00",
-          discounts: [],
-          discountBreakdown: [],
-        });
+      const result = await res.json();
+      console.log("Invoice created:", result);
 
-        toast.success(
-          `Invoice #${data.invoice.invoiceNo} created successfully`
-        );
-      } else {
-        console.error("❌ Create failed:", data.error);
-      }
+      // ✅ Close dialog after success
+      setIsCreateDialogOpen(false);
     } catch (err) {
-      console.error("❌ Create error:", err);
-    } finally {
-      setIsCreating(false);
+      console.error("Create invoice error:", err);
     }
   };
 
-  // const handleEdit = (invoice: SalesInvoice) => {
-  //   const hydratedItems = invoice.items.map((item) => ({
-  //     ...item,
-  //     description:
-  //       item.description?.trim() ||
-  //       descriptionMap[item.itemName?.trim().toUpperCase()] ||
-  //       "—",
-  //   }));
+  const handleEdit = (
+    invoice: SalesInvoice & { items?: SalesInvoiceItem[] }
+  ) => {
+    setFormData({
+      _id: invoice._id,
+      invoiceNo: invoice.invoiceNo,
+      invoiceDate: invoice.invoiceDate,
+      drNo: invoice.drNo,
+      customer: invoice.customer,
+      salesPerson: invoice.salesPerson,
+      address: invoice.address,
+      TIN: invoice.TIN,
+      terms: invoice.terms,
+      dueDate: invoice.dueDate,
+      notes: invoice.notes,
+      status: invoice.status,
+      createdAt: invoice.createdAt,
+    });
 
-  //   setFormData({
-  //     customer: invoice.customer || "",
-  //     reference: invoice.reference || "",
-  //     status: invoice.status || "UNPAID",
-  //     invoiceDate: invoice.invoiceDate
-  //       ? new Date(invoice.invoiceDate).toISOString().split("T")[0]
-  //       : new Date().toISOString().split("T")[0],
-  //     dueDate: invoice.dueDate
-  //       ? new Date(invoice.dueDate).toISOString().split("T")[0]
-  //       : "",
-  //     salesPerson: invoice.salesPerson || "",
-  //     notes: invoice.notes || "",
-  //     salesOrder: invoice.salesOrder || "",
-  //     salesOrderLabel: invoice.salesOrder || "",
-  //     soItems: hydratedItems,
-  //     TIN: invoice.TIN || "",
-  //     terms: invoice.terms || "",
-  //     address: invoice.address || "",
-  //   });
+    // Populate items table for editing, convert SalesInvoiceItem -> DeliveryItem
+    setItems(
+      invoice.items?.map((item) => ({
+        _id: item._id,
+        itemCode: item.itemCode,
+        itemName: item.itemName,
+        description: item.description || "",
+        unitType: item.unitType,
+        price: item.price,
+        quantity: item.quantity,
+        amount: item.amount,
+        selected: true,
+        availableQuantity: item.quantity, // required by DeliveryItem
+      })) || []
+    );
 
-  //   setSelectedInvoice(invoice);
-  //   setIsEditDialogOpen(true);
-  // };
+    setIsEditDialogOpen(true);
+  };
 
-  // const handleUpdate = async () => {
-  //   if (!selectedInvoice?._id) return;
+  // 🔹 Update Sales Invoice
+  const handleUpdate = async () => {
+    if (!formData._id) return console.warn("Missing invoice ID");
 
-  //   setIsUpdating(true);
+    // Convert items state (DeliveryItem[]) → SalesInvoiceItem[]
+    const invoiceItems = items.map((i) => ({
+      itemCode: i.itemCode || "",
+      itemName: i.itemName || "",
+      description: i.description || "",
+      unitType: i.unitType || "",
+      price: i.price || 0,
+      quantity: i.quantity || 0,
+      amount: (i.quantity || 0) * (i.price || 0),
+    }));
 
-  //   try {
-  //     const payload = {
-  //       customer: formData.customer.trim().toUpperCase(),
-  //       reference: formData.reference || "",
-  //       status: formData.status || "UNPAID",
-  //       invoiceDate: new Date(formData.invoiceDate).toLocaleDateString(
-  //         "en-PH",
-  //         {
-  //           year: "numeric",
-  //           month: "short",
-  //           day: "numeric",
-  //         }
-  //       ),
-  //       dueDate: formData.dueDate
-  //         ? new Date(formData.dueDate).toISOString()
-  //         : null,
-  //       salesPerson: formData.salesPerson?.trim() || "",
-  //       notes: formData.notes?.trim() || "",
-  //       salesOrder: formData.salesOrderLabel || "",
-  //       items: formData.soItems.map((item) => {
-  //         const key = item.itemName?.trim().toUpperCase();
-  //         return {
-  //           itemCode: item.itemCode?.trim().toUpperCase() || "",
-  //           itemName: key,
-  //           description: item.description?.trim() || descriptionMap[key] || "—",
-  //           quantity: Math.max(Number(item.quantity) || 1, 1),
-  //           unitType: item.unitType?.trim().toUpperCase() || "",
-  //           price: Number(item.price) || 0,
-  //           amount: Number(item.quantity) * Number(item.price),
-  //         };
-  //       }),
-  //     };
+    const payload = {
+      ...formData,
+      items: invoiceItems,
+    };
 
-  //     console.log("🔄 Updating Sales Invoice with payload:", payload);
+    try {
+      const res = await fetch(`/api/sales-invoices/${formData._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      });
 
-  //     const res = await fetch(`/api/sales-invoices/${selectedInvoice._id}`, {
-  //       method: "PATCH",
-  //       headers: { "Content-Type": "application/json" },
-  //       body: JSON.stringify(payload),
-  //     });
+      if (!res.ok) throw new Error("Failed to update invoice");
 
-  //     const data = await res.json();
+      const updated = await res.json();
+      console.log("Invoice updated:", updated);
 
-  //     console.log("📨 Server response:", data);
+      await refreshInvoiceList(); // rename your fetch list function accordingly
+      setIsEditDialogOpen(false);
+      setFormData({});
+      setItems([]);
+    } catch (err) {
+      console.error("Update error:", err);
+    }
+  };
 
-  //     if (res.ok) {
-  //       console.log("✅ Invoice updated:", data.invoice);
-  //       setSalesInvoices((prev) =>
-  //         prev.map((inv) => (inv._id === data.invoice._id ? data.invoice : inv))
-  //       );
-  //       setIsEditDialogOpen(false);
-  //       setSelectedInvoice(null);
-  //       toast.success(
-  //         `Invoice #${data.invoice.invoiceNo} updated successfully`
-  //       );
-  //     } else {
-  //       console.error("❌ Update failed:", data.error);
-  //     }
-  //   } catch (err) {
-  //     console.error("❌ Update error:", err);
-  //   } finally {
-  //     setIsUpdating(false);
-  //   }
-  // };
+  const handleDelete = async (invoiceId: string) => {
+    if (!invoiceId) return console.warn("Missing invoice ID for deletion");
+
+    try {
+      const res = await fetch(`/api/sales-invoices/${invoiceId}`, {
+        method: "DELETE",
+      });
+
+      if (!res.ok) throw new Error("Failed to delete invoice");
+
+      console.log("Invoice deleted:", invoiceId);
+      await refreshInvoiceList();
+      setSelectedIds((prev) => prev.filter((id) => id !== invoiceId));
+    } catch (err) {
+      console.error("Delete invoice error:", err);
+    }
+  };
+
+  const handleView = async (invoiceId: string) => {
+    if (!invoiceId) return console.warn("Missing invoice ID for view");
+
+    try {
+      const res = await fetch(`/api/sales-invoices/${invoiceId}`);
+      if (!res.ok) throw new Error("Failed to fetch invoice details");
+
+      const invoice: SalesInvoice & { items?: SalesInvoiceItem[] } =
+        await res.json();
+      console.log("Invoice details:", invoice);
+
+      // Populate form fields
+      setFormData({
+        _id: invoice._id,
+        invoiceNo: invoice.invoiceNo,
+        drNo: invoice.drNo,
+        customer: invoice.customer,
+        salesPerson: invoice.salesPerson,
+        TIN: invoice.TIN,
+        terms: invoice.terms,
+        address: invoice.address,
+        reference: invoice.reference,
+        dueDate: invoice.dueDate,
+        notes: invoice.notes,
+        status: invoice.status,
+        createdAt: invoice.createdAt,
+      });
+
+      // Populate items table
+      setItems(
+        invoice.items?.map((item) => ({
+          ...item,
+          selected: true, // auto-select all for viewing
+          availableQuantity: item.quantity, // for consistency with DeliveryItem typing
+        })) || []
+      );
+
+      setIsViewDialogOpen(true);
+    } catch (err) {
+      console.error("View invoice error:", err);
+    }
+  };
 
   return (
-    <div className="space-y-6">
-      <Card>
-        <CardHeader>
-          <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-            <div>
-              <CardTitle>Sales Invoice</CardTitle>
-              <CardDescription>Manage sales invoice</CardDescription>
-            </div>
+    <Card className="w-full">
+      <CardHeader>
+        <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
+          <div>
+            <CardTitle>Sales Invoices</CardTitle>
+            <CardDescription>Manage sales invoice records</CardDescription>
           </div>
-        </CardHeader>
+        </div>
+      </CardHeader>
 
-        <CardContent className="space-y-4">
-          <div className="flex justify-between items-center gap-4">
-            <div className="relative flex-1 max-w-sm">
-              <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 text-muted-foreground w-4 h-4" />
-              <Input
-                placeholder="Search SO Number or Customer Name..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-
-            <Button onClick={() => setIsCreateDialogOpen(true)}>
-              <Plus className="w-4 h-4 mr-2" />
-              New Invoice
-            </Button>
+      <CardContent className="space-y-4">
+        {/* Search + Create */}
+        <div className="flex flex-wrap justify-between items-center gap-4">
+          <div className="relative flex-1 max-w-sm">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-muted-foreground w-4 h-4" />
+            <Input
+              placeholder="Search Invoice No. or Sales Order..."
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              className="pl-10"
+            />
           </div>
 
-          <Card>
-            <CardContent className="pt-4">
-              <div className="flex items-center gap-4 flex-wrap">
-                <div className="flex items-center gap-2">
-                  <Filter className="w-4 h-4 text-muted-foreground" />
-                  <Label className="text-sm">Filters:</Label>
-                </div>
+          <Button onClick={() => setIsCreateDialogOpen(true)}>
+            <Plus className="w-4 h-4 mr-2" />
+            New Invoice
+          </Button>
+        </div>
 
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="w-4 h-4 text-muted-foreground" />
-                  <Label htmlFor="invoice-date-filter" className="text-sm">
-                    Invoice Date:
-                  </Label>
-                  <Input
-                    id="invoice-date-filter"
-                    type="date"
-                    value={dateFilter}
-                    onChange={(e) => setDateFilter(e.target.value)}
-                    className="w-40"
-                  />
-                </div>
+        {/* Table */}
+        <ScrollArea className="max-h-[500px] overflow-auto border rounded-lg">
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead className="w-4 px-2">
+                  <Checkbox
+                    checked={paginatedInvoices
+                      .map((d) => d._id)
+                      .filter((id): id is string => typeof id === "string")
+                      .every((id) => selectedIds.includes(id))}
+                    onCheckedChange={(checked) => {
+                      const visibleIds = paginatedInvoices
+                        .map((d) => d._id)
+                        .filter((id): id is string => typeof id === "string");
 
-                <div className="flex items-center gap-2">
-                  <Label htmlFor="invoice-status-filter" className="text-sm">
-                    Status:
-                  </Label>
-                  <Select
-                    value={statusFilter}
-                    onValueChange={(value: SalesInvoice["status"] | "all") =>
-                      setStatusFilter(value)
-                    }>
-                    <SelectTrigger className="w-32" id="invoice-status-filter">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All</SelectItem>
-                      <SelectItem value="UNPAID">Unpaid</SelectItem>
-                      <SelectItem value="PARTIAL">Partial</SelectItem>
-                      <SelectItem value="PAID">Paid</SelectItem>
-                      <SelectItem value="VOID">Void</SelectItem>
-                    </SelectContent>
-                  </Select>
-                </div>
-
-                <Button variant="outline" size="sm" onClick={clearFilters}>
-                  Clear Filters
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-
-          {selectedIds.length > 0 && (
-            <div className="flex items-center justify-between mb-4">
-              <span className="text-sm text-gray-600">
-                ✅ {selectedIds.length} sales order(s) selected
-              </span>
-              <div className="flex gap-2">
-                <Button
-                  variant="destructive"
-                  onClick={() => handleDeleteMany(selectedIds)}>
-                  Delete Selected
-                </Button>
-                <Button variant="outline" onClick={() => setSelectedIds([])}>
-                  Clear Selection
-                </Button>
-              </div>
-            </div>
-          )}
-
-          <div className="border rounded-lg">
-            <Table>
-              <TableHeader>
-                <TableRow>
-                  {/* <TableHead className="w-4">
-                    <Checkbox
-                      checked={
-                        paginatedSalesInvoices.length > 0 &&
-                        paginatedSalesInvoices.every((inv) =>
-                          selectedIds.includes(inv._id)
-                        )
-                      }
-                      onCheckedChange={toggleSelectAll}
-                      aria-label="Select all sales orders on current page"
-                    />
-                  </TableHead> */}
-                  <TableHead>Invoice Date</TableHead>
-                  <TableHead>Invoice No.</TableHead>
-                  <TableHead>Customer</TableHead>
-                  <TableHead>Amount</TableHead>
-                  <TableHead>Balance</TableHead>
-                  <TableHead>Status</TableHead>
-                  <TableHead className="text-right">Actions</TableHead>
-                </TableRow>
-              </TableHeader>
-
-              <TableBody>
-                {isLoading ? (
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="h-48 px-4 text-muted-foreground">
-                      <div className="flex h-full items-center justify-center gap-2">
-                        <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                        <span className="text-sm font-medium tracking-wide">
-                          Loading invoices, please wait…
-                        </span>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ) : paginatedSalesInvoices.length === 0 ? (
-                  // your empty state
-
-                  <TableRow>
-                    <TableCell
-                      colSpan={7}
-                      className="text-center py-6 text-muted-foreground">
-                      No invoices found.
-                    </TableCell>
-                  </TableRow>
-                ) : (
-                  paginatedSalesInvoices.map((inv) => (
-                    <TableRow key={inv._id}>
-                      {/* <TableCell className="w-4">
-                        <Checkbox
-                          checked={selectedIds.includes(String(inv._id))}
-                          onClick={(e) => e.stopPropagation()}
-                          onCheckedChange={() =>
-                            toggleSelectOne(String(inv._id))
-                          }
-                        />
-                      </TableCell> */}
-
-                      <TableCell>
-                        {format(new Date(inv.invoiceDate), "MMM d, yyyy")}
-                      </TableCell>
-
-                      <TableCell>{inv.invoiceNo}</TableCell>
-                      <TableCell>{inv.customer}</TableCell>
-                      <TableCell>{formatCurrency(inv.amount)}</TableCell>
-                      <TableCell>{formatCurrency(inv.balance)}</TableCell>
-                      <TableCell>
-                        {inv.status === "UNPAID" ? (
-                          <span className="inline-flex items-center gap-1 text-red-600">
-                            UNPAID
-                          </span>
-                        ) : inv.status === "PARTIAL" ? (
-                          <span className="inline-flex items-center gap-1 text-blue-600">
-                            PARTIAL
-                          </span>
-                        ) : (
-                          <span className="inline-flex items-center gap-1 text-green-600">
-                            PAID
-                          </span>
-                        )}
-                      </TableCell>
-
-                      <TableCell className="text-right space-x-2">
-                        <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleView(inv)}>
-                          <Eye className="w-4 h-4" />
-                        </Button>
-                        {/* <Button
-                          size="icon"
-                          variant="ghost"
-                          onClick={() => handleEdit(inv)}
-                          title={`Edit invoice ${inv.invoiceNo}`}
-                          aria-label={`Edit invoice ${inv.invoiceNo}`}>
-                          <Edit />
-                        </Button> */}
-
-                        <AlertDialog>
-                          <AlertDialogTrigger asChild>
-                            <Button
-                              size="icon"
-                              variant="ghost"
-                              title={`Delete invoice ${inv.invoiceNo}`}
-                              aria-label={`Delete invoice ${inv.invoiceNo}`}>
-                              <Trash2 className="w-4 h-4 text-destructive" />
-                            </Button>
-                          </AlertDialogTrigger>
-
-                          <AlertDialogContent>
-                            <AlertDialogHeader>
-                              <AlertDialogTitle>
-                                Delete Invoice
-                              </AlertDialogTitle>
-                              <AlertDialogDescription>
-                                Are you sure you want to delete invoice{" "}
-                                <span className="font-semibold">
-                                  {inv.invoiceNo}
-                                </span>
-                                ? This action cannot be undone.
-                              </AlertDialogDescription>
-                            </AlertDialogHeader>
-
-                            <AlertDialogFooter>
-                              <AlertDialogCancel>Cancel</AlertDialogCancel>
-                              <AlertDialogAction
-                                onClick={() => handleDelete(inv._id)}>
-                                Delete
-                              </AlertDialogAction>
-                            </AlertDialogFooter>
-                          </AlertDialogContent>
-                        </AlertDialog>
-                      </TableCell>
-                    </TableRow>
-                  ))
-                )}
-              </TableBody>
-            </Table>
-          </div>
-          {/* Results count */}
-          <div className="flex items-center justify-between mt-4">
-            {/* Rows per page selector */}
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-gray-600">
-                Sales invoice per page:
-              </span>
-              <Select
-                value={String(rowsPerPage)}
-                onValueChange={(val) => {
-                  setRowsPerPage(Number(val));
-                  setCurrentPage(1); // reset to first page
-                }}>
-                <SelectTrigger className="w-20">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="10">10</SelectItem>
-                  <SelectItem value="50">50</SelectItem>
-                  <SelectItem value="100">100</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            {/* Pagination controls */}
-            <div className="flex items-center gap-2">
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={currentPage === 1}
-                onClick={() => setCurrentPage((prev) => prev - 1)}>
-                Previous
-              </Button>
-              <span className="text-sm text-gray-600">
-                Page {currentPage} of {totalPages}
-              </span>
-              <Button
-                variant="ghost"
-                size="sm"
-                disabled={currentPage === totalPages || totalPages === 0}
-                onClick={() => setCurrentPage((prev) => prev + 1)}>
-                Next
-              </Button>
-            </div>
-          </div>
-        </CardContent>
-      </Card>
-      {/* Create Dialog */}
-      <Dialog
-        open={isCreateDialogOpen}
-        onOpenChange={(open) => {
-          setIsCreateDialogOpen(open);
-          if (!open) {
-            setFormData({
-              customer: "",
-              reference: "",
-              status: "UNPAID",
-              invoiceDate: new Date().toISOString().split("T")[0],
-              dueDate: "",
-              notes: "",
-              salesPerson: "",
-              TIN: "",
-              terms: "",
-              address: "",
-              salesOrder: "",
-              salesOrderLabel: "",
-              soItems: [],
-              netTotal: "₱0.00",
-              discounts: [],
-              discountBreakdown: [],
-            });
-          }
-        }}>
-        <DialogPanel className="max-w-5xl p-6 bg-white rounded-lg shadow-lg">
-          <DialogHeader className="border-b pb-2">
-            <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
-              Create Sales Invoice
-            </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              Fill in the invoice details. Fields marked with{" "}
-              <span className="text-red-500">* </span>
-              are required.
-            </DialogDescription>
-          </DialogHeader>
-
-          <Card className="shadow-none border-none pt-4">
-            <div className="space-y-6">
-              {/* Invoice Metadata */}
-              <fieldset className="grid grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="invoice-no">Invoice No.</Label>
-                  <Input
-                    id="invoice-no"
-                    value="Auto-generated"
-                    readOnly
-                    disabled
-                    className="text-sm uppercase bg-muted cursor-not-allowed"
-                  />
-                </div>
-
-                <div>
-                  <Label htmlFor="invoice-date">Invoice Date</Label>
-                  <div className="relative">
-                    <Input
-                      id="invoice-date"
-                      value={new Date(formData.invoiceDate).toLocaleDateString(
-                        "en-PH",
-                        {
-                          month: "short",
-                          day: "2-digit",
-                          year: "numeric",
-                        }
-                      )}
-                      readOnly
-                      disabled
-                      className="text-sm bg-muted cursor-not-allowed pr-10"
-                    />
-                    <CalendarDays className="absolute right-2 top-2 h-4 w-4 text-muted-foreground" />
-                  </div>
-                </div>
-              </fieldset>
-
-              <div className="grid grid-cols-2 gap-6">
-                {/* Customer Name */}
-                <div className="space-y-1">
-                  <Label htmlFor="customer-name">
-                    Customer Name <span className="text-red-500">*</span>
-                  </Label>
-                  <div className="relative">
-                    <Input
-                      id="create-customer-name"
-                      type="text"
-                      autoComplete="off"
-                      value={formData.customer || ""}
-                      onClick={() => setShowCustomerSuggestions(true)}
-                      onChange={(e) => {
-                        const value = e.target.value.toUpperCase();
-                        setFormData((prev) => ({
-                          ...prev,
-                          customer: value,
-                          salesPerson: "",
-                          TIN: "",
-                          terms: "",
-                          address: "",
-                        }));
-                        setShowCustomerSuggestions(true);
-                      }}
-                      onBlur={() =>
-                        setTimeout(() => setShowCustomerSuggestions(false), 200)
-                      }
-                      placeholder="Search Customer name"
-                      className={`text-sm w-full px-2 py-1 border focus:outline-none focus:ring-1 ${
-                        validationErrors.customer
-                          ? "border-destructive focus:ring-destructive"
-                          : "border-border focus:ring-primary"
-                      }`}
-                    />
-                    <User className="absolute right-2 top-2 h-4 w-4 text-muted-foreground" />
-                    {validationErrors.customer && (
-                      <p className="text-xs text-destructive mt-1">
-                        {validationErrors.customer}
-                      </p>
-                    )}
-                    {showCustomerSuggestions && (
-                      <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
-                        {(() => {
-                          const input =
-                            formData.customer?.trim().toUpperCase() || "";
-                          const filtered = customers.filter((customer) => {
-                            const label =
-                              customer.customerName?.trim().toUpperCase() || "";
-                            return input === "" || label.includes(input);
-                          });
-
-                          return filtered.length > 0 ? (
-                            filtered.map((customer) => {
-                              const label =
-                                customer.customerName?.trim() ||
-                                "Unnamed Customer";
-                              const value = label.toUpperCase();
-
-                              return (
-                                <li
-                                  key={customer._id || value}
-                                  className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                                  onClick={async () => {
-                                    const customerName =
-                                      customer.customerName
-                                        ?.trim()
-                                        .toUpperCase() || "";
-                                    const salesPerson =
-                                      customer.salesAgent?.trim() || "";
-                                    const customerGroup =
-                                      customer.customerGroup
-                                        ?.trim()
-                                        .toUpperCase() || "";
-
-                                    try {
-                                      const res = await fetch(
-                                        `/api/customer-types/by-group/${customerGroup}`
-                                      );
-                                      if (!res.ok)
-                                        throw new Error(`HTTP ${res.status}`);
-                                      const text = await res.text();
-                                      if (!text)
-                                        throw new Error("Empty response body");
-
-                                      setFormData((prev) => ({
-                                        ...prev,
-                                        customer: customerName,
-                                        salesPerson,
-                                        TIN: customer.TIN || "",
-                                        terms: customer.terms || "",
-                                        address: customer.address || "",
-                                      }));
-                                    } catch (err) {
-                                      console.error(
-                                        `❌ Failed to fetch customer type ${customerGroup}`,
-                                        err
-                                      );
-                                    }
-
-                                    setShowCustomerSuggestions(false);
-                                  }}>
-                                  {label}
-                                </li>
-                              );
-                            })
-                          ) : (
-                            <li className="px-3 py-2 text-muted-foreground">
-                              No matching customer found
-                            </li>
-                          );
-                        })()}
-                      </ul>
-                    )}
-                  </div>
-                </div>
-
-                {/* Sales Order */}
-                <div className="space-y-1">
-                  <Label htmlFor="sales-order-select">Sales Order</Label>
-                  <div className="relative">
-                    <Input
-                      id="sales-order-select"
-                      type="text"
-                      value={formData.salesOrderLabel}
-                      disabled={!formData.customer}
-                      placeholder={
-                        formData.customer
-                          ? "Type or select matching sales order"
-                          : "Select Customer first"
-                      }
-                      className={`text-sm w-full px-2 py-1 border focus:outline-none focus:ring-1 ${
-                        validationErrors.salesOrder
-                          ? "border-destructive focus:ring-destructive"
-                          : "border-border focus:ring-primary"
-                      } ${
-                        !formData.customer || !!formData.salesOrder
-                          ? "bg-muted"
-                          : "bg-white"
-                      }`}
-                      onChange={(e) => {
-                        const input = e.target.value;
-                        setFormData((prev) => ({
-                          ...prev,
-                          salesOrderLabel: input,
-                          salesOrder: "",
-                          soItems: [],
-                        }));
-                        setShowSalesOrderSuggestions(true);
-                        setValidationErrors((prev) => ({
-                          ...prev,
-                          salesOrder: "", // ✅ clear error on change
-                        }));
-                      }}
-                      onFocus={() => {
-                        if (formData.customer)
-                          setShowSalesOrderSuggestions(true);
-                      }}
-                    />
-
-                    {validationErrors.salesOrder && (
-                      <p className="text-xs text-destructive mt-1">
-                        {validationErrors.salesOrder}
-                      </p>
-                    )}
-
-                    {formData.customer &&
-                      showSalesOrderSuggestions &&
-                      salesOrderSuggestions.length > 0 && (
-                        <ul className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg max-h-48 overflow-y-auto text-sm transition-all duration-150 ease-out scale-95 opacity-95">
-                          {salesOrderSuggestions
-                            .filter((so) => {
-                              const inputMatch = so.soNumber
-                                .toLowerCase()
-                                .includes(
-                                  formData.salesOrderLabel.toLowerCase()
-                                );
-                              const isCompleted = so.status === "COMPLETED";
-                              const normalizedSO = so.soNumber
-                                .trim()
-                                .toUpperCase();
-                              const isUnused =
-                                !normalizedUsedSoNumbers.includes(normalizedSO);
-                              return inputMatch && isCompleted && isUnused;
-                            })
-                            .map((so) => {
-                              const soId =
-                                typeof so._id === "string"
-                                  ? so._id
-                                  : so._id.toString();
-
-                              return (
-                                <li
-                                  key={soId}
-                                  className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                                  onClick={async () => {
-                                    setFormData((prev) => ({
-                                      ...prev,
-                                      salesOrder: soId,
-                                      salesOrderLabel: so.soNumber,
-                                    }));
-                                    setShowSalesOrderSuggestions(false);
-
-                                    try {
-                                      const res = await fetch(
-                                        `/api/sales-orders/${soId}`
-                                      );
-                                      if (!res.ok)
-                                        throw new Error(`HTTP ${res.status}`);
-                                      const { order } = await res.json();
-                                      setFormData((prev) => ({
-                                        ...prev,
-                                        soItems: order?.items || [],
-                                        discounts: Array.isArray(
-                                          order?.discounts
-                                        )
-                                          ? order.discounts
-                                          : [],
-                                        netTotal:
-                                          order?.formattedNetTotal || "₱0.00",
-                                        discountBreakdown:
-                                          order?.discountBreakdown || [],
-                                      }));
-                                    } catch (err) {
-                                      console.error(
-                                        "❌ Failed to fetch SO details:",
-                                        err
-                                      );
-                                      setFormData((prev) => ({
-                                        ...prev,
-                                        soItems: [],
-                                      }));
-                                    }
-                                  }}>
-                                  {so.soNumber}
-                                </li>
-                              );
-                            })}
-
-                          {salesOrderSuggestions.filter((so) => {
-                            const inputMatch = so.soNumber
-                              .toLowerCase()
-                              .includes(formData.salesOrderLabel.toLowerCase());
-                            const isCompleted = so.status === "COMPLETED";
-                            const normalizedSO = so.soNumber
-                              .trim()
-                              .toUpperCase();
-                            const isUnused =
-                              !normalizedUsedSoNumbers.includes(normalizedSO);
-                            return inputMatch && isCompleted && isUnused;
-                          }).length === 0 && (
-                            <li className="px-3 py-2 text-muted-foreground text-sm">
-                              No available COMPLETED sales orders found
-                            </li>
-                          )}
-                        </ul>
-                      )}
-                  </div>
-                </div>
-              </div>
-
-              {/* Customer Details */}
-              <fieldset className="grid grid-cols-2 gap-4 p-4 border rounded-md bg-background">
-                <legend className="col-span-2 text-sm font-medium text-muted-foreground mb-2">
-                  Customer Details
-                </legend>
-
-                {[
-                  {
-                    id: "sales-agent",
-                    label: "Sales Agent",
-                    value: formData.salesPerson,
-                  },
-                  { id: "tin", label: "TIN", value: formData.TIN },
-                  { id: "terms", label: "Terms", value: formData.terms },
-                  { id: "address", label: "Address", value: formData.address },
-                ].map(({ id, label, value }) => (
-                  <div key={id} className="space-y-1">
-                    <Label
-                      htmlFor={id}
-                      className="text-muted-foreground text-sm">
-                      {label}
-                    </Label>
-                    <Input
-                      id={id}
-                      value={value || "—"}
-                      readOnly
-                      disabled
-                      className="bg-muted cursor-not-allowed text-sm"
-                    />
-                  </div>
-                ))}
-              </fieldset>
-
-              {/* Due Date & Reference */}
-              <fieldset className="grid grid-cols-2 gap-6">
-                <div>
-                  <Label htmlFor="due-date">
-                    Due Date <span className="text-red-500">*</span>
-                  </Label>
-                  <Input
-                    id="due-date"
-                    type="date"
-                    value={formData.dueDate || ""}
-                    min={new Date().toISOString().split("T")[0]} // ✅ Prevent past dates
-                    onChange={(e) => {
-                      const value = e.target.value;
-                      setFormData((prev) => ({
-                        ...prev,
-                        dueDate: value,
-                      }));
-                      setValidationErrors((prev) => ({
-                        ...prev,
-                        dueDate: "", // ✅ Clear error on change
-                      }));
-                    }}
-                    className={`text-sm w-full px-2 py-1 border focus:outline-none focus:ring-1 ${
-                      validationErrors.dueDate
-                        ? "border-destructive focus:ring-destructive"
-                        : "border-border focus:ring-primary"
-                    }`}
-                  />
-                  {validationErrors.dueDate && (
-                    <p className="text-xs text-destructive mt-1">
-                      {validationErrors.dueDate}
-                    </p>
-                  )}
-                </div>
-
-                <div>
-                  <Label htmlFor="reference">Reference</Label>
-                  <Input
-                    id="reference"
-                    value={formData.reference}
-                    onChange={(e) =>
-                      setFormData((prev) => ({
-                        ...prev,
-                        reference: e.target.value.trim(),
-                      }))
-                    }
-                    className="text-sm"
-                  />
-                </div>
-              </fieldset>
-
-              <div>
-                <Label htmlFor="create-notes">Notes</Label>
-                <Input
-                  id="notes"
-                  value={formData.notes}
-                  onChange={(e) =>
-                    setFormData({ ...formData, notes: e.target.value.trim() })
-                  }
-                  placeholder="Add notes"
-                />
-              </div>
-
-              {formData.soItems?.length > 0 && (
-                <div className="mt-6 space-y-6">
-                  {/* Item Table */}
-                  <div className="rounded-md border border-border overflow-hidden shadow-sm">
-                    {/* Header */}
-                    <div className="grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-4 bg-primary text-primary-foreground text-xs font-semibold uppercase tracking-wide py-2 px-2">
-                      <div>Item Name</div>
-                      <div>Description</div>
-                      <div className="text-end">Qty</div>
-                      <div className="text-start">UOM</div>
-                      <div className="text-end">Price</div>
-                      <div className="text-end">Amount</div>
-                    </div>
-
-                    {/* Rows */}
-                    {formData.soItems.map((item: SalesOrderItem, idx) => {
-                      const key = item.itemName?.trim().toUpperCase();
-                      const description =
-                        item.description?.trim() || descriptionMap[key] || "—";
-
-                      return (
-                        <div
-                          key={idx}
-                          className={`grid grid-cols-[1.5fr_1fr_1fr_1fr_1fr_1fr] gap-4 items-center text-sm py-2 px-2 ${
-                            idx % 2 === 0 ? "bg-background" : "bg-muted/50"
-                          } border-t border-border`}>
-                          <div>{item.itemName || "—"}</div>
-                          <div>{description}</div>
-                          <div className="text-end">{item.quantity}</div>
-                          <div className="text-start">{item.unitType}</div>
-                          <div className="text-end">
-                            ₱
-                            {applySequentialDiscounts(
-                              item.price,
-                              formData.discounts
-                                .map((d) => parseFloat(d))
-                                .filter((n) => !isNaN(n))
-                            ).toFixed(2)}
-                          </div>
-                          <div className="text-end">
-                            ₱
-                            {applySequentialDiscounts(
-                              item.amount,
-                              formData.discounts
-                                .map((d) => parseFloat(d))
-                                .filter((n) => !isNaN(n))
-                            ).toFixed(2)}
-                          </div>
-                        </div>
+                      setSelectedIds((prev) =>
+                        checked
+                          ? [...new Set([...prev, ...visibleIds])]
+                          : prev.filter((id) => !visibleIds.includes(id))
                       );
-                    })}
-                  </div>
+                    }}
+                    aria-label="Select all visible invoices"
+                    className="ml-1"
+                  />
+                </TableHead>
+                <TableHead>Creation Date</TableHead>
+                <TableHead>Invoice No.</TableHead>
+                <TableHead>Customer</TableHead>
+                <TableHead>DR No.</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead className="text-right">Actions</TableHead>
+              </TableRow>
+            </TableHeader>
 
-                  {/* Financial Summary */}
-                  <div className="grid grid-cols-4 gap-4">
-                    <div>{/* Column 1 */}</div>
-                    <div>{/* Column 2 */}</div>
-                    <div>{/* Column 3 */}</div>
-
-                    <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
-                      <table className="w-full border border-border rounded-lg overflow-hidden text-sm">
-                        <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
-                          <tr className="border-b border-border">
-                            <th className="px-4 py-2 text-left">Breakdown</th>
-                            <th className="px-4 py-2 text-right">Amount</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr className="border-b border-border">
-                            <td className="px-4 py-2">Gross Amount</td>
-                            <td className="px-4 py-2 text-right text-muted-foreground">
-                              {formData.netTotal}
-                            </td>
-                          </tr>
-                          <tr className="border-b border-border bg-muted/40">
-                            <td className="px-4 py-2 font-medium text-primary">
-                              Net Amount
-                            </td>
-                            <td className="px-4 py-2 text-right font-bold text-primary">
-                              {formData.netTotal}
-                            </td>
-                          </tr>
-                        </tbody>
-                      </table>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="py-10 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center gap-2">
+                      <Loader2 className="h-5 w-5 animate-spin" />
+                      <span className="text-sm">Loading invoices…</span>
                     </div>
-                  </div>
-                </div>
-              )}
-              <DialogFooter className=" py-4 border-t border-border flex justify-end">
-                <Button
-                  onClick={handleCreate}
-                  disabled={isCreating || formData.salesOrder.length === 0}>
-                  {isCreating ? (
-                    <Loader2 className="w-4 h-4 animate-spin mr-2" />
-                  ) : null}
-                  Create Invoice
-                </Button>
-              </DialogFooter>
-            </div>
-          </Card>
-        </DialogPanel>
-      </Dialog>
+                  </TableCell>
+                </TableRow>
+              ) : filteredInvoices.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={7}
+                    className="py-10 text-center text-muted-foreground">
+                    <div className="flex flex-col items-center gap-2">
+                      <Inbox className="h-6 w-6" />
+                      <span className="text-sm">No invoices found</span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : (
+                paginatedInvoices.map((invoice) => (
+                  <TableRow key={invoice._id}>
+                    <TableCell className="px-2">
+                      <Checkbox
+                        checked={selectedIds.includes(invoice._id ?? "")}
+                        onCheckedChange={(checked) => {
+                          const id = invoice._id;
+                          if (!id) return;
 
-      {/* View Dialog */}
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogPanel className="w-full px-6 py-6">
-          {isLoadingView ? (
-            <div className="flex items-center justify-center py-6">
-              <Loader2 className="h-5 w-5 animate-spin text-muted-foreground" />
-              <span className="ml-2 text-sm text-muted-foreground">
-                Loading sales invoice…
-              </span>
-            </div>
-          ) : selectedInvoice ? (
-            <>
-              <DialogTitle className="sr-only">Sales Invoice</DialogTitle>
-
-              {/* Invoice Header */}
-              <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
-                <div>
-                  <h2 className="text-xl font-bold text-primary tracking-wide">
-                    Sales Invoice
-                  </h2>
-                  <p className="text-sm text-muted-foreground">
-                    <span className="font-medium">Invoice No:</span>{" "}
-                    <span className="text-foreground font-semibold">
-                      {selectedInvoice.invoiceNo}
-                    </span>
-                  </p>
-                  <p className="text-sm text-muted-foreground">
-                    <span className="font-medium">Sales Order Ref:</span>{" "}
-                    <span className="text-foreground font-semibold">
-                      {selectedInvoice.salesOrder || "—"}
-                    </span>
-                  </p>
-                </div>
-                <div className="text-sm text-right text-muted-foreground">
-                  <p>
-                    <span className="font-medium">Invoice Date:</span>{" "}
-                    <span className="text-foreground">
-                      {selectedInvoice.invoiceDate
-                        ? new Date(
-                            selectedInvoice.invoiceDate
-                          ).toLocaleDateString("en-PH", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : "—"}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="font-medium">Due Date:</span>{" "}
-                    <span className="text-foreground">
-                      {selectedInvoice.dueDate
-                        ? new Date(selectedInvoice.dueDate).toLocaleDateString(
+                          setSelectedIds((prev) =>
+                            checked
+                              ? [...prev, id]
+                              : prev.filter((x) => x !== id)
+                          );
+                        }}
+                        aria-label={`Select Invoice ${
+                          invoice.invoiceNo || "Record"
+                        }`}
+                        className="ml-1"
+                      />
+                    </TableCell>
+                    <TableCell>
+                      {invoice.createdAt
+                        ? new Date(invoice.createdAt).toLocaleDateString(
                             "en-PH",
                             {
                               year: "numeric",
@@ -1632,123 +650,435 @@ export default function SalesInvoicePage({
                             }
                           )
                         : "—"}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="font-medium">Status:</span>{" "}
-                    <span
-                      className={`font-semibold ${
-                        formData.status === "PAID"
-                          ? "text-green-600"
-                          : formData.status === "PARTIAL"
-                          ? "text-yellow-600"
-                          : formData.status === "UNPAID"
-                          ? "text-red-600"
-                          : "text-gray-500"
-                      }`}>
-                      {selectedInvoice.status}
-                    </span>
-                  </p>
-                </div>
+                    </TableCell>
+                    <TableCell>{invoice.invoiceNo ?? "—"}</TableCell>
+                    <TableCell>{invoice.customer ?? "—"}</TableCell>
+                    <TableCell>{invoice.drNo ?? "—"}</TableCell>
+                    <TableCell>
+                      {invoice.status === "UNPAID" ? (
+                        <span className="text-red-700 font-bold">UNPAID</span>
+                      ) : invoice.status === "PARTIAL" ? (
+                        <span className="text-yellow-700 font-bold">
+                          PARTIAL
+                        </span>
+                      ) : invoice.status === "PAID" ? (
+                        <span className="text-green-700 font-bold">PAID</span>
+                      ) : (
+                        <span className="text-gray-700 font-bold">VOID</span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleView(invoice._id!)}
+                        title="View Invoice">
+                        <Eye className="w-4 h-4" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleEdit(invoice)}
+                        title="Edit Invoice">
+                        <Edit className="w-4 h-4" />
+                      </Button>
+
+                      <AlertDialog>
+                        <AlertDialogTrigger asChild>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            title="Delete Invoice"
+                            className="text-red-600 hover:text-red-800">
+                            <Trash2 className="w-4 h-4" />
+                          </Button>
+                        </AlertDialogTrigger>
+
+                        <AlertDialogContent>
+                          <AlertDialogHeader>
+                            <AlertDialogTitle>Delete Invoice</AlertDialogTitle>
+                            <AlertDialogDescription>
+                              This action cannot be undone. Are you sure you
+                              want to permanently delete this invoice record?
+                            </AlertDialogDescription>
+                          </AlertDialogHeader>
+
+                          <AlertDialogFooter>
+                            <AlertDialogCancel asChild>
+                              <Button variant="outline">Cancel</Button>
+                            </AlertDialogCancel>
+                            <AlertDialogAction asChild>
+                              <Button
+                                variant="destructive"
+                                onClick={() => handleDelete(invoice._id!)}>
+                                Confirm Delete
+                              </Button>
+                            </AlertDialogAction>
+                          </AlertDialogFooter>
+                        </AlertDialogContent>
+                      </AlertDialog>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </ScrollArea>
+
+        {/* Pagination */}
+        <div className="flex flex-wrap items-center justify-between gap-4">
+          {/* Rows per page */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              Invoices per page:
+            </span>
+            <Select
+              value={String(rowsPerPage)}
+              onValueChange={(val) => {
+                setRowsPerPage(Number(val));
+                setCurrentPage(1);
+              }}>
+              <SelectTrigger className="w-20">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="10">10</SelectItem>
+                <SelectItem value="50">50</SelectItem>
+                <SelectItem value="100">100</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
+          {/* Page controls */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((prev) => prev - 1)}>
+              Previous
+            </Button>
+            <span className="text-sm text-muted-foreground">
+              Page {currentPage} of {totalPages}
+            </span>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage((prev) => prev + 1)}>
+              Next
+            </Button>
+          </div>
+        </div>
+      </CardContent>
+
+      {/* Create Dialog */}
+      <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
+        <DialogPanel className="max-w-3xl" autoFocus={false}>
+          <DialogHeader className="border-b pb-2">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
+              Create Sales Invoice
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Fill in the invoice details. Fields marked with
+              <span className="text-red-500"> * </span> are required.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-4 py-4">
+            {/* Invoice No. */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="invoiceNo">Invoice No.</Label>
+              <Input
+                id="invoiceNo"
+                value={formData.invoiceNo ?? "Auto-generated"}
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            {/* Create Date */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="createDate">Invoice Date</Label>
+              <Input
+                id="createDate"
+                value={new Date().toLocaleDateString("en-US", {
+                  month: "short",
+                  day: "2-digit",
+                  year: "numeric",
+                })}
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            {/* Customer & Sales Order */}
+            <div className="grid gap-1.5 relative">
+              <Label htmlFor="customer">
+                Customer <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="customer"
+                autoComplete="off"
+                value={formData.customer ?? ""}
+                onFocus={() => {
+                  setIsCustomerFocused(true);
+                  if (!formData.customer) handleCustomerSearch("");
+                }}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    customer: val,
+                    salesOrder: "",
+                    TIN: "",
+                    address: "",
+                    terms: "",
+                    salesPerson: "",
+                  }));
+                  setSoSuggestions([]);
+                  setItems([]);
+                  if (val.trim().length > 0) handleCustomerSearch(val);
+                  else setCustomerSuggestions([]);
+                }}
+                placeholder="Search Customer"
+              />
+              {isCustomerFocused && customerSuggestions.length > 0 && (
+                <ul className="absolute top-full left-0 z-10 mt-1 w-full max-h-40 overflow-auto border bg-white shadow-sm rounded">
+                  {customerSuggestions.map((cust) => (
+                    <li
+                      key={cust._id}
+                      className="px-2 py-1 hover:bg-gray-100 cursor-pointer"
+                      onClick={() => {
+                        handleCustomerSelect(cust._id); // ✅ fetch customer by ID
+                        setIsCustomerFocused(false);
+                      }}>
+                      {cust.customerName}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Customer Details */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="TIN">TIN</Label>
+              <Input
+                id="TIN"
+                value={formData.TIN ?? ""}
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="address">Address</Label>
+              <Input
+                id="address"
+                value={formData.address ?? ""}
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="terms">Terms</Label>
+              <Input
+                id="terms"
+                value={formData.terms ?? ""}
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="salesPerson">Sales Agent</Label>
+              <Input
+                id="salesPerson"
+                value={formData.salesPerson ?? ""}
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            <div className="grid gap-1.5 relative">
+              <Label htmlFor="drNo">
+                DR No. <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="drNo"
+                autoComplete="off"
+                value={formData.drNo ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData((prev) => ({ ...prev, drNo: val }));
+
+                  if (!val) {
+                    setItems([]);
+                    setDrSuggestions([]);
+                    return;
+                  }
+
+                  if (formData.customer) handleDrSearch(formData.customer, val);
+                }}
+                onFocus={() => {
+                  if (formData.customer) handleDrSearch(formData.customer, "");
+                  setIsDrFocused(true);
+                }}
+                placeholder="Select Delivery (DR No.)"
+                disabled={!formData.customer}
+              />
+
+              {isDrFocused && drSuggestions.length > 0 && (
+                <ul className="absolute top-full left-0 mt-1 w-full max-h-40 overflow-auto border bg-white shadow-sm rounded z-50">
+                  {drSuggestions.map((dr) => (
+                    <li
+                      key={dr._id}
+                      className="px-2 py-1 hover:bg-gray-100 cursor-pointer"
+                      onMouseDown={() => {
+                        handleDrSelect(dr._id); // fetch by _id
+                        setFormData((prev) => ({ ...prev, drNo: dr.drNo })); // show drNo
+                        setDrSuggestions([]);
+                        setIsDrFocused(false);
+                      }}>
+                      {dr.drNo}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Warehouse & Invoice Date */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="warehouse">Warehouse</Label>
+              <Input
+                id="warehouse"
+                value={formData.warehouse ?? ""}
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="invoiceDate">Due Date</Label>
+              <Input
+                id="dueDate"
+                type="text"
+                value={
+                  formData.deliveryDate
+                    ? new Date(formData.deliveryDate).toLocaleDateString(
+                        "en-US",
+                        {
+                          month: "short",
+                          day: "2-digit",
+                          year: "numeric",
+                        }
+                      )
+                    : ""
+                }
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            {/* Shipping Address & Remarks */}
+            <div className="grid grid-cols-2 gap-4 col-span-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="shippingAddress">Shipping Address</Label>
+                <textarea
+                  id="shippingAddress"
+                  value={formData.shippingAddress ?? ""}
+                  readOnly
+                  className="w-full bg-gray-100 cursor-not-allowed p-2 rounded border border-gray-300 resize-none"
+                  rows={3}
+                />
               </div>
 
-              {/* Customer Info */}
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-                <div className="text-sm space-y-1">
-                  <p>
-                    <span className="font-medium text-muted-foreground">
-                      Customer:
-                    </span>{" "}
-                    <span className="text-foreground font-semibold">
-                      {selectedInvoice.customer}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="font-medium text-muted-foreground">
-                      Sales Person:
-                    </span>{" "}
-                    <span className="text-foreground font-semibold">
-                      {selectedInvoice.salesPerson || "—"}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="font-medium text-muted-foreground">
-                      TIN:
-                    </span>{" "}
-                    <span className="text-foreground font-semibold">
-                      {selectedInvoice.TIN || "—"}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="font-medium text-muted-foreground">
-                      Terms:
-                    </span>{" "}
-                    <span className="text-foreground font-semibold">
-                      {selectedInvoice.terms || "—"}
-                    </span>
-                  </p>
-                </div>
-                <div className="text-sm space-y-1">
-                  <p>
-                    <span className="font-medium text-muted-foreground">
-                      Address:
-                    </span>{" "}
-                    <span className="text-foreground font-semibold">
-                      {selectedInvoice.address || "—"}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="font-medium text-muted-foreground">
-                      Reference:
-                    </span>{" "}
-                    <span className="text-foreground font-semibold">
-                      {selectedInvoice.reference || "—"}
-                    </span>
-                  </p>
-                  <p>
-                    <span className="font-medium text-muted-foreground">
-                      Notes:
-                    </span>{" "}
-                    <span className="text-foreground font-semibold">
-                      {selectedInvoice.notes || "—"}
-                    </span>
-                  </p>
-                </div>
+              <div className="grid gap-1.5">
+                <Label htmlFor="remarks">Remarks</Label>
+                <textarea
+                  id="remarks"
+                  value={formData.remarks ?? ""}
+                  placeholder="Additional notes (optional)"
+                  readOnly
+                  className="w-full bg-gray-100 cursor-not-allowed p-2 rounded border border-gray-300 resize-none"
+                  rows={3}
+                />
               </div>
+            </div>
+          </div>
 
-              {/* Itemized Table */}
-              <div className="overflow-x-auto mb-6">
-                <table className="min-w-full text-sm border border-border rounded-md overflow-hidden">
-                  <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+          {/* Items Table */}
+          {formData.drNo && items.length > 0 && (
+            <div className="col-span-2 mt-4">
+              <div className="overflow-x-auto rounded-lg shadow-sm">
+                <table className="min-w-full">
+                  <thead className="bg-primary text-white">
                     <tr>
-                      <th className="px-4 py-2 text-left">Item</th>
-                      <th className="px-4 py-2 text-left">Description</th>
-                      <th className="px-4 py-2 text-right">Qty</th>
-                      <th className="px-4 py-2 text-left">UOM</th>
-                      <th className="px-4 py-2 text-right">Price</th>
-                      <th className="px-4 py-2 text-right">Amount</th>
+                      <th className="p-2">
+                        <Checkbox
+                          checked={items.every((item) => item.selected)}
+                          onCheckedChange={(checked) =>
+                            setItems(
+                              items.map((i) => ({ ...i, selected: !!checked }))
+                            )
+                          }
+                        />
+                      </th>
+                      <th className="p-2 text-left">Item Code</th>
+                      <th className="p-2 text-left">Item Name</th>
+                      <th className="p-2 text-right">Available Qty</th>
+                      <th className="p-2 text-right">Qty to Invoice</th>
                     </tr>
                   </thead>
-                  <tbody>
-                    {selectedInvoice.items.map((item, index) => (
-                      <tr key={index} className="border-t">
-                        <td className="px-4 py-2">{item.itemName}</td>
-                        <td className="px-4 py-2">{item.description}</td>
-                        <td className="px-4 py-2 text-right">
-                          {item.quantity}
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {items.map((item, idx) => (
+                      <tr
+                        key={item.itemCode || idx}
+                        className="hover:bg-gray-50">
+                        <td className="p-2 text-center">
+                          <Checkbox
+                            checked={item.selected}
+                            onCheckedChange={(checked) =>
+                              setItems(
+                                items.map((i, j) =>
+                                  j === idx ? { ...i, selected: !!checked } : i
+                                )
+                              )
+                            }
+                          />
                         </td>
-                        <td className="px-4 py-2">{item.unitType}</td>
-                        <td className="px-4 py-2 text-right">
-                          ₱
-                          {item.price.toLocaleString("en-PH", {
-                            minimumFractionDigits: 2,
-                          })}
+                        <td className="p-2 text-left font-medium">
+                          {item.itemCode}
                         </td>
-                        <td className="px-4 py-2 text-right">
-                          ₱
-                          {item.amount.toLocaleString("en-PH", {
-                            minimumFractionDigits: 2,
-                          })}
+                        <td className="p-2 text-left">{item.itemName}</td>
+                        <td className="p-2 text-right font-semibold">
+                          {item.availableQuantity}
+                        </td>
+                        <td className="p-2 text-right">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              let val = parseInt(
+                                e.target.value.replace(/\D/g, ""),
+                                10
+                              );
+                              if (isNaN(val)) val = 1;
+                              val = Math.min(
+                                Math.max(val, 1),
+                                item.availableQuantity
+                              );
+                              setItems(
+                                items.map((i, j) =>
+                                  j === idx ? { ...i, quantity: val } : i
+                                )
+                              );
+                            }}
+                            className="w-20 text-right bg-transparent border-none focus:outline-none focus:ring-0"
+                          />
                         </td>
                       </tr>
                     ))}
@@ -1756,62 +1086,625 @@ export default function SalesInvoicePage({
                 </table>
               </div>
 
-              {/* Financial Summary */}
-              <div className="grid grid-cols-4 gap-4 pb-4">
-                <div>{/* Column 1 */}</div>
-                <div>{/* Column 2 */}</div>
-                <div>{/* Column 3 */}</div>
-
+              {/* Invoice Summary */}
+              <div className="w-full my-8 overflow-x-auto">
+                <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 py-2 text-end">
+                  Invoice Summary
+                </h3>
                 <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
-                  <table className="w-full border border-border rounded-lg overflow-hidden text-sm">
+                  <table className="w-full text-sm">
                     <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
                       <tr>
-                        <th className="px-4 py-2 text-left">Breakdown</th>
-                        <th className="px-4 py-2 text-right">Amount</th>
+                        <th className="px-4 py-2 text-left">Metric</th>
+                        <th className="px-4 py-2 text-right">Value</th>
                       </tr>
                     </thead>
-                    <tbody>
-                      <tr className="border-t">
-                        <td className="px-4 py-2">Gross Amount</td>
-                        <td className="px-4 py-2 text-right text-muted-foreground">
-                          ₱
-                          {selectedInvoice.amount.toLocaleString("en-PH", {
-                            minimumFractionDigits: 2,
-                          })}
+                    <tbody className="divide-y divide-border">
+                      <tr>
+                        <td className="py-2 px-4 text-muted-foreground">
+                          Total Items
+                        </td>
+                        <td className="py-2 px-4 text-right font-semibold text-foreground">
+                          {items.filter((i) => i.selected).length}
                         </td>
                       </tr>
-                      <tr className="border-t bg-muted/40">
-                        <td className="px-4 py-2 font-medium text-primary">
-                          Net Amount
+                      <tr>
+                        <td className="py-2 px-4 text-primary">
+                          Total Quantity
                         </td>
-                        <td className="px-4 py-2 text-right font-bold text-primary">
-                          ₱
-                          {selectedInvoice.amount.toLocaleString("en-PH", {
-                            minimumFractionDigits: 2,
-                          })}
+                        <td className="py-2 px-4 text-right font-semibold text-primary">
+                          {items
+                            .filter((i) => i.selected)
+                            .reduce((sum, i) => sum + i.quantity, 0)}
                         </td>
                       </tr>
                     </tbody>
                   </table>
                 </div>
               </div>
-
-              {/* Footer */}
-              <DialogFooter className=" py-4 border-t border-border flex justify-end">
-                <Button
-                  variant="outline"
-                  onClick={() => setIsViewDialogOpen(false)}>
-                  Close
-                </Button>
-              </DialogFooter>
-            </>
-          ) : (
-            <p className="text-sm text-muted-foreground">
-              No sales invoice data found.
-            </p>
+            </div>
           )}
+
+          <DialogFooter className="pt-4 border-t">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+
+            <Button
+              onClick={() => handleCreate(formData, items)}
+              disabled={
+                isCreating ||
+                !formData.customer?.trim() ||
+                !formData.drNo?.trim() ||
+                items.filter((i) => i.selected).length === 0
+              }>
+              {isCreating ? "Creating…" : "Create Invoice"}
+            </Button>
+          </DialogFooter>
         </DialogPanel>
       </Dialog>
-    </div>
+
+      {/* Edit Dialog */}
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogPanel className="max-w-3xl" autoFocus={false}>
+          <DialogHeader className="border-b pb-2">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
+              Edit Sales Invoice
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Update the sales invoice details. Fields marked with
+              <span className="text-red-500"> * </span> are required.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-2 gap-4 py-4">
+            {/* Invoice No. */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="invoiceNo">Invoice No.</Label>
+              <Input
+                id="invoiceNo"
+                value={formData.invoiceNo ?? "Auto-generated"}
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            {/* Created Date */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="createdDate">Invoice Date</Label>
+              <Input
+                id="createdDate"
+                type="text"
+                value={
+                  formData.createdAt
+                    ? new Date(formData.createdAt).toLocaleDateString("en-PH", {
+                        month: "short",
+                        day: "2-digit",
+                        year: "numeric",
+                      })
+                    : ""
+                }
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            {/* Customer & Sales Order */}
+            <div className="grid gap-1.5 relative">
+              <Label htmlFor="customer">
+                Customer <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="customer"
+                autoComplete="off"
+                value={formData.customer ?? ""}
+                onFocus={() => setIsCustomerFocused(true)}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData((prev) => ({
+                    ...prev,
+                    customer: val,
+                    soNumber: "",
+                  }));
+                  setSoSuggestions([]);
+                  setItems([]);
+                  if (val.trim().length > 0) handleCustomerSearch(val);
+                  else setCustomerSuggestions([]);
+                }}
+                placeholder="Search Customer"
+              />
+              {customerSuggestions.map((cust) => (
+                <li
+                  key={cust._id}
+                  onClick={() => {
+                    setFormData((prev) => ({
+                      ...prev,
+                      customer: cust.customerName,
+                      TIN: cust.TIN || "",
+                      address: cust.address || "",
+                      terms: cust.terms || "",
+                      salesPerson: cust.salesAgent || "",
+                    }));
+                    setCustomerSuggestions([]);
+                    setIsCustomerFocused(false);
+                  }}>
+                  {cust.customerName}
+                </li>
+              ))}
+            </div>
+
+            {/* Customer Details */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="TIN">TIN</Label>
+              <Input
+                id="TIN"
+                value={formData.TIN ?? ""}
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="address">Address</Label>
+              <Input
+                id="address"
+                value={formData.address ?? ""}
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="terms">Terms</Label>
+              <Input
+                id="terms"
+                value={formData.terms ?? ""}
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="salesPerson">Sales Agent</Label>
+              <Input
+                id="salesPerson"
+                value={formData.salesPerson ?? ""}
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            <div className="grid gap-1.5 relative">
+              <Label htmlFor="drNo">
+                DR No. <span className="text-red-500">*</span>
+              </Label>
+              <Input
+                id="drNo"
+                autoComplete="off"
+                value={formData.drNo ?? ""}
+                onChange={(e) => {
+                  const val = e.target.value;
+                  setFormData((prev) => ({ ...prev, drNo: val }));
+
+                  if (!val) {
+                    setItems([]);
+                    setDrSuggestions([]); // renamed suggestions array for DR
+                    return;
+                  }
+
+                  if (formData.customer) handleDrSearch(formData.customer, val);
+                }}
+                onFocus={() => {
+                  if (formData.customer) handleDrSearch(formData.customer, "");
+                  setIsDrFocused(true); // renamed focus state for DR
+                }}
+                placeholder="Select Delivery (DR No.)"
+                disabled={!formData.customer}
+              />
+
+              {isDrFocused && drSuggestions.length > 0 && (
+                <ul className="absolute top-full left-0 mt-1 w-full max-h-40 overflow-auto border bg-white shadow-sm rounded z-50">
+                  {drSuggestions.map((dr) => (
+                    <li
+                      key={dr._id}
+                      className="px-2 py-1 hover:bg-gray-100 cursor-pointer"
+                      onMouseDown={() => {
+                        handleDrSelect(dr._id); // fetch by _id
+                        setFormData((prev) => ({ ...prev, drNo: dr.drNo })); // show DR No.
+                        setDrSuggestions([]);
+                        setIsDrFocused(false);
+                      }}>
+                      {dr.drNo}
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </div>
+
+            {/* Invoice Date & Payment Terms */}
+            <div className="grid gap-1.5">
+              <Label htmlFor="invoiceDate">Invoice Date</Label>
+              <Input
+                id="invoiceDate"
+                type="text"
+                value={
+                  formData.invoiceDate
+                    ? new Date(formData.invoiceDate).toLocaleDateString(
+                        "en-PH",
+                        {
+                          month: "short",
+                          day: "2-digit",
+                          year: "numeric",
+                        }
+                      )
+                    : ""
+                }
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            <div className="grid gap-1.5">
+              <Label htmlFor="terms">Payment Terms</Label>
+              <Input
+                id="terms"
+                value={formData.terms ?? ""}
+                placeholder="Payment terms"
+                readOnly
+                className="bg-gray-100 cursor-not-allowed"
+              />
+            </div>
+
+            {/* Shipping Address & Remarks */}
+            <div className="grid grid-cols-2 gap-4 col-span-2">
+              <div className="grid gap-1.5">
+                <Label htmlFor="shippingAddress">Shipping Address</Label>
+                <textarea
+                  id="shippingAddress"
+                  value={formData.shippingAddress ?? ""}
+                  readOnly
+                  className="w-full bg-gray-100 cursor-not-allowed p-2 rounded border border-gray-300 resize-none"
+                  rows={3}
+                />
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="remarks">Remarks</Label>
+                <textarea
+                  id="remarks"
+                  value={formData.remarks ?? ""}
+                  placeholder="Additional notes (optional)"
+                  readOnly
+                  className="w-full bg-gray-100 cursor-not-allowed p-2 rounded border border-gray-300 resize-none"
+                  rows={3}
+                />
+              </div>
+            </div>
+          </div>
+
+          {/* Items Table */}
+          {items.length > 0 && (
+            <div className="col-span-2 mt-4">
+              <div className="overflow-x-auto rounded-lg shadow-sm">
+                <table className="min-w-full">
+                  <thead className="bg-primary text-white">
+                    <tr>
+                      <th className="p-2">
+                        <Checkbox
+                          checked={items.every((item) => item.selected)}
+                          onCheckedChange={(checked) =>
+                            setItems(
+                              items.map((i) => ({ ...i, selected: !!checked }))
+                            )
+                          }
+                        />
+                      </th>
+                      <th className="p-2 text-left">Item Code</th>
+                      <th className="p-2 text-left">Item Name</th>
+                      <th className="p-2 text-right">Available Qty</th>
+                      <th className="p-2 text-right">Qty to Invoice</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {items.map((item, idx) => (
+                      <tr
+                        key={item.itemCode || idx}
+                        className="hover:bg-gray-50">
+                        <td className="p-2 text-center">
+                          <Checkbox
+                            checked={item.selected}
+                            onCheckedChange={(checked) =>
+                              setItems(
+                                items.map((i, j) =>
+                                  j === idx ? { ...i, selected: !!checked } : i
+                                )
+                              )
+                            }
+                          />
+                        </td>
+                        <td className="p-2 text-left font-medium">
+                          {item.itemCode}
+                        </td>
+                        <td className="p-2 text-left">{item.itemName}</td>
+                        <td className="p-2 text-right font-semibold">
+                          {item.availableQuantity}
+                        </td>
+                        <td className="p-2 text-right">
+                          <input
+                            type="text"
+                            inputMode="numeric"
+                            pattern="[0-9]*"
+                            value={item.quantity}
+                            onChange={(e) => {
+                              let val = parseInt(
+                                e.target.value.replace(/\D/g, ""),
+                                10
+                              );
+                              if (isNaN(val)) val = 1;
+                              val = Math.min(
+                                Math.max(val, 1),
+                                item.availableQuantity
+                              );
+                              setItems(
+                                items.map((i, j) =>
+                                  j === idx ? { ...i, quantity: val } : i
+                                )
+                              );
+                            }}
+                            className="w-20 text-right bg-transparent border-none focus:outline-none focus:ring-0"
+                          />
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary */}
+              <div className="w-full my-8 overflow-x-auto">
+                <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 py-2 text-end">
+                  Invoice Summary
+                </h3>
+                <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Metric</th>
+                        <th className="px-4 py-2 text-right">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      <tr>
+                        <td className="py-2 px-4 text-muted-foreground">
+                          Total Items
+                        </td>
+                        <td className="py-2 px-4 text-right font-semibold text-foreground">
+                          {items.filter((i) => i.selected).length}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 px-4 text-primary">
+                          Total Quantity
+                        </td>
+                        <td className="py-2 px-4 text-right font-semibold text-primary">
+                          {items
+                            .filter((i) => i.selected)
+                            .reduce((sum, i) => sum + i.quantity, 0)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="pt-4 border-t">
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              onClick={handleUpdate}
+              disabled={
+                isUpdating ||
+                !formData.customer?.trim() ||
+                !formData.invoiceNo?.trim() ||
+                items.filter((i) => i.selected).length === 0
+              }>
+              {isUpdating && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
+              {isUpdating ? "Updating…" : "Update Invoice"}
+            </Button>
+          </DialogFooter>
+        </DialogPanel>
+      </Dialog>
+
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogTitle className="sr-only">Sales Invoice details</DialogTitle>
+        <DialogPanel className="max-w-3xl" autoFocus={false}>
+          {/* 🧾 Invoice Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
+            <div>
+              <h2 className="text-xl font-bold text-primary tracking-wide">
+                Sales Invoice Details
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Invoice No:{" "}
+                <span className="text-foreground font-semibold">
+                  {formData.invoiceNo}
+                </span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                SO No.:{" "}
+                <span className="text-foreground font-semibold">
+                  {formData.soNumber ?? ""}
+                </span>
+              </p>
+            </div>
+            <div className="text-sm text-right text-muted-foreground">
+              <p>
+                Created Date:{" "}
+                <span className="text-foreground">
+                  {formData.createdAt
+                    ? new Date(formData.createdAt).toLocaleDateString("en-PH", {
+                        month: "short",
+                        day: "2-digit",
+                        year: "numeric",
+                      })
+                    : ""}
+                </span>
+              </p>
+              <p>
+                Invoice Date:{" "}
+                <span className="text-foreground">
+                  {formData.invoiceDate
+                    ? new Date(formData.invoiceDate).toLocaleDateString(
+                        "en-PH",
+                        {
+                          month: "short",
+                          day: "2-digit",
+                          year: "numeric",
+                        }
+                      )
+                    : ""}
+                </span>
+              </p>
+              <p>
+                Status:{" "}
+                <span
+                  className={`font-semibold ${
+                    formData.status === "PAID"
+                      ? "text-green-700 font-bold"
+                      : formData.status === "PARTIAL"
+                      ? "text-yellow-600 font-bold"
+                      : formData.status === "UNPAID"
+                      ? "text-red-600 font-bold"
+                      : "text-gray-500 font-bold"
+                  }`}>
+                  {formData.status}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* 🏢 Customer & Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Customer Name:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {formData.customer ?? ""}
+                </span>
+              </p>
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Payment Terms:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {formData.terms ?? ""}
+                </span>
+              </p>
+            </div>
+
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Shipping Address:
+                </span>{" "}
+                <span className="text-foreground font-semibold truncate max-w-[60%]">
+                  {formData.shippingAddress ?? ""}
+                </span>
+              </p>
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Remarks:
+                </span>{" "}
+                <span className="text-foreground font-semibold truncate max-w-[60%]">
+                  {formData.remarks ?? ""}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* Items Table */}
+          {items.length > 0 && (
+            <div className="col-span-2 mt-4">
+              <div className="overflow-x-auto rounded-lg shadow-sm">
+                <table className="min-w-full">
+                  <thead className="bg-primary text-white">
+                    <tr>
+                      <th className="p-2 text-left">Item Code</th>
+                      <th className="p-2 text-left">Item Name</th>
+                      <th className="p-2 text-right">Available Qty</th>
+                      <th className="p-2 text-right">Qty to Invoice</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {items.map((item, idx) => (
+                      <tr
+                        key={item.itemCode || idx}
+                        className="hover:bg-gray-50">
+                        <td className="p-2 text-left font-medium">
+                          {item.itemCode}
+                        </td>
+                        <td className="p-2 text-left">{item.itemName}</td>
+                        <td className="p-2 text-right font-semibold">
+                          {item.availableQuantity}
+                        </td>
+                        <td className="p-2 text-right font-semibold">
+                          {item.quantity}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary */}
+              <div className="w-full my-8 overflow-x-auto">
+                <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 py-2 text-end">
+                  Invoice Summary
+                </h3>
+                <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Metric</th>
+                        <th className="px-4 py-2 text-right">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      <tr>
+                        <td className="py-2 px-4 text-muted-foreground">
+                          Total Items
+                        </td>
+                        <td className="py-2 px-4 text-right font-semibold text-foreground">
+                          {items.length}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 px-4 text-primary">
+                          Total Quantity
+                        </td>
+                        <td className="py-2 px-4 text-right font-semibold text-primary">
+                          {items.reduce((sum, i) => sum + i.quantity, 0)}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          )}
+
+          <DialogFooter className="pt-4 border-t">
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogPanel>
+      </Dialog>
+    </Card>
   );
 }

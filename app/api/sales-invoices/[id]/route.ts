@@ -2,32 +2,43 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import connectMongoDB from "@/libs/mongodb";
 import { SalesInvoice } from "@/models/salesInvoice";
+import { SalesOrderItem } from "@/app/components/sections/type";
+
+async function validateId(id?: string) {
+  const trimmed = id?.trim();
+  if (!trimmed || !mongoose.Types.ObjectId.isValid(trimmed)) {
+    throw new Error("Invalid ID");
+  }
+  return trimmed;
+}
+
+function getErrorMessage(err: unknown): string {
+  if (err instanceof Error) return err.message;
+  return String(err);
+}
 
 export async function GET(
   _: Request,
   context: { params: Promise<{ id?: string }> }
 ) {
   await connectMongoDB();
-
-  const { id } = await context.params;
-  const trimmedId = id?.trim();
-
-  if (!trimmedId || !mongoose.Types.ObjectId.isValid(trimmedId)) {
-    return NextResponse.json({ error: "Invalid invoice ID" }, { status: 400 });
-  }
-
   try {
-    const invoice = await SalesInvoice.findById(trimmedId);
+    const { id } = await context.params;
+    const validId = await validateId(id);
+
+    const invoice = await SalesInvoice.findById(validId);
     if (!invoice) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
     return NextResponse.json({ invoice });
-  } catch (err) {
-    console.error("❌ Failed to fetch invoice:", err);
+  } catch (err: unknown) {
+    console.error("❌ GET invoice error:", err);
+    const message = getErrorMessage(err);
+    const status = message === "Invalid ID" ? 400 : 500;
     return NextResponse.json(
-      { error: "Failed to fetch invoice" },
-      { status: 500 }
+      { error: message || "Failed to fetch invoice" },
+      { status }
     );
   }
 }
@@ -37,17 +48,20 @@ export async function PATCH(
   context: { params: Promise<{ id?: string }> }
 ) {
   await connectMongoDB();
-  const updates = await req.json();
-
-  const { id } = await context.params;
-  const trimmedId = id?.trim();
-
-  if (!trimmedId || !mongoose.Types.ObjectId.isValid(trimmedId)) {
-    return NextResponse.json({ error: "Invalid invoice ID" }, { status: 400 });
-  }
-
   try {
-    const invoice = await SalesInvoice.findByIdAndUpdate(trimmedId, updates, {
+    const updates = await req.json();
+    const { id } = await context.params;
+    const validId = await validateId(id);
+
+    // If items are being updated, sync availableQuantity with quantity
+    if (updates.items && Array.isArray(updates.items)) {
+      updates.items = updates.items.map((item: SalesOrderItem) => ({
+        ...item,
+        availableQuantity: item.quantity, // auto-sync
+      }));
+    }
+
+    const invoice = await SalesInvoice.findByIdAndUpdate(validId, updates, {
       new: true,
       runValidators: true,
     });
@@ -57,11 +71,13 @@ export async function PATCH(
     }
 
     return NextResponse.json({ invoice });
-  } catch (err) {
-    console.error("❌ Failed to update invoice:", err);
+  } catch (err: unknown) {
+    console.error("❌ PATCH invoice error:", err);
+    const message = getErrorMessage(err);
+    const status = message === "Invalid ID" ? 400 : 500;
     return NextResponse.json(
-      { error: "Failed to update invoice" },
-      { status: 500 }
+      { error: message || "Failed to update invoice" },
+      { status }
     );
   }
 }
@@ -71,27 +87,23 @@ export async function DELETE(
   context: { params: Promise<{ id?: string }> }
 ) {
   await connectMongoDB();
-
-  const { id } = await context.params;
-  const trimmedId = id?.trim();
-
-  if (!trimmedId || !mongoose.Types.ObjectId.isValid(trimmedId)) {
-    return NextResponse.json({ error: "Invalid invoice ID" }, { status: 400 });
-  }
-
   try {
-    const deleted = await SalesInvoice.findByIdAndDelete(trimmedId);
+    const { id } = await context.params;
+    const validId = await validateId(id);
 
+    const deleted = await SalesInvoice.findByIdAndDelete(validId);
     if (!deleted) {
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
     return NextResponse.json({ success: true });
-  } catch (err) {
-    console.error("❌ Failed to delete invoice:", err);
+  } catch (err: unknown) {
+    console.error("❌ DELETE invoice error:", err);
+    const message = getErrorMessage(err);
+    const status = message === "Invalid ID" ? 400 : 500;
     return NextResponse.json(
-      { error: "Failed to delete invoice" },
-      { status: 500 }
+      { error: message || "Failed to delete invoice" },
+      { status }
     );
   }
 }

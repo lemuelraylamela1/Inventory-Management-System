@@ -7,6 +7,7 @@ import { generateSalesInvoiceNo } from "@/libs/generateSalesInvoiceNo";
 type SalesInvoiceDoc = HydratedDocument<{
   invoiceNo: string;
   invoiceDate: string;
+  drNo?: string; // <-- added drNo
   customer: string;
   customerRef?: mongoose.Types.ObjectId;
   salesPerson?: string;
@@ -47,6 +48,13 @@ const SalesInvoiceSchema = new Schema(
     invoiceDate: {
       type: String,
       trim: true,
+    },
+
+    // **Delivery Receipt Number**
+    drNo: {
+      type: String,
+      trim: true,
+      uppercase: true,
     },
 
     // Customer details

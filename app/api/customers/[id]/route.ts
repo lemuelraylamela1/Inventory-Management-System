@@ -1,6 +1,7 @@
 import { NextResponse, NextRequest } from "next/server";
 import mongoose from "mongoose";
 import { Customer } from "@/models/customer";
+import connectMongoDB from "@/libs/mongodb";
 
 type Params = {
   params: Promise<{
@@ -9,7 +10,10 @@ type Params = {
 };
 
 // ✅ PUT: Update a customer
-export async function PUT(req: NextRequest, props: Params): Promise<NextResponse> {
+export async function PUT(
+  req: NextRequest,
+  props: Params
+): Promise<NextResponse> {
   const params = await props.params;
   const { id } = params;
 
@@ -92,7 +96,10 @@ export async function PUT(req: NextRequest, props: Params): Promise<NextResponse
 }
 
 // ✅ DELETE: Remove a customer
-export async function DELETE(_: NextRequest, props: Params): Promise<NextResponse> {
+export async function DELETE(
+  _: NextRequest,
+  props: Params
+): Promise<NextResponse> {
   const params = await props.params;
   const { id } = params;
 
@@ -119,6 +126,32 @@ export async function DELETE(_: NextRequest, props: Params): Promise<NextRespons
     console.error("Error deleting customer:", error);
     return NextResponse.json(
       { message: "Failed to delete customer" },
+      { status: 500 }
+    );
+  }
+}
+
+export async function GET(
+  req: Request,
+  { params }: { params: { id: string } }
+) {
+  await connectMongoDB();
+  const { id } = params;
+
+  try {
+    const customer = await Customer.findById(id);
+    if (!customer) {
+      return NextResponse.json(
+        { error: "Customer not found" },
+        { status: 404 }
+      );
+    }
+
+    return NextResponse.json(customer, { status: 200 });
+  } catch (err) {
+    console.error("GET Customer by ID failed:", err);
+    return NextResponse.json(
+      { error: "Internal server error" },
       { status: 500 }
     );
   }

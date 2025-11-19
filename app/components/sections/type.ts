@@ -251,6 +251,7 @@ export type SalesOrderItem = {
   salesPrice?: number;
   weight?: number;
   cbm?: number;
+  availableQuantity?: number;
 };
 
 // 🔹 Discount deduction step

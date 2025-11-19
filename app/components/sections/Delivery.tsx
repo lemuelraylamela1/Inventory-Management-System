@@ -64,6 +64,8 @@ import {
 import toast from "react-hot-toast";
 
 import type { Delivery, SalesOrder, DeliveryItem } from "./type";
+import SalesOrderModel, { SalesOrderDocument } from "@/models/salesOrder";
+
 export default function Delivery() {
   const [deliveries, setDeliveries] = useState<Delivery[]>([]);
   const [selectedIds, setSelectedIds] = useState<string[]>([]);
@@ -204,18 +206,17 @@ export default function Delivery() {
       const res = await fetch("/api/sales-orders");
       if (!res.ok) throw new Error("Failed to fetch sales orders");
 
-      const data: { salesOrders: SalesOrder[] } = await res.json();
+      const data: { salesOrders: SalesOrderDocument[] } = await res.json();
 
       const filteredSoNumbers = data.salesOrders
         .filter(
           (so) =>
-            so.customer === customer && // only selected customer
-            so.status === "PENDING" &&
+            so.customer === customer &&
+            (so.status === "PENDING" || so.status === "PARTIAL") &&
             so.soNumber.toLowerCase().includes(query.toLowerCase())
         )
-        .map((so) => so.soNumber);
+        .map((so) => so.soNumber); // <-- only keep the string
 
-      console.log("SO suggestions for", customer, ":", filteredSoNumbers);
       setSoSuggestions(filteredSoNumbers);
     } catch (err) {
       console.error("SO search error:", err);
@@ -223,21 +224,34 @@ export default function Delivery() {
     }
   };
 
+  // Populate items from Sales Order
   const populateItemsFromSO = (so: SalesOrder) => {
     if (!so?.items?.length) return [];
 
-    return so.items.map((item) => ({
-      itemCode: item.itemCode ?? "",
-      itemName: item.itemName,
-      availableQuantity: item.quantity ?? 0,
-      quantity: item.quantity ?? 1,
-      selected: true, // auto-select all
-      unitType: item.unitType,
-      price: item.price,
-      amount: item.amount,
-      weight: item.weight,
-      cbm: item.cbm,
-    }));
+    return so.items.map((item) => {
+      const availableQty = item.availableQuantity ?? item.quantity ?? 0;
+
+      const initialQty = Math.min(item.quantity ?? 1, availableQty); // never exceed available
+
+      return {
+        itemCode: item.itemCode ?? "",
+        itemName: item.itemName ?? "",
+        availableQuantity: availableQty,
+        quantity: initialQty,
+        selected: availableQty > 0, // only auto-select if something is available
+        unitType: item.unitType ?? "",
+        price: item.price ?? 0,
+        amount: item.amount ?? 0,
+        weight: item.weight ?? 0,
+        cbm: item.cbm ?? 0,
+      };
+    });
+  };
+
+  // When user selects a Sales Order
+  const handleSOSelect = (so: SalesOrder) => {
+    setFormData({ ...formData, soNumber: so.soNumber });
+    setItems(populateItemsFromSO(so)); // <-- use availableQuantity here
   };
 
   const handleSoSelect = async (soNumber: string) => {
@@ -257,6 +271,9 @@ export default function Delivery() {
         (so) => so.soNumber === soNumber
       );
       if (!selectedSO) return;
+
+      console.log("Fetched SO items:", selectedSO.items); // check availableQuantity here
+      setItems(populateItemsFromSO(selectedSO));
 
       // Update form fields
       setFormData((prev) => ({
@@ -828,7 +845,6 @@ export default function Delivery() {
                   const val = e.target.value;
                   setFormData((prev) => ({ ...prev, soNumber: val }));
 
-                  // Clear items if no SO
                   if (!val) {
                     setItems([]);
                     setSoSuggestions([]);
@@ -852,11 +868,11 @@ export default function Delivery() {
                       key={so}
                       className="px-2 py-1 hover:bg-gray-100 cursor-pointer"
                       onClick={() => {
-                        handleSoSelect(so);
+                        handleSoSelect(so); // so is just a string
                         setSoSuggestions([]);
                         setIsSoFocused(false);
                       }}>
-                      {so}
+                      {so} {/* only SO number */}
                     </li>
                   ))}
                 </ul>
@@ -975,20 +991,17 @@ export default function Delivery() {
                         </td>
                         <td className="p-2 text-right">
                           <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
+                            type="number"
+                            min={1}
+                            max={item.availableQuantity ?? 1}
                             value={item.quantity}
                             onChange={(e) => {
-                              let val = parseInt(
-                                e.target.value.replace(/\D/g, ""),
-                                10
-                              );
-                              if (isNaN(val)) val = 1;
-                              val = Math.min(
-                                Math.max(val, 1),
-                                item.availableQuantity
-                              );
+                              let val = parseInt(e.target.value, 10);
+                              if (isNaN(val) || val < 1) val = 1;
+
+                              // Never allow user to exceed availableQuantity
+                              val = Math.min(val, item.availableQuantity ?? 0);
+
                               setItems(
                                 items.map((i, j) =>
                                   j === idx ? { ...i, quantity: val } : i
@@ -1003,6 +1016,8 @@ export default function Delivery() {
                   </tbody>
                 </table>
               </div>
+
+              {/* Delivery summary */}
               <div className="w-full my-8 overflow-x-auto">
                 <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 py-2 text-end">
                   Delivery Summary
@@ -1025,7 +1040,7 @@ export default function Delivery() {
                         </td>
                       </tr>
                       <tr>
-                        <td className="py-2 px-4  text-primary">
+                        <td className="py-2 px-4 text-primary">
                           Total Quantity
                         </td>
                         <td className="py-2 px-4 text-right font-semibold text-primary">
@@ -1036,7 +1051,7 @@ export default function Delivery() {
                       </tr>
                     </tbody>
                   </table>
-                </div>{" "}
+                </div>
               </div>
             </div>
           )}
@@ -1393,7 +1408,7 @@ export default function Delivery() {
           </DialogFooter>
         </DialogPanel>
       </Dialog>
-
+      {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogTitle className="sr-only">Delivery details</DialogTitle>
         <DialogPanel className="max-w-3xl" autoFocus={false}>

@@ -3281,6 +3281,7 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                       <TableCell>
                         <div className="flex gap-1">
+                          {/* View button is always visible */}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -3289,16 +3290,15 @@ export default function SalesOrder({ onSuccess }: Props) {
                             <Eye className="w-4 h-4" />
                           </Button>
 
-                          {so.status !== "COMPLETED" && (
+                          {/* Only show Edit/Delete if status is PENDING */}
+                          {so.status === "PENDING" && (
                             <>
                               <Button
                                 variant="ghost"
                                 size="sm"
                                 title="Edit Sales Order"
                                 aria-label={`Edit SO ${so.soNumber}`}
-                                onClick={(e) => {
-                                  handleEdit(so);
-                                }}>
+                                onClick={() => handleEdit(so)}>
                                 <Edit className="w-4 h-4" />
                               </Button>
 
@@ -3340,6 +3340,8 @@ export default function SalesOrder({ onSuccess }: Props) {
                               </AlertDialog>
                             </>
                           )}
+
+                          {/* Export PDF is always visible */}
                           <Button
                             variant="ghost"
                             size="sm"
