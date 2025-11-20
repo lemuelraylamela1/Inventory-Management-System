@@ -2062,7 +2062,7 @@ export default function SalesOrder({ onSuccess }: Props) {
         );
         renderRightAlignedLabelValue(
           "Total Amount:",
-          totalAmount.toFixed(2),
+          grandTotal.toFixed(2),
           footerY - 10,
           rightX
         );

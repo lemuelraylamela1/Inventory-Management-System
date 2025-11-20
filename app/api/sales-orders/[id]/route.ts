@@ -87,14 +87,14 @@ export async function PATCH(
     items,
   } = payload;
 
-  // Normalize items and sync availableQuantity with quantity
+  // Normalize items
   const normalizedItems: SalesOrderItem[] = Array.isArray(items)
     ? items
         .filter((item) => Number(item.quantity) > 0)
         .map((item) => ({
           itemName: item.itemName?.trim().toUpperCase() || "",
           quantity: Math.max(Number(item.quantity) || 1, 1),
-          availableQuantity: Math.max(Number(item.quantity) || 1, 1), // ⚡ mirror quantity
+          availableQuantity: Math.max(Number(item.quantity) || 1, 1),
           unitType: item.unitType?.trim().toUpperCase() || "",
           price: Number(item.price) || 0,
           itemCode: item.itemCode?.trim().toUpperCase() || "",
@@ -125,22 +125,58 @@ export async function PATCH(
 
   try {
     const previousOrder = await SalesOrderModel.findById(id);
-    const order = await SalesOrderModel.findByIdAndUpdate(id, updatePayload, {
-      new: true,
-      runValidators: true,
-    });
-
-    if (!order) {
+    if (!previousOrder) {
       return NextResponse.json(
         { error: "Sales order not found" },
         { status: 404 }
       );
     }
 
+    const order = await SalesOrderModel.findByIdAndUpdate(id, updatePayload, {
+      new: true,
+      runValidators: true,
+    });
+
     const warehouseCode = order.warehouse?.trim().toUpperCase();
 
-    // 🔁 Inventory adjustments remain unchanged, e.g., CANCELLED, TO PREPARE, PENDING, COMPLETED
-    // You already handle these in your existing code
+    // 🔁 Adjust inventory based on updated quantities
+    for (const newItem of normalizedItems) {
+      const itemCode = newItem.itemCode?.trim().toUpperCase();
+      if (!itemCode) continue;
+
+      const oldItem = previousOrder.items.find(
+        (i: SalesOrderItem) => i.itemCode?.trim().toUpperCase() === itemCode
+      );
+
+      const oldQtyOnHold = oldItem?.quantity ?? 0;
+      const newQty = newItem.quantity ?? 0;
+      const delta = newQty - oldQtyOnHold;
+
+      if (delta === 0) continue; // no change
+
+      try {
+        const inventory = await InventoryMain.findOne({
+          itemCode,
+          warehouse: warehouseCode,
+        });
+        if (!inventory) continue;
+
+        inventory.availableQuantity =
+          (inventory.availableQuantity ?? 0) - delta;
+        inventory.quantityOnHold = (inventory.quantityOnHold ?? 0) + delta;
+
+        // Prevent negatives
+        if (inventory.availableQuantity < 0) inventory.availableQuantity = 0;
+        if (inventory.quantityOnHold < 0) inventory.quantityOnHold = 0;
+
+        await inventory.save();
+        console.log(
+          `🔄 Updated stock for ${itemCode}: delta=${delta}, available=${inventory.availableQuantity}, onHold=${inventory.quantityOnHold}`
+        );
+      } catch (err) {
+        console.error(`❌ Failed to update inventory for ${itemCode}:`, err);
+      }
+    }
 
     return NextResponse.json({ message: "Sales order updated", order });
   } catch (error) {
