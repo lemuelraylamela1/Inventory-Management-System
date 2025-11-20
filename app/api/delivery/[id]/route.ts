@@ -38,7 +38,6 @@ export async function GET(
 }
 
 // PATCH /api/delivery/:id
-
 export async function PATCH(
   req: NextRequest,
   props: { params: Promise<{ id: string }> }
@@ -60,14 +59,28 @@ export async function PATCH(
       items: body.items,
     };
 
-    // Remove undefined fields
     Object.keys(updatedFields).forEach(
       (key) =>
         updatedFields[key as keyof DeliveryUpdatePayload] === undefined &&
         delete updatedFields[key as keyof DeliveryUpdatePayload]
     );
 
-    // Update delivery
+    /** ---------------------------------------------------------------------
+     * 1. GET OLD DELIVERY BEFORE updating (to compare the status)
+     * --------------------------------------------------------------------- */
+    const oldDelivery = await DeliveryModel.findById(params.id);
+    if (!oldDelivery)
+      return NextResponse.json(
+        { error: "Delivery not found" },
+        { status: 404 }
+      );
+
+    const statusChangedToDelivered =
+      oldDelivery.status === "PREPARED" && body.status === "DELIVERED";
+
+    /** ---------------------------------------------------------------------
+     * 2. UPDATE DELIVERY
+     * --------------------------------------------------------------------- */
     const updated = await DeliveryModel.findByIdAndUpdate(
       params.id,
       { $set: updatedFields },
@@ -81,15 +94,68 @@ export async function PATCH(
       );
     }
 
-    // ✅ Update linked Sales Order if status changed to DELIVERED
-    // ✅ Update linked Sales Order only if fully delivered
+    /** ---------------------------------------------------------------------
+     * 3. ONLY PERFORM INVENTORY ACTION IF STATUS MOVED PREPARED → DELIVERED
+     * --------------------------------------------------------------------- */
+    if (statusChangedToDelivered) {
+      console.log(
+        "Status changed PREPARED → DELIVERED. Updating InventoryMain..."
+      );
+
+      for (const dItem of updated.items || []) {
+        const { itemCode, quantity } = dItem;
+        if (!itemCode || quantity <= 0) continue;
+
+        // 1️⃣ Fetch InventoryMain record
+        const invMain = await InventoryMain.findOne({ itemCode });
+        if (!invMain) continue;
+
+        // 2️⃣ Deduct delivered quantity from quantityOnHold
+        invMain.quantityOnHold = Math.max(
+          0,
+          (invMain.quantityOnHold ?? 0) - quantity
+        );
+
+        // 3️⃣ Optionally, also deduct from total stock if needed
+        invMain.quantity = Math.max(0, (invMain.quantity ?? 0) - quantity);
+
+        // 4️⃣ Pre-save hook will recalc availableQuantity automatically
+        await invMain.save();
+
+        // 5️⃣ Add Inventory log/tracker
+        await Inventory.create({
+          warehouse: updated.warehouse,
+          items: [
+            {
+              itemCode,
+              itemName: dItem.itemName,
+              category: invMain.category ?? "UNCATEGORIZED",
+              quantity,
+              unitType: invMain.unitType,
+              activity: "DELIVERED",
+              outQty: quantity,
+              currentOnhand: invMain.quantity, // optional
+              quantityOnHold: invMain.quantityOnHold,
+              availableQuantity: invMain.availableQuantity,
+              referenceNumber: updated.drNo,
+              particulars: `Delivered to ${updated.customer}`,
+              date: new Date(),
+            },
+          ],
+        });
+      }
+    }
+
+    /** ---------------------------------------------------------------------
+     * 4. UPDATE SALES ORDER STATUS (PARTIAL / DELIVERED)
+     * --------------------------------------------------------------------- */
     if (body.status === "DELIVERED" && updated.soNumber) {
       const so = await SalesOrderModel.findOne({ soNumber: updated.soNumber });
+
       if (so) {
         let allDelivered = true;
 
         for (const soItem of so.items) {
-          // Calculate total delivered quantity for this item
           const deliveredQty = await DeliveryModel.aggregate([
             { $match: { soNumber: so.soNumber, status: "DELIVERED" } },
             { $unwind: "$items" },
@@ -106,21 +172,12 @@ export async function PATCH(
 
           if (totalDelivered < soItem.quantity) {
             allDelivered = false;
-            break;
           }
         }
 
-        // Only set SO to DELIVERED if all items are fully delivered
-        if (allDelivered) {
-          await SalesOrderModel.findByIdAndUpdate(so._id, {
-            status: "DELIVERED",
-          });
-        } else {
-          // Optional: set to PARTIAL if some items delivered but not all
-          await SalesOrderModel.findByIdAndUpdate(so._id, {
-            status: "PARTIAL",
-          });
-        }
+        await SalesOrderModel.findByIdAndUpdate(so._id, {
+          status: allDelivered ? "DELIVERED" : "PARTIAL",
+        });
       }
     }
 
