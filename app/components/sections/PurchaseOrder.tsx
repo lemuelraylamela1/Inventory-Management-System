@@ -2116,7 +2116,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                   <TableHead>Balance</TableHead>
                   <TableHead>Remarks</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-32">Actions</TableHead>
+                  <TableHead className="w-32 text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -2193,7 +2193,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       </TableCell>
 
                       <TableCell>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 justify-end">
                           {po.status !== "COMPLETED" && (
                             <>
                               <AlertDialog>

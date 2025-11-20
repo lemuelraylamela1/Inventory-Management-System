@@ -98,31 +98,29 @@ export async function PATCH(
      * 3. ONLY PERFORM INVENTORY ACTION IF STATUS MOVED PREPARED → DELIVERED
      * --------------------------------------------------------------------- */
     if (statusChangedToDelivered) {
-      console.log(
-        "Status changed PREPARED → DELIVERED. Updating InventoryMain..."
-      );
+      console.log("PREPARED → DELIVERED. Updating InventoryMain...");
 
       for (const dItem of updated.items || []) {
         const { itemCode, quantity } = dItem;
         if (!itemCode || quantity <= 0) continue;
 
-        // 1️⃣ Fetch InventoryMain record
+        // Fetch inventory item
         const invMain = await InventoryMain.findOne({ itemCode });
         if (!invMain) continue;
 
-        // 2️⃣ Deduct delivered quantity from quantityOnHold
+        // Deduct only the delivered quantity (partial or full)
         invMain.quantityOnHold = Math.max(
           0,
           (invMain.quantityOnHold ?? 0) - quantity
         );
 
-        // 3️⃣ Optionally, also deduct from total stock if needed
+        // Deduct from actual inventory
         invMain.quantity = Math.max(0, (invMain.quantity ?? 0) - quantity);
 
-        // 4️⃣ Pre-save hook will recalc availableQuantity automatically
+        // Save → triggers recalculation of availableQuantity
         await invMain.save();
 
-        // 5️⃣ Add Inventory log/tracker
+        // Create log
         await Inventory.create({
           warehouse: updated.warehouse,
           items: [
@@ -134,7 +132,7 @@ export async function PATCH(
               unitType: invMain.unitType,
               activity: "DELIVERED",
               outQty: quantity,
-              currentOnhand: invMain.quantity, // optional
+              currentOnhand: invMain.quantity,
               quantityOnHold: invMain.quantityOnHold,
               availableQuantity: invMain.availableQuantity,
               referenceNumber: updated.drNo,

@@ -224,41 +224,38 @@ export default function Delivery() {
     }
   };
 
-  // Populate items from Sales Order
+  // 1️⃣ Populate items from Sales Order, only include available stock
   const populateItemsFromSO = (so: SalesOrder) => {
     if (!so?.items?.length) return [];
 
-    return so.items.map((item) => {
-      const availableQty = item.availableQuantity ?? item.quantity ?? 0;
+    return so.items
+      .filter((item) => (item.availableQuantity ?? 0) > 0) // ✅ only items with available stock
+      .map((item) => {
+        const availableQty = item.availableQuantity ?? 0;
+        const initialQty = Math.min(item.quantity ?? 1, availableQty);
 
-      const initialQty = Math.min(item.quantity ?? 1, availableQty); // never exceed available
-
-      return {
-        itemCode: item.itemCode ?? "",
-        itemName: item.itemName ?? "",
-        availableQuantity: availableQty,
-        quantity: initialQty,
-        selected: availableQty > 0, // only auto-select if something is available
-        unitType: item.unitType ?? "",
-        price: item.price ?? 0,
-        amount: item.amount ?? 0,
-        weight: item.weight ?? 0,
-        cbm: item.cbm ?? 0,
-      };
-    });
+        return {
+          itemCode: item.itemCode ?? "",
+          itemName: item.itemName ?? "",
+          availableQuantity: availableQty,
+          quantity: initialQty,
+          selected: true, // auto-select since it has available quantity
+          unitType: item.unitType ?? "",
+          price: item.price ?? 0,
+          amount: item.amount ?? 0,
+          weight: item.weight ?? 0,
+          cbm: item.cbm ?? 0,
+        };
+      });
   };
 
-  // When user selects a Sales Order
-  const handleSOSelect = (so: SalesOrder) => {
-    setFormData({ ...formData, soNumber: so.soNumber });
-    setItems(populateItemsFromSO(so)); // <-- use availableQuantity here
-  };
-
+  // 2️⃣ Handle Sales Order selection
   const handleSoSelect = async (soNumber: string) => {
     setFormData((prev) => ({ ...prev, soNumber }));
 
     if (!soNumber) {
       setItems([]);
+      setSoSuggestions([]);
       return;
     }
 
@@ -272,9 +269,6 @@ export default function Delivery() {
       );
       if (!selectedSO) return;
 
-      console.log("Fetched SO items:", selectedSO.items); // check availableQuantity here
-      setItems(populateItemsFromSO(selectedSO));
-
       // Update form fields
       setFormData((prev) => ({
         ...prev,
@@ -284,7 +278,7 @@ export default function Delivery() {
         remarks: selectedSO.notes,
       }));
 
-      // Populate items using shared function
+      // Populate items (only items with availableQuantity > 0)
       setItems(populateItemsFromSO(selectedSO));
     } catch (err) {
       console.error("Failed to select SO:", err);
@@ -622,47 +616,32 @@ export default function Delivery() {
                       )}
                     </TableCell>
                     <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleMarkDelivered(delivery._id!)}
-                        disabled={delivery.status !== "PREPARED"}
-                        title="Mark as Delivered">
-                        <CheckCircle className="w-4 h-4 text-green-600" />
-                      </Button>
-
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleView(delivery._id!)}
-                        title="View Delivery">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(delivery)}
-                        title="Edit Delivery">
-                        <Edit className="w-4 h-4" />
-                      </Button>
-
+                      {/* Mark as Delivered */}
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
                           <Button
                             variant="ghost"
                             size="sm"
-                            title="Delete Delivery"
-                            className="text-red-600 hover:text-red-800">
-                            <Trash2 className="w-4 h-4" />
+                            disabled={delivery.status !== "PREPARED"}
+                            title="Mark as Delivered"
+                            className={
+                              delivery.status !== "PREPARED"
+                                ? "opacity-50 cursor-not-allowed"
+                                : ""
+                            }>
+                            <CheckCircle className="w-4 h-4 text-green-600" />
                           </Button>
                         </AlertDialogTrigger>
 
                         <AlertDialogContent>
                           <AlertDialogHeader>
-                            <AlertDialogTitle>Delete Delivery</AlertDialogTitle>
+                            <AlertDialogTitle>
+                              Mark as Delivered
+                            </AlertDialogTitle>
                             <AlertDialogDescription>
-                              This action cannot be undone. Are you sure you
-                              want to permanently delete this delivery record?
+                              Are you sure you want to mark this delivery as{" "}
+                              <strong>DELIVERED</strong>? This will deduct
+                              inventory and cannot be undone.
                             </AlertDialogDescription>
                           </AlertDialogHeader>
 
@@ -670,16 +649,81 @@ export default function Delivery() {
                             <AlertDialogCancel asChild>
                               <Button variant="outline">Cancel</Button>
                             </AlertDialogCancel>
+
                             <AlertDialogAction asChild>
                               <Button
-                                variant="destructive"
-                                onClick={() => handleDelete(delivery._id!)}>
-                                Confirm Delete
+                                variant="default"
+                                onClick={() =>
+                                  handleMarkDelivered(delivery._id!)
+                                }>
+                                Confirm
                               </Button>
                             </AlertDialogAction>
                           </AlertDialogFooter>
                         </AlertDialogContent>
                       </AlertDialog>
+
+                      {/* View button always visible */}
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => handleView(delivery._id!)}
+                        title="View Delivery">
+                        <Eye className="w-4 h-4" />
+                      </Button>
+
+                      {/* Hide Edit & Delete when status is DELIVERED */}
+                      {delivery.status !== "DELIVERED" && (
+                        <>
+                          {/* Edit Delivery */}
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => handleEdit(delivery)}
+                            title="Edit Delivery">
+                            <Edit className="w-4 h-4" />
+                          </Button>
+
+                          {/* Delete Delivery */}
+                          <AlertDialog>
+                            <AlertDialogTrigger asChild>
+                              <Button
+                                variant="ghost"
+                                size="sm"
+                                title="Delete Delivery"
+                                className="text-red-600 hover:text-red-800">
+                                <Trash2 className="w-4 h-4" />
+                              </Button>
+                            </AlertDialogTrigger>
+
+                            <AlertDialogContent>
+                              <AlertDialogHeader>
+                                <AlertDialogTitle>
+                                  Delete Delivery
+                                </AlertDialogTitle>
+                                <AlertDialogDescription>
+                                  This action cannot be undone. Are you sure you
+                                  want to permanently delete this delivery
+                                  record?
+                                </AlertDialogDescription>
+                              </AlertDialogHeader>
+
+                              <AlertDialogFooter>
+                                <AlertDialogCancel asChild>
+                                  <Button variant="outline">Cancel</Button>
+                                </AlertDialogCancel>
+                                <AlertDialogAction asChild>
+                                  <Button
+                                    variant="destructive"
+                                    onClick={() => handleDelete(delivery._id!)}>
+                                    Confirm Delete
+                                  </Button>
+                                </AlertDialogAction>
+                              </AlertDialogFooter>
+                            </AlertDialogContent>
+                          </AlertDialog>
+                        </>
+                      )}
                     </TableCell>
                   </TableRow>
                 ))
@@ -1180,11 +1224,13 @@ export default function Delivery() {
                 onChange={(e) => {
                   const val = e.target.value;
                   setFormData((prev) => ({ ...prev, soNumber: val }));
+
                   if (!val) {
                     setItems([]);
                     setSoSuggestions([]);
                     return;
                   }
+
                   if (formData.customer) handleSoSearch(formData.customer, val);
                 }}
                 onFocus={() => {
@@ -1206,7 +1252,7 @@ export default function Delivery() {
                         setSoSuggestions([]);
                         setIsSoFocused(false);
                       }}>
-                      {so}
+                      {so} {/* only SO number */}
                     </li>
                   ))}
                 </ul>
@@ -1533,7 +1579,6 @@ export default function Delivery() {
                     <tr>
                       <th className="p-2 text-left">Item Code</th>
                       <th className="p-2 text-left">Item Name</th>
-                      <th className="p-2 text-right">Available Qty</th>
                       <th className="p-2 text-right">Qty to Deliver</th>
                     </tr>
                   </thead>
@@ -1546,9 +1591,6 @@ export default function Delivery() {
                           {item.itemCode}
                         </td>
                         <td className="p-2 text-left">{item.itemName}</td>
-                        <td className="p-2 text-right font-semibold">
-                          {item.availableQuantity}
-                        </td>
                         <td className="p-2 text-right font-semibold">
                           {item.quantity}
                         </td>

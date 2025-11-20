@@ -139,6 +139,7 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
     {}
   );
   const isAnyItemSelected = Object.values(selectedItems).some(Boolean);
+  const [postingReceipt, setPostingReceipt] = useState<string | null>(null);
 
   // Optional: for previewing merged items from linked POs
   const [itemsData, setItemsData] = useState([
@@ -359,6 +360,8 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
       return;
     }
 
+    setPostingReceipt(receipt.prNumber); // ⏳ START LOADING
+
     try {
       const res = await fetch("/api/purchase-receipts/post", {
         method: "POST",
@@ -367,9 +370,9 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
           prNumber: receipt.prNumber,
           poNumber: receipt.poNumber,
           referenceNumber: receipt.referenceNumber,
-          activity: "PURCHASE", // ✅ added
-          user: receipt.user ?? "SYSTEM", // ✅ added
-          inQty: receipt.inQty ?? 0, // ✅ optional, can be computed in backend
+          activity: "PURCHASE",
+          user: receipt.user ?? "SYSTEM",
+          inQty: receipt.inQty ?? 0,
         }),
       });
 
@@ -386,6 +389,8 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
     } catch (error) {
       console.error("🚨 Network error:", error);
       toast.error("Something went wrong while posting.");
+    } finally {
+      setPostingReceipt(null); // ⏳ END LOADING
     }
   };
 
@@ -2153,14 +2158,100 @@ export default function PurchaseReceipt({ onSuccess }: Props) {
                         </TableCell>
                         <TableCell>
                           {receipt.status === "OPEN" ? (
-                            <Button
-                              variant="outline"
-                              size="sm"
-                              onClick={() => handlePostReceipt(receipt)}
-                              className="text-blue-700 border-blue-300 hover:bg-blue-50">
-                              <CheckCircle className="w-4 h-4 mr-1" />
-                              {receipt.status}
-                            </Button>
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  disabled={postingReceipt === receipt.prNumber} // ⛔ prevent opening if already posting
+                                  className="text-blue-700 border-blue-300 hover:bg-blue-50">
+                                  {postingReceipt === receipt.prNumber ? (
+                                    <div className="flex items-center gap-2">
+                                      <svg
+                                        className="animate-spin h-4 w-4"
+                                        viewBox="0 0 24 24">
+                                        <circle
+                                          className="opacity-25"
+                                          cx="12"
+                                          cy="12"
+                                          r="10"
+                                          stroke="currentColor"
+                                          strokeWidth="4"
+                                          fill="none"
+                                        />
+                                        <path
+                                          className="opacity-75"
+                                          fill="currentColor"
+                                          d="M4 12a8 8 0 018-8v4l3-3-3-3v4a12 12 0 00-12 12h4z"
+                                        />
+                                      </svg>
+                                      Posting…
+                                    </div>
+                                  ) : (
+                                    <>
+                                      <CheckCircle className="w-4 h-4 mr-1" />
+                                      {receipt.status}
+                                    </>
+                                  )}
+                                </Button>
+                              </AlertDialogTrigger>
+
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    Confirm Action
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    Are you sure you want to post this receipt?
+                                    This action will update the inventory and
+                                    cannot be undone.
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
+
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel asChild>
+                                    <Button variant="outline">Cancel</Button>
+                                  </AlertDialogCancel>
+
+                                  <AlertDialogAction asChild>
+                                    <Button
+                                      variant="default"
+                                      disabled={
+                                        postingReceipt === receipt.prNumber
+                                      } // ⛔ disable while loading
+                                      onClick={() =>
+                                        handlePostReceipt(receipt)
+                                      }>
+                                      {postingReceipt === receipt.prNumber ? (
+                                        <div className="flex items-center gap-2">
+                                          <svg
+                                            className="animate-spin h-4 w-4"
+                                            viewBox="0 0 24 24">
+                                            <circle
+                                              className="opacity-25"
+                                              cx="12"
+                                              cy="12"
+                                              r="10"
+                                              stroke="currentColor"
+                                              strokeWidth="4"
+                                              fill="none"
+                                            />
+                                            <path
+                                              className="opacity-75"
+                                              fill="currentColor"
+                                              d="M4 12a8 8 0 018-8v4l3-3-3-3v4a12 12 0 00-12 12h4z"
+                                            />
+                                          </svg>
+                                          Posting…
+                                        </div>
+                                      ) : (
+                                        "Confirm"
+                                      )}
+                                    </Button>
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
                           ) : (
                             <span className="text-green-700 flex items-center">
                               <CheckCircle className="w-4 h-4 mr-1" />
