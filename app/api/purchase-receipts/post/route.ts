@@ -103,6 +103,7 @@ export async function POST(request: Request) {
       );
     }
 
+    // 🔒 Lock the receipt first
     await PurchaseReceipt.updateOne(
       { prNumber },
       {
@@ -112,39 +113,27 @@ export async function POST(request: Request) {
         },
       }
     );
-    console.log("🧾 Injecting supplier:", receipt.supplier);
 
-    try {
-      await AccountsPayable.create({
-        voucherNo: "", // auto-generated via pre-save hook
-        supplier: receipt.supplierName?.trim().toUpperCase() || "UNKNOWN",
-        reference: prNumber,
-        amount: typeof receipt.amount === "number" ? receipt.amount : 0,
-        balance: typeof receipt.amount === "number" ? receipt.amount : 0,
-        status: "UNPAID",
-      });
-
-      console.log(`📤 Accounts Payable entry created for ${prNumber}`);
-      console.log("📤 AccountsPayable payload:", {
-        supplier: receipt.supplier,
-        reference: prNumber,
-        amount: receipt.amount,
-      });
-    } catch (err) {
-      console.error("❌ Failed to push to AccountsPayable:", err);
-    }
-
+    // 🔹 Freeze original PO items before mutation
     const purchaseOrders = await PurchaseOrder.find({
       poNumber: { $in: poNumbers },
     });
 
     for (const po of purchaseOrders) {
+      // Save original items snapshot
+      const frozenItems = po.items.map((i: PurchaseOrderItem) => ({ ...i }));
+
+      // Attach frozen snapshot to PO for PDF
+      await PurchaseOrder.updateOne({ _id: po._id }, { $set: { frozenItems } });
+
+      // Reconcile PO with receipt (update quantities & status)
       await reconcilePOWithReceipt(
         po as PurchaseOrderDocument,
         receipt.items ?? []
       );
     }
 
+    // Update Inventory and AccountsPayable
     for (const item of receipt.items ?? []) {
       const now = new Date();
       const warehouse = receipt.warehouse?.trim().toUpperCase() ?? "";
@@ -153,8 +142,8 @@ export async function POST(request: Request) {
       const unitType = item.unitType?.trim().toUpperCase() ?? "";
       const quantity = Number(item.quantity);
 
+      // Inventory transaction
       const inventoryDoc = await Inventory.findOne({ warehouse });
-
       const newEntry: InventoryItem = {
         itemCode,
         itemName,
@@ -178,63 +167,50 @@ export async function POST(request: Request) {
 
       if (!inventoryDoc) {
         newEntry.currentOnhand = quantity;
-
         await Inventory.create({
           warehouse,
           items: [newEntry],
           remarks: `Auto-created from receipt ${receipt.prNumber}`,
         });
-
-        console.log(`🆕 Created inventory document for ${warehouse}`);
       } else {
         inventoryDoc.items.push(newEntry);
-
-        const itemTransactions = inventoryDoc.items.filter(
-          (i: InventoryItem) => i.itemCode === itemCode
-        );
-
-        const runningOnhand = itemTransactions.reduce(
-          (sum: number, i: InventoryItem) =>
-            sum + (i.inQty ?? 0) - (i.outQty ?? 0),
-          0
-        );
-
+        const runningOnhand = inventoryDoc.items
+          .filter((i: InventoryItem) => i.itemCode === itemCode)
+          .reduce(
+            (sum: number, i: InventoryItem) =>
+              sum + (i.inQty ?? 0) - (i.outQty ?? 0),
+            0
+          );
         inventoryDoc.items[inventoryDoc.items.length - 1].currentOnhand =
           runningOnhand;
-
         await inventoryDoc.save();
-        console.log(`📥 Appended transaction for ${itemCode} in ${warehouse}`);
       }
 
-      const totalMainQty = await Inventory.find({ warehouse }).then((docs) =>
-        docs
-          .flatMap((doc) => doc.items)
-          .filter((i: InventoryItem) => i.itemCode === itemCode)
-          .reduce((sum: number, i: InventoryItem) => {
-            const qty = Number(i.quantity);
-            return isFinite(qty) ? sum + qty : sum;
-          }, 0)
-      );
-
+      // Update InventoryMain
       await InventoryMain.findOneAndUpdate(
         { itemCode, warehouse },
         {
-          $set: {
-            itemName,
-            unitType,
-            updatedAt: now,
-          },
-          $inc: {
-            quantity: quantity, // increase physical stock
-            availableQuantity: quantity, // increase free-to-sell stock
-          },
+          $set: { itemName, unitType, updatedAt: now },
+          $inc: { quantity, availableQuantity: quantity },
           $setOnInsert: { warehouse },
         },
         { upsert: true, new: true }
       );
     }
 
-    console.log(`✅ Receipt ${prNumber} posted and inventory updated.`);
+    // Create AccountsPayable entry
+    await AccountsPayable.create({
+      voucherNo: "", // auto-generated via pre-save hook
+      supplier: receipt.supplierName?.trim().toUpperCase() || "UNKNOWN",
+      reference: prNumber,
+      amount: typeof receipt.amount === "number" ? receipt.amount : 0,
+      balance: typeof receipt.amount === "number" ? receipt.amount : 0,
+      status: "UNPAID",
+    });
+
+    console.log(
+      `✅ Receipt ${prNumber} posted, PO frozen, and inventory updated.`
+    );
     return NextResponse.json({ success: true }, { status: 200 });
   } catch (error) {
     console.error("❌ Error posting receipt:", error);

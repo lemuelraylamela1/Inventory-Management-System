@@ -2194,44 +2194,54 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
                       <TableCell>
                         <div className="flex gap-1 justify-end">
-                          {po.status !== "COMPLETED" && (
-                            <>
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-green-600  hover:text-green-600">
-                                    <CheckCircle className="w-4 h-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                      Confirm Completion
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to mark this
-                                      purchase order as{" "}
-                                      <strong>COMPLETED</strong>? This action
-                                      cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                      Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() =>
-                                        handleTagAsComplete(po._id)
-                                      }>
-                                      Confirm
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </>
-                          )}
+                          {/* Hide Edit and Delete if status is PARTIAL or COMPLETED */}
+                          {po.status !== "PARTIAL" &&
+                            po.status !== "COMPLETED" && (
+                              <>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  onClick={() => handleEdit(po)}
+                                  title="Edit Purchase Order">
+                                  <Edit className="w-4 h-4" />
+                                </Button>
+
+                                <AlertDialog>
+                                  <AlertDialogTrigger asChild>
+                                    <Button
+                                      variant="ghost"
+                                      size="sm"
+                                      title="Delete Purchase Order"
+                                      className="text-red-600 hover:text-red-700">
+                                      <Trash2 className="w-4 h-4" />
+                                    </Button>
+                                  </AlertDialogTrigger>
+                                  <AlertDialogContent>
+                                    <AlertDialogHeader>
+                                      <AlertDialogTitle>
+                                        Delete Purchase Order
+                                      </AlertDialogTitle>
+                                      <AlertDialogDescription>
+                                        Are you sure you want to delete PO&nbsp;
+                                        <span className="font-semibold">
+                                          {po.poNumber}
+                                        </span>
+                                        ? This action cannot be undone.
+                                      </AlertDialogDescription>
+                                    </AlertDialogHeader>
+                                    <AlertDialogFooter>
+                                      <AlertDialogCancel>
+                                        Cancel
+                                      </AlertDialogCancel>
+                                      <AlertDialogAction
+                                        onClick={() => handleDelete(po._id)}>
+                                        Delete
+                                      </AlertDialogAction>
+                                    </AlertDialogFooter>
+                                  </AlertDialogContent>
+                                </AlertDialog>
+                              </>
+                            )}
 
                           {/* Always show View button */}
                           <Button
@@ -2242,54 +2252,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                             <Eye className="w-4 h-4" />
                           </Button>
 
-                          {/* Hide Edit and Delete if status is COMPLETED */}
-                          {po.status !== "COMPLETED" && (
-                            <>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                onClick={() => handleEdit(po)}
-                                title="Edit Purchase Order">
-                                <Edit className="w-4 h-4" />
-                              </Button>
-
-                              <AlertDialog>
-                                <AlertDialogTrigger asChild>
-                                  <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    title="Delete Purchase Order"
-                                    className="text-red-600 hover:text-red-700">
-                                    <Trash2 className="w-4 h-4" />
-                                  </Button>
-                                </AlertDialogTrigger>
-                                <AlertDialogContent>
-                                  <AlertDialogHeader>
-                                    <AlertDialogTitle>
-                                      Delete Purchase Order
-                                    </AlertDialogTitle>
-                                    <AlertDialogDescription>
-                                      Are you sure you want to delete PO&nbsp;
-                                      <span className="font-semibold">
-                                        {po.poNumber}
-                                      </span>
-                                      ? This action cannot be undone.
-                                    </AlertDialogDescription>
-                                  </AlertDialogHeader>
-                                  <AlertDialogFooter>
-                                    <AlertDialogCancel>
-                                      Cancel
-                                    </AlertDialogCancel>
-                                    <AlertDialogAction
-                                      onClick={() => handleDelete(po._id)}>
-                                      Delete
-                                    </AlertDialogAction>
-                                  </AlertDialogFooter>
-                                </AlertDialogContent>
-                              </AlertDialog>
-                            </>
-                          )}
-
+                          {/* Export PDF button */}
                           <Button
                             variant="ghost"
                             size="sm"
@@ -2297,7 +2260,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                             aria-label={`Export PO ${po.poNumber} to PDF`}
                             onClick={() =>
                               handleExportPDF(po.items, {
-                                _id: po._id, // or po._id depending on your schema
+                                _id: po._id,
                                 referenceNumber: po.referenceNumber,
                                 status: po.status,
                                 poNumber: po.poNumber,
