@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { ScrollArea } from "../ui/scroll-area";
+import { format } from "date-fns";
 import {
   Card,
   CardHeader,
@@ -86,7 +87,7 @@ export default function SalesInvoice() {
   const [isViewDialogOpen, setIsViewDialogOpen] = useState(false);
   const [isEditDialogOpen, setIsEditDialogOpen] = useState(false);
   const [isUpdating, setIsUpdating] = useState(false);
-
+  const [isLoadingView, setIsLoadingView] = useState(false);
   const [customerSuggestions, setCustomerSuggestions] = useState<Customer[]>(
     []
   );
@@ -303,25 +304,48 @@ export default function SalesInvoice() {
     if (!deliveryId) return console.warn("Delivery ID is required");
 
     try {
-      // 1️⃣ Fetch Delivery
+      console.log("Fetching delivery:", deliveryId);
       const res = await fetch(`/api/delivery/${deliveryId}`);
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData?.error || "Failed to fetch delivery details");
       }
       const delivery: Delivery = await res.json();
+      console.log("Delivery fetched:", delivery);
 
-      // 2️⃣ Fetch linked SalesOrder (by SO number on delivery)
+      // Fetch linked SalesOrder
       let so: SalesOrder | null = null;
       if (delivery.soNumber) {
         const soRes = await fetch(`/api/sales-orders/${delivery.soNumber}`);
         if (soRes.ok) {
           const data = await soRes.json();
           so = data?.order ?? null;
+          console.log("Linked SO fetched:", so);
         }
       }
 
-      // 3️⃣ Compute total discount from SalesOrder
+      // Fetch Customer
+      let customer: Customer | null = null;
+      if (delivery.customer) {
+        const isValidObjectId = (id: string) => /^[0-9a-fA-F]{24}$/.test(id);
+        if (isValidObjectId(delivery.customer)) {
+          const custRes = await fetch(`/api/customers/${delivery.customer}`);
+          if (custRes.ok) {
+            customer = await custRes.json();
+            console.log("Customer fetched:", customer);
+          }
+        } else {
+          const custRes = await fetch(
+            `/api/customers?customerCode=${delivery.customer}`
+          );
+          if (custRes.ok) {
+            customer = await custRes.json();
+            console.log("Customer fetched by code:", customer);
+          }
+        }
+      }
+
+      // Compute total discount
       const totalDiscount = Array.isArray(so?.discountBreakdown)
         ? so.discountBreakdown.reduce(
             (sum, step) => sum + (step.amount || 0),
@@ -329,28 +353,48 @@ export default function SalesInvoice() {
           )
         : 0;
 
-      // 4️⃣ Prepare DR items
-      const itemsWithoutDiscount =
-        delivery.items?.map((item) => ({
-          itemCode: item.itemCode || "",
-          itemName: item.itemName || "",
-          description: item.description || "",
-          unitType: item.unitType || "",
-          quantity: item.quantity || 0,
-          price: item.price || 0,
-          selected: true,
-          availableQuantity: item.availableQuantity || 0,
-        })) ?? [];
+      // Prepare DR items with description
+      const itemsWithoutDiscount = await Promise.all(
+        (delivery.items ?? []).map(async (item) => {
+          let description = item.description || "";
 
-      // 5️⃣ Compute total original amount
+          if (item.itemName) {
+            try {
+              const itemRes = await fetch(
+                `/api/items?name=${encodeURIComponent(item.itemName)}`
+              );
+              if (itemRes.ok) {
+                const itemData = await itemRes.json();
+                console.log("Item API response:", itemData); // debug
+                if (itemData.items && itemData.items.length > 0) {
+                  description = itemData.items[0].description || "";
+                }
+              }
+            } catch (err) {
+              console.warn("Failed to fetch item description:", err);
+            }
+          }
+
+          return {
+            itemCode: item.itemCode || "",
+            itemName: item.itemName || "",
+            description, // ✅ assign fetched description
+            unitType: item.unitType || "",
+            quantity: item.quantity || 0,
+            price: item.price || 0,
+            selected: true,
+            availableQuantity: item.availableQuantity || 0,
+          };
+        })
+      );
+
+      // Compute totals & discounts
       const totalOriginal = itemsWithoutDiscount.reduce(
         (sum, item) => sum + item.price * item.quantity,
         0
       );
+      const baseTotal = totalOriginal || 1;
 
-      const baseTotal = totalOriginal || 1; // safety to avoid division by zero
-
-      // 6️⃣ Allocate discount proportionally & compute priceAfterDiscount
       const finalItems = itemsWithoutDiscount.map((item) => {
         const itemTotal = item.price * item.quantity;
         const itemDiscount = (itemTotal / baseTotal) * totalDiscount;
@@ -361,14 +405,13 @@ export default function SalesInvoice() {
         return {
           ...item,
           priceAfterDiscount: Number(priceAfterDiscount.toFixed(2)),
-          amount: Number(discountedAmount.toFixed(2)), // final amount
+          amount: Number(discountedAmount.toFixed(2)),
         };
       });
 
-      // 7️⃣ Net total = sum of all amounts (no separate discount shown)
       const netTotal = finalItems.reduce((sum, item) => sum + item.amount, 0);
 
-      // 8️⃣ Update formData
+      // Update form data
       setFormData((prev) => ({
         ...prev,
         drNo: delivery.drNo || "",
@@ -379,16 +422,15 @@ export default function SalesInvoice() {
         status: ["UNPAID", "PARTIAL", "PAID", "VOID"].includes(delivery.status)
           ? (delivery.status as SalesInvoice["status"])
           : "UNPAID",
-        customer: so?.customer || prev.customer || "",
+        customer: so?.customer || delivery.customer || prev.customer || "",
         salesPerson: so?.salesPerson || prev.salesPerson || "",
-        TIN: so?.TIN || prev.TIN || "",
-        terms: so?.terms || prev.terms || "",
+        TIN: customer?.TIN || prev.TIN || "",
+        terms: customer?.terms || prev.terms || "",
         discountBreakdown: so?.discountBreakdown ?? [],
         total: netTotal,
         netTotal,
       }));
 
-      // 9️⃣ Update items for UI
       setItems(finalItems);
     } catch (err) {
       console.error("Failed to select DR:", err);
@@ -442,8 +484,8 @@ export default function SalesInvoice() {
       address: formData.address,
       TIN: formData.TIN,
       terms: formData.terms,
-      dueDate: formData.dueDate,
-      notes: formData.notes?.trim() || "",
+      dueDate: formData.deliveryDate,
+      notes: formData.remarks?.trim() || "",
       status: formData.status || "UNPAID",
       soNumber: formData.soNumber || "",
       discountBreakdown: formData.discountBreakdown ?? [],
@@ -495,6 +537,7 @@ export default function SalesInvoice() {
     if (!invoiceId) return console.warn("Missing invoice ID for view");
 
     try {
+      // Fetch the invoice from DB
       const res = await fetch(`/api/sales-invoices/${invoiceId}`);
       if (!res.ok) throw new Error("Failed to fetch invoice details");
 
@@ -502,7 +545,7 @@ export default function SalesInvoice() {
         await res.json();
       console.log("Invoice details:", invoice);
 
-      // Populate form fields
+      // Populate form fields directly from DB
       setFormData({
         _id: invoice._id,
         invoiceNo: invoice.invoiceNo,
@@ -512,19 +555,23 @@ export default function SalesInvoice() {
         TIN: invoice.TIN,
         terms: invoice.terms,
         address: invoice.address,
-        reference: invoice.reference,
-        dueDate: invoice.dueDate,
+        warehouse: invoice.warehouse, // directly from DB
         notes: invoice.notes,
+        dueDate: invoice.dueDate,
         status: invoice.status,
         createdAt: invoice.createdAt,
+        total: invoice.total, // total stored in DB
+        netTotal: invoice.netTotal, // net total stored in DB
       });
 
-      // Populate items table
+      // Populate items directly from DB
       setItems(
         invoice.items?.map((item) => ({
           ...item,
-          selected: true, // auto-select all for viewing
-          availableQuantity: item.quantity, // for consistency with DeliveryItem typing
+          selected: true,
+          availableQuantity: item.quantity, // just to satisfy typing
+          priceAfterDiscount: item.price, // use DB value
+          amount: item.amount, // use DB value
         })) || []
       );
 
@@ -1125,90 +1172,134 @@ export default function SalesInvoice() {
         </DialogPanel>
       </Dialog>
 
-      {/* VIEW Dialog */}
+      {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogTitle className="sr-only">Sales Invoice</DialogTitle>
         <DialogPanel className="max-w-3xl" autoFocus={false}>
-          <DialogHeader className="border-b pb-2">
-            <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
-              View Sales Invoice
-            </DialogTitle>
-            <DialogDescription className="text-sm text-muted-foreground">
-              Review the invoice details. This view is read-only.
-            </DialogDescription>
-          </DialogHeader>
-
-          {/* TOP SECTION */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6 px-4 bg-white border rounded-lg shadow-sm">
-            <div className="space-y-4">
-              {/* Invoice No */}
-              <InfoRow label="Invoice No." value={formData.invoiceNo} />
-
-              {/* Customer */}
-              <InfoRow label="Customer" value={formData.customer} />
+          {/* 🧾 Invoice Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
+            <div>
+              <h2 className="text-xl font-bold text-primary tracking-wide">
+                Sales Invoice
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Sales Invoice No:{" "}
+                <span className=" text-foreground font-semibold">
+                  {formData.invoiceNo}
+                </span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                DR No.:{" "}
+                <span className="text-foreground font-semibold">
+                  {formData.drNo ?? ""}
+                </span>
+              </p>
             </div>
-
-            <div className="space-y-4">
-              {/* Invoice Date */}
-              <InfoRow
-                label="Invoice Date"
-                value={
-                  formData.invoiceDate
-                    ? new Date(formData.invoiceDate).toLocaleDateString(
-                        "en-US",
-                        {
-                          month: "short",
-                          day: "2-digit",
-                          year: "numeric",
-                        }
-                      )
-                    : ""
-                }
-              />
-
-              {/* DR No */}
-              <InfoRow label="DR No." value={formData.drNo} />
-            </div>
-
-            {/* CUSTOMER INFO PANEL */}
-            <div className="md:col-span-2 mt-4">
-              <h3 className="text-lg font-semibold text-gray-700 mb-3">
-                Customer Details
-              </h3>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/40 rounded-lg border">
-                {/* Left column */}
-                <div className="space-y-2 text-sm">
-                  <InfoRow label="Sales Person" value={formData.salesPerson} />
-                  <InfoRow label="TIN" value={formData.TIN} />
-                  <InfoRow label="Terms" value={formData.terms} />
-                  <InfoRow label="Address" value={formData.address} />
-                </div>
-
-                {/* Right column */}
-                <div className="space-y-2 text-sm">
-                  <InfoRow label="Warehouse" value={formData.warehouse} />
-                  <InfoRow
-                    label="Due Date"
-                    value={
-                      formData.deliveryDate
-                        ? new Date(formData.deliveryDate).toLocaleDateString(
-                            "en-US",
-                            {
-                              month: "short",
-                              day: "2-digit",
-                              year: "numeric",
-                            }
-                          )
-                        : ""
-                    }
-                  />
-                  <InfoRow label="Remarks" value={formData.remarks} />
-                </div>
-              </div>
+            <div className="text-sm text-right text-muted-foreground">
+              <p>
+                Created Date:{" "}
+                <span className="text-foreground">
+                  {formData.createdAt
+                    ? new Date(formData.createdAt).toLocaleDateString("en-PH", {
+                        month: "short",
+                        day: "2-digit",
+                        year: "numeric",
+                      })
+                    : ""}
+                </span>
+              </p>
+              <p>
+                Delivery Date:{" "}
+                <span className="text-foreground">
+                  {formData.dueDate
+                    ? new Date(formData.dueDate).toLocaleDateString("en-PH", {
+                        month: "short",
+                        day: "2-digit",
+                        year: "numeric",
+                      })
+                    : ""}
+                </span>
+              </p>
+              <p>
+                Status:{" "}
+                <span
+                  className={`font-semibold ${
+                    formData.status === "PAID"
+                      ? "text-green-700 font-bold"
+                      : formData.status === "UNPAID"
+                      ? "text-red-600"
+                      : "text-gray-500 font-bold"
+                  }`}>
+                  {formData.status}
+                </span>
+              </p>
             </div>
           </div>
 
-          {/* ITEMS TABLE */}
+          {/* 🏢 Customer & Warehouse Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Customer:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {formData.customer ?? ""}
+                </span>
+              </p>
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Sales Person:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {formData.salesPerson ?? ""}
+                </span>
+              </p>
+              <p>
+                <span className="font-medium text-muted-foreground">TIN:</span>{" "}
+                <span className="text-foreground font-semibold">
+                  {formData.TIN ?? ""}
+                </span>
+              </p>
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Terms:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {formData.terms ?? ""}
+                </span>
+              </p>
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Address:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {formData.address ?? ""}
+                </span>
+              </p>
+            </div>
+
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Warehouse:
+                </span>{" "}
+                <span className="text-foreground font-semibold truncate max-w-[60%]">
+                  {formData.warehouse ?? ""}
+                </span>
+              </p>
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Remarks:
+                </span>{" "}
+                <span className="text-foreground font-semibold truncate max-w-[60%]">
+                  {formData.notes ?? ""}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* Items Table */}
           {items.length > 0 && (
             <div className="col-span-2 mt-4">
               <div className="overflow-x-auto rounded-lg shadow-sm">
@@ -1224,7 +1315,6 @@ export default function SalesInvoice() {
                       <th className="p-2 text-right">Amount</th>
                     </tr>
                   </thead>
-
                   <tbody className="bg-white divide-y divide-gray-200">
                     {items.map((item, idx) => (
                       <tr
@@ -1271,22 +1361,17 @@ export default function SalesInvoice() {
                     </thead>
 
                     <tbody className="divide-y divide-border">
-                      {/* Total Quantity */}
                       <tr>
-                        <td className="py-2 px-4 text-primary">
-                          Total Quantity
-                        </td>
-                        <td className="py-2 px-4 text-right font-semibold text-primary">
+                        <td className="py-2 px-4">Total Quantity</td>
+                        <td className="py-2 px-4 text-right font-semibold">
                           {items
                             .reduce((sum, i) => sum + (i.quantity || 0), 0)
                             .toLocaleString()}
                         </td>
                       </tr>
-
-                      {/* Total Amount */}
                       <tr>
-                        <td className="py-2 px-4 text-primary">Total Amount</td>
-                        <td className="py-2 px-4 text-right font-semibold text-primary">
+                        <td className="py-2 px-4">Total Amount</td>
+                        <td className="py-2 px-4 text-right font-semibold">
                           {items
                             .reduce((sum, i) => sum + (i.amount || 0), 0)
                             .toLocaleString(undefined, {
@@ -1295,26 +1380,15 @@ export default function SalesInvoice() {
                             })}
                         </td>
                       </tr>
-
-                      {/* Total Discount */}
                       <tr>
-                        <td className="py-2 px-4 text-primary">
-                          Total Discount
-                        </td>
-                        <td className="py-2 px-4 text-right font-semibold text-red-500">
-                          {formData.discountBreakdown
-                            ?.reduce((sum, step) => sum + (step.amount || 0), 0)
-                            .toLocaleString(undefined, {
-                              minimumFractionDigits: 2,
-                              maximumFractionDigits: 2,
-                            })}
+                        <td className="py-2 px-4 ">Total Discount</td>
+                        <td className="py-2 px-4 text-right font-semibold">
+                          0.00%
                         </td>
                       </tr>
-
-                      {/* Net Total (sum of all item amounts, no extra discount deduction) */}
                       <tr>
                         <td className="py-2 px-4 text-primary">Net Total</td>
-                        <td className="py-2 px-4 text-right font-semibold text-green-600">
+                        <td className="py-2 px-4 text-right font-semibold text-primary">
                           {items
                             .reduce((sum, i) => sum + (i.amount || 0), 0)
                             .toLocaleString(undefined, {

@@ -268,8 +268,8 @@ export type SalesOrder = {
   soNumber: string;
   customer: string;
   address: string;
-  TIN?: string;
-  terms?: string;
+  // TIN?: string;
+  // terms?: string;
   contactNumber: string;
   salesPerson: string;
   warehouse: string;
@@ -358,7 +358,7 @@ export type SalesInvoice = {
   TIN?: string;
   terms?: string;
   address?: string;
-  dueDate?: Date; // ISO format
+  dueDate?: string; // ISO format
   notes?: string;
   createdAt?: Date;
   updatedAt?: Date;
@@ -377,6 +377,11 @@ export type SalesInvoiceItem = {
   price: number;
   quantity: number;
   amount: number;
+  discountBreakdown?: DiscountStep[];
+  total?: number; // <-- add this
+  netTotal?: number; // <-- add this
+  priceAfterDiscount?: number;
+  dueDate?: string;
 };
 
 export type TransferRequestItem = {

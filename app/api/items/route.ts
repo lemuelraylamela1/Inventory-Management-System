@@ -99,38 +99,29 @@ export async function POST(request: NextRequest) {
   }
 }
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   await connectMongoDB();
-  const items = await Item.find();
-  return NextResponse.json({ items });
+
+  try {
+    const { searchParams } = new URL(req.url);
+    const name = searchParams.get("name"); // query param
+
+    let items;
+    if (name) {
+      // Case-insensitive exact match
+      items = await Item.find({
+        itemName: { $regex: new RegExp(`^${name}$`, "i") },
+      });
+    } else {
+      items = await Item.find();
+    }
+
+    return NextResponse.json({ items }, { status: 200 });
+  } catch (err) {
+    console.error("GET /api/items error:", err);
+    return NextResponse.json(
+      { error: "Failed to fetch items" },
+      { status: 500 }
+    );
+  }
 }
-
-// type Params = {
-//   params: Promise<{
-//     id: string;
-//   }>;
-// };
-
-// export async function DELETE(
-//   request: NextRequest,
-//   context: { params: { id: string } }
-// ): Promise<NextResponse> {
-//   const { id } = context.params;
-
-//   if (!id || !mongoose.Types.ObjectId.isValid(id)) {
-//     console.warn("Invalid or missing _id:", id);
-//     return NextResponse.json(
-//       { message: "Invalid or missing _id" },
-//       { status: 400 }
-//     );
-//   }
-
-//   await connectMongoDB();
-//   const deleted = await Item.findByIdAndDelete(id);
-
-//   if (!deleted) {
-//     return NextResponse.json({ message: "Item not found" }, { status: 404 });
-//   }
-
-//   return NextResponse.json({ message: "Item deleted" }, { status: 200 });
-// }
