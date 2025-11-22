@@ -60,13 +60,15 @@ export async function POST(req: Request) {
       status: "UNPAID",
     });
 
-    // 7️⃣ Update Delivery Receipt status to "COMPLETED"
+    // 7️⃣ Update Delivery Receipt status to "WITH SALES INVOICE"
     if (invoice.drNo) {
-      await Delivery.findOneAndUpdate(
+      const dr = await Delivery.findOneAndUpdate(
         { drNo: invoice.drNo },
-        { status: "COMPLETED" },
+        { status: "WITH SALES INVOICE" },
         { new: true }
       );
+
+      if (!dr) console.warn(`⚠️ DR ${invoice.drNo} not found`);
     }
 
     // 8️⃣ Update Sales Order status to "COMPLETED"

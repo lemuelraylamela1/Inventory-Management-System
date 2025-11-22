@@ -609,12 +609,17 @@ export default function Delivery() {
                         <span className="text-green-700 font-bold">
                           COMPLETED
                         </span>
+                      ) : delivery.status === "WITH SALES INVOICE" ? (
+                        <span className="text-primary font-bold">
+                          WITH SALES INVOICE
+                        </span>
                       ) : (
                         <span className="text-red-700 font-bold">
                           CANCELLED
                         </span>
                       )}
                     </TableCell>
+
                     <TableCell className="text-right">
                       {/* Mark as Delivered */}
                       <AlertDialog>
@@ -1521,6 +1526,8 @@ export default function Delivery() {
                       ? "text-red-600"
                       : formData.status === "DELIVERED"
                       ? "text-teal-700 font-bold"
+                      : formData.status === "WITH SALES INVOICE"
+                      ? "text-primary font-bold"
                       : "text-gray-500 font-bold"
                   }`}>
                   {formData.status}
