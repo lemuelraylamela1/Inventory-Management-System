@@ -25,6 +25,17 @@ type SalesInvoiceDoc = HydratedDocument<{
   updatedAt: Date;
 }>;
 
+// 🔹 Discount step (same as SalesOrder)
+const DiscountStepSchema = new Schema(
+  {
+    rate: { type: Number, default: 0 }, // % or 0 if peso discount
+    amount: { type: Number, default: 0 }, // discount amount
+    remaining: { type: Number, default: 0 },
+    type: { type: String, trim: true }, // optional type e.g. "PERCENT" or "PESO"
+  },
+  { _id: false }
+);
+
 const SalesInvoiceItemSchema = new Schema(
   {
     itemCode: { type: String, trim: true, uppercase: true },
@@ -33,7 +44,12 @@ const SalesInvoiceItemSchema = new Schema(
     quantity: { type: Number, min: 1 },
     unitType: { type: String, trim: true, uppercase: true },
     price: { type: Number, min: 0 },
+    priceAfterDiscount: { type: Number, min: 0, default: 0 }, // ✅ added field
     amount: { type: Number, min: 0 },
+    discountBreakdown: {
+      type: [DiscountStepSchema],
+      default: [],
+    },
   },
   { _id: false } // prevent auto-generating _id for each item
 );
@@ -86,6 +102,17 @@ const SalesInvoiceSchema = new Schema(
 
     // Linked sales order
     salesOrder: {
+      type: String,
+      trim: true,
+    },
+
+    // Warehouse (from DR)
+    warehouse: {
+      type: String,
+      trim: true,
+    },
+    // Shipping address (from DR)
+    shippingAddress: {
       type: String,
       trim: true,
     },

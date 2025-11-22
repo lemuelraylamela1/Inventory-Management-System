@@ -268,6 +268,8 @@ export type SalesOrder = {
   soNumber: string;
   customer: string;
   address: string;
+  TIN?: string;
+  terms?: string;
   contactNumber: string;
   salesPerson: string;
   warehouse: string;
@@ -361,6 +363,9 @@ export type SalesInvoice = {
   createdAt?: Date;
   updatedAt?: Date;
   items: SalesInvoiceItem[];
+  discountBreakdown?: DiscountStep[];
+  total?: number; // <-- add this
+  netTotal?: number; // <-- add this
 };
 
 export type SalesInvoiceItem = {
@@ -494,6 +499,7 @@ export type Delivery = {
   status: string;
   createdAt?: Date;
   updatedAt?: Date;
+  items?: DeliveryItem[];
 };
 
 export type DeliveryItem = {
@@ -508,4 +514,6 @@ export type DeliveryItem = {
   amount: number;
   weight?: number;
   cbm?: number;
+  priceAfterDiscount?: number;
+  discountBreakdown?: DiscountStep[];
 };

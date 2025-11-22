@@ -1,36 +1,66 @@
 import { NextResponse } from "next/server";
 import connectMongoDB from "@/libs/mongodb";
 import { SalesInvoice } from "@/models/salesInvoice";
-import { Customer } from "@/models/customer";
 import SalesOrder from "@/models/salesOrder";
 import AccountsReceivable from "@/models/accountsReceivable";
 import Delivery from "@/models/delivery"; // Delivery model
-import type { SalesInvoiceItem } from "../../components/sections/type";
+import type {
+  SalesInvoiceItem,
+  DiscountStep,
+} from "../../components/sections/type";
 
 export async function POST(req: Request) {
   await connectMongoDB();
   const body = await req.json();
 
   try {
-    // 1️⃣ Create Invoice
+    // 1️⃣ Create initial invoice document
     const invoice = await SalesInvoice.create(body);
 
-    // 2️⃣ Compute invoice total
-    const totalAmount = invoice.items?.reduce(
-      (sum: number, item: SalesInvoiceItem) => sum + Number(item.amount || 0),
-      0
-    );
+    // 2️⃣ Fetch linked Sales Order discounts (if any)
+    let discountBreakdown = [];
+    let pesoDiscounts = 0;
 
-    // 3️⃣ Create Accounts Receivable entry
+    if (body.salesOrder) {
+      const so = await SalesOrder.findOne({ soNumber: body.salesOrder });
+      if (so) {
+        discountBreakdown = so.discountBreakdown || [];
+        pesoDiscounts = so.pesoDiscounts || 0;
+      }
+    }
+
+    // 3️⃣ Compute total amount of items
+    const totalAmount =
+      invoice.items?.reduce(
+        (sum: number, item: SalesInvoiceItem) => sum + Number(item.amount || 0),
+        0
+      ) || 0;
+
+    // 4️⃣ Compute total discount and net total
+    const totalDiscount =
+      (discountBreakdown?.reduce(
+        (sum: number, step: DiscountStep) => sum + (step.amount || 0),
+        0
+      ) || 0) + (pesoDiscounts || 0);
+
+    const netTotal = totalAmount - totalDiscount;
+
+    // 5️⃣ Update invoice with discounts and net total
+    invoice.discountBreakdown = discountBreakdown;
+    invoice.pesoDiscounts = pesoDiscounts;
+    invoice.amount = netTotal;
+    await invoice.save();
+
+    // 6️⃣ Create Accounts Receivable entry using net total
     await AccountsReceivable.create({
       customer: invoice.customer,
       reference: invoice.invoiceNo,
-      amount: totalAmount,
-      balance: totalAmount,
+      amount: netTotal,
+      balance: netTotal,
       status: "UNPAID",
     });
 
-    // 4️⃣ Update DR status to "COMPLETED"
+    // 7️⃣ Update Delivery Receipt status to "COMPLETED"
     if (invoice.drNo) {
       await Delivery.findOneAndUpdate(
         { drNo: invoice.drNo },
@@ -39,7 +69,7 @@ export async function POST(req: Request) {
       );
     }
 
-    // 5️⃣ Update Sales Order status to "COMPLETED"
+    // 8️⃣ Update Sales Order status to "COMPLETED"
     if (invoice.salesOrder) {
       await SalesOrder.findOneAndUpdate(
         { soNumber: invoice.salesOrder },

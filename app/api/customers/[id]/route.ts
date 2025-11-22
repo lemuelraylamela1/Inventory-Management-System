@@ -131,10 +131,8 @@ export async function DELETE(
   }
 }
 
-export async function GET(
-  req: Request,
-  { params }: { params: { id: string } }
-) {
+export async function GET(req: Request, props: { params: Promise<{ id: string }> }) {
+  const params = await props.params;
   await connectMongoDB();
   const { id } = params;
 

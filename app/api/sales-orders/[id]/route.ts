@@ -10,25 +10,25 @@ import InventoryMain from "@/models/inventoryMain";
 import Inventory from "@/models/inventory";
 import { InventoryItem } from "../../../components/sections/type";
 
-// ✅ GET /api/sales-orders/[id]
 export async function GET(
   request: NextRequest,
   context: { params: Promise<{ id?: string }> }
 ) {
   await connectMongoDB();
 
-  const { id } = await context.params; // ✅ await the params
+  const { id } = await context.params;
   const trimmedId = id?.trim();
 
-  if (!trimmedId || !Types.ObjectId.isValid(trimmedId)) {
+  if (!trimmedId) {
     return NextResponse.json(
-      { message: "Invalid sales order ID" },
+      { message: "Sales order ID is required" },
       { status: 400 }
     );
   }
 
   try {
-    const order = await SalesOrderModel.findById(trimmedId);
+    // Look up by soNumber instead of ObjectId
+    const order = await SalesOrderModel.findOne({ soNumber: trimmedId });
     if (!order) {
       return NextResponse.json(
         { message: "Sales order not found" },

@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import mongoose from "mongoose";
 import connectMongoDB from "@/libs/mongodb";
 import { SalesInvoice } from "@/models/salesInvoice";
-import { SalesOrderItem } from "@/app/components/sections/type";
 
 async function validateId(id?: string) {
   const trimmed = id?.trim();
@@ -31,7 +30,8 @@ export async function GET(
       return NextResponse.json({ error: "Invoice not found" }, { status: 404 });
     }
 
-    return NextResponse.json({ invoice });
+    // Return invoice directly ✔
+    return NextResponse.json(invoice);
   } catch (err: unknown) {
     console.error("❌ GET invoice error:", err);
     const message = getErrorMessage(err);
@@ -52,14 +52,6 @@ export async function PATCH(
     const updates = await req.json();
     const { id } = await context.params;
     const validId = await validateId(id);
-
-    // If items are being updated, sync availableQuantity with quantity
-    if (updates.items && Array.isArray(updates.items)) {
-      updates.items = updates.items.map((item: SalesOrderItem) => ({
-        ...item,
-        availableQuantity: item.quantity, // auto-sync
-      }));
-    }
 
     const invoice = await SalesInvoice.findByIdAndUpdate(validId, updates, {
       new: true,

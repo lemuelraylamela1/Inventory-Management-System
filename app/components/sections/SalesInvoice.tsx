@@ -69,6 +69,9 @@ import type {
   SalesInvoiceItem,
   DeliveryItem,
   Customer,
+  ItemType,
+  SalesOrder,
+  DiscountStep,
 } from "./type";
 export default function SalesInvoice() {
   const [invoices, setInvoices] = useState<SalesInvoice[]>([]);
@@ -157,6 +160,13 @@ export default function SalesInvoice() {
     }
   }, [isViewDialogOpen]);
 
+  const InfoRow = ({ label, value }: { label: string; value?: string }) => (
+    <p>
+      <span className="font-medium text-muted-foreground">{label}: </span>
+      <span className="font-semibold text-foreground">{value || "—"}</span>
+    </p>
+  );
+
   const isFirstFetch = useRef(true);
 
   useEffect(() => {
@@ -186,12 +196,24 @@ export default function SalesInvoice() {
     return () => clearInterval(intervalId);
   }, []);
 
-  const refreshInvoiceList = () => {
-    // Example: re-fetch invoices from your API
-    fetch("/api/sales-invoices")
-      .then((res) => res.json())
-      .then((data) => setInvoices(data))
-      .catch((err) => console.error("Failed to refresh invoices:", err));
+  const refreshInvoiceList = async () => {
+    try {
+      const res = await fetch("/api/sales-invoices");
+      if (!res.ok) throw new Error("Failed to fetch invoices");
+
+      const data = await res.json();
+
+      // Ensure invoices is always an array
+      // If your API returns { invoices: [...] }, adjust accordingly
+      const invoicesArray = Array.isArray(data) ? data : data.invoices ?? [];
+      setInvoices(invoicesArray);
+
+      return invoicesArray; // optional if you want to use after deletion
+    } catch (err) {
+      console.error("Failed to refresh invoices:", err);
+      setInvoices([]); // fallback to empty array
+      return [];
+    }
   };
 
   const handleCustomerSearch = async (query: string) => {
@@ -281,21 +303,72 @@ export default function SalesInvoice() {
     if (!deliveryId) return console.warn("Delivery ID is required");
 
     try {
+      // 1️⃣ Fetch Delivery
       const res = await fetch(`/api/delivery/${deliveryId}`);
       if (!res.ok) {
         const errorData = await res.json();
         throw new Error(errorData?.error || "Failed to fetch delivery details");
       }
+      const delivery: Delivery = await res.json();
 
-      // Backend response
-      const delivery: Delivery & { items?: DeliveryItem[] } = await res.json();
+      // 2️⃣ Fetch linked SalesOrder (by SO number on delivery)
+      let so: SalesOrder | null = null;
+      if (delivery.soNumber) {
+        const soRes = await fetch(`/api/sales-orders/${delivery.soNumber}`);
+        if (soRes.ok) {
+          const data = await soRes.json();
+          so = data?.order ?? null;
+        }
+      }
 
-      // Allowed invoice statuses
-      type InvoiceStatus = "UNPAID" | "PARTIAL" | "PAID" | "VOID";
-      const isInvoiceStatus = (status: string): status is InvoiceStatus =>
-        ["UNPAID", "PARTIAL", "PAID", "VOID"].includes(status);
+      // 3️⃣ Compute total discount from SalesOrder
+      const totalDiscount = Array.isArray(so?.discountBreakdown)
+        ? so.discountBreakdown.reduce(
+            (sum, step) => sum + (step.amount || 0),
+            0
+          )
+        : 0;
 
-      // Update main form data
+      // 4️⃣ Prepare DR items
+      const itemsWithoutDiscount =
+        delivery.items?.map((item) => ({
+          itemCode: item.itemCode || "",
+          itemName: item.itemName || "",
+          description: item.description || "",
+          unitType: item.unitType || "",
+          quantity: item.quantity || 0,
+          price: item.price || 0,
+          selected: true,
+          availableQuantity: item.availableQuantity || 0,
+        })) ?? [];
+
+      // 5️⃣ Compute total original amount
+      const totalOriginal = itemsWithoutDiscount.reduce(
+        (sum, item) => sum + item.price * item.quantity,
+        0
+      );
+
+      const baseTotal = totalOriginal || 1; // safety to avoid division by zero
+
+      // 6️⃣ Allocate discount proportionally & compute priceAfterDiscount
+      const finalItems = itemsWithoutDiscount.map((item) => {
+        const itemTotal = item.price * item.quantity;
+        const itemDiscount = (itemTotal / baseTotal) * totalDiscount;
+        const discountedAmount = itemTotal - itemDiscount;
+        const priceAfterDiscount =
+          item.quantity > 0 ? discountedAmount / item.quantity : item.price;
+
+        return {
+          ...item,
+          priceAfterDiscount: Number(priceAfterDiscount.toFixed(2)),
+          amount: Number(discountedAmount.toFixed(2)), // final amount
+        };
+      });
+
+      // 7️⃣ Net total = sum of all amounts (no separate discount shown)
+      const netTotal = finalItems.reduce((sum, item) => sum + item.amount, 0);
+
+      // 8️⃣ Update formData
       setFormData((prev) => ({
         ...prev,
         drNo: delivery.drNo || "",
@@ -303,29 +376,20 @@ export default function SalesInvoice() {
         shippingAddress: delivery.shippingAddress || "",
         deliveryDate: delivery.deliveryDate || "",
         remarks: delivery.remarks || "",
-        status: isInvoiceStatus(delivery.status) ? delivery.status : "UNPAID",
-        _id: delivery._id,
-        items:
-          delivery.items?.map((item) => ({
-            itemCode: item.itemCode || "",
-            itemName: item.itemName || "",
-            description: item.description || "",
-            unitType: item.unitType || "",
-            quantity: item.quantity || 0,
-            price: item.price || 0,
-            amount: (item.quantity || 0) * (item.price || 0),
-          })) || [],
+        status: ["UNPAID", "PARTIAL", "PAID", "VOID"].includes(delivery.status)
+          ? (delivery.status as SalesInvoice["status"])
+          : "UNPAID",
+        customer: so?.customer || prev.customer || "",
+        salesPerson: so?.salesPerson || prev.salesPerson || "",
+        TIN: so?.TIN || prev.TIN || "",
+        terms: so?.terms || prev.terms || "",
+        discountBreakdown: so?.discountBreakdown ?? [],
+        total: netTotal,
+        netTotal,
       }));
 
-      // Optionally preselect all items in a separate state
-      setItems(
-        delivery.items?.map((item) => ({
-          ...item,
-          selected: true,
-          quantity: item.quantity || 0,
-          availableQuantity: item.availableQuantity || 0,
-        })) || []
-      );
+      // 9️⃣ Update items for UI
+      setItems(finalItems);
     } catch (err) {
       console.error("Failed to select DR:", err);
     }
@@ -340,22 +404,36 @@ export default function SalesInvoice() {
       return;
     }
 
+    // Filter selected items and map for payload
     const selectedInvoiceItems = items
       .filter((i) => i.selected)
-      .map((i) => ({
-        itemCode: i.itemCode || "",
-        itemName: i.itemName || "",
-        description: i.description || "",
-        quantity: Number(i.quantity) || 0,
-        unitType: i.unitType || "",
-        price: Number(i.price) || 0,
-        amount: (Number(i.quantity) || 0) * (Number(i.price) || 0),
-      }));
+      .map((i) => {
+        const quantity = Number(i.quantity) || 0;
+        const price = Number(i.priceAfterDiscount ?? i.price) || 0;
+        const amount = quantity * price;
+
+        return {
+          itemCode: i.itemCode || "",
+          itemName: i.itemName || "",
+          description: i.description || "",
+          quantity,
+          unitType: i.unitType || "",
+          price,
+          amount,
+          discountBreakdown: i.discountBreakdown ?? [],
+        };
+      });
 
     if (selectedInvoiceItems.length === 0) {
       console.warn("No items selected for invoicing.");
       return;
     }
+
+    // Compute total & net total
+    const totalAmount = selectedInvoiceItems.reduce(
+      (sum, i) => sum + i.amount,
+      0
+    );
 
     const payload: Omit<Partial<SalesInvoice>, "_id" | "invoiceNo"> = {
       drNo: formData.drNo,
@@ -367,7 +445,13 @@ export default function SalesInvoice() {
       dueDate: formData.dueDate,
       notes: formData.notes?.trim() || "",
       status: formData.status || "UNPAID",
+      soNumber: formData.soNumber || "",
+      discountBreakdown: formData.discountBreakdown ?? [],
+      total: totalAmount,
+      netTotal: totalAmount, // net total = sum of item amounts, no further deduction
       items: selectedInvoiceItems,
+      warehouse: formData.warehouse,
+      shippingAddress: formData.shippingAddress,
     };
 
     try {
@@ -386,85 +470,6 @@ export default function SalesInvoice() {
       setIsCreateDialogOpen(false);
     } catch (err) {
       console.error("Create invoice error:", err);
-    }
-  };
-
-  const handleEdit = (
-    invoice: SalesInvoice & { items?: SalesInvoiceItem[] }
-  ) => {
-    setFormData({
-      _id: invoice._id,
-      invoiceNo: invoice.invoiceNo,
-      invoiceDate: invoice.invoiceDate,
-      drNo: invoice.drNo,
-      customer: invoice.customer,
-      salesPerson: invoice.salesPerson,
-      address: invoice.address,
-      TIN: invoice.TIN,
-      terms: invoice.terms,
-      dueDate: invoice.dueDate,
-      notes: invoice.notes,
-      status: invoice.status,
-      createdAt: invoice.createdAt,
-    });
-
-    // Populate items table for editing, convert SalesInvoiceItem -> DeliveryItem
-    setItems(
-      invoice.items?.map((item) => ({
-        _id: item._id,
-        itemCode: item.itemCode,
-        itemName: item.itemName,
-        description: item.description || "",
-        unitType: item.unitType,
-        price: item.price,
-        quantity: item.quantity,
-        amount: item.amount,
-        selected: true,
-        availableQuantity: item.quantity, // required by DeliveryItem
-      })) || []
-    );
-
-    setIsEditDialogOpen(true);
-  };
-
-  // 🔹 Update Sales Invoice
-  const handleUpdate = async () => {
-    if (!formData._id) return console.warn("Missing invoice ID");
-
-    // Convert items state (DeliveryItem[]) → SalesInvoiceItem[]
-    const invoiceItems = items.map((i) => ({
-      itemCode: i.itemCode || "",
-      itemName: i.itemName || "",
-      description: i.description || "",
-      unitType: i.unitType || "",
-      price: i.price || 0,
-      quantity: i.quantity || 0,
-      amount: (i.quantity || 0) * (i.price || 0),
-    }));
-
-    const payload = {
-      ...formData,
-      items: invoiceItems,
-    };
-
-    try {
-      const res = await fetch(`/api/sales-invoices/${formData._id}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      });
-
-      if (!res.ok) throw new Error("Failed to update invoice");
-
-      const updated = await res.json();
-      console.log("Invoice updated:", updated);
-
-      await refreshInvoiceList(); // rename your fetch list function accordingly
-      setIsEditDialogOpen(false);
-      setFormData({});
-      setItems([]);
-    } catch (err) {
-      console.error("Update error:", err);
     }
   };
 
@@ -675,13 +680,6 @@ export default function SalesInvoice() {
                         title="View Invoice">
                         <Eye className="w-4 h-4" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(invoice)}
-                        title="Edit Invoice">
-                        <Edit className="w-4 h-4" />
-                      </Button>
 
                       <AlertDialog>
                         <AlertDialogTrigger asChild>
@@ -785,225 +783,183 @@ export default function SalesInvoice() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-4 py-4">
-            {/* Invoice No. */}
-            <div className="grid gap-1.5">
-              <Label htmlFor="invoiceNo">Invoice No.</Label>
-              <Input
-                id="invoiceNo"
-                value={formData.invoiceNo ?? "Auto-generated"}
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            {/* Create Date */}
-            <div className="grid gap-1.5">
-              <Label htmlFor="createDate">Invoice Date</Label>
-              <Input
-                id="createDate"
-                value={new Date().toLocaleDateString("en-US", {
-                  month: "short",
-                  day: "2-digit",
-                  year: "numeric",
-                })}
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            {/* Customer & Sales Order */}
-            <div className="grid gap-1.5 relative">
-              <Label htmlFor="customer">
-                Customer <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="customer"
-                autoComplete="off"
-                value={formData.customer ?? ""}
-                onFocus={() => {
-                  setIsCustomerFocused(true);
-                  if (!formData.customer) handleCustomerSearch("");
-                }}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setFormData((prev) => ({
-                    ...prev,
-                    customer: val,
-                    salesOrder: "",
-                    TIN: "",
-                    address: "",
-                    terms: "",
-                    salesPerson: "",
-                  }));
-                  setSoSuggestions([]);
-                  setItems([]);
-                  if (val.trim().length > 0) handleCustomerSearch(val);
-                  else setCustomerSuggestions([]);
-                }}
-                placeholder="Search Customer"
-              />
-              {isCustomerFocused && customerSuggestions.length > 0 && (
-                <ul className="absolute top-full left-0 z-10 mt-1 w-full max-h-40 overflow-auto border bg-white shadow-sm rounded">
-                  {customerSuggestions.map((cust) => (
-                    <li
-                      key={cust._id}
-                      className="px-2 py-1 hover:bg-gray-100 cursor-pointer"
-                      onClick={() => {
-                        handleCustomerSelect(cust._id); // ✅ fetch customer by ID
-                        setIsCustomerFocused(false);
-                      }}>
-                      {cust.customerName}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Customer Details */}
-            <div className="grid gap-1.5">
-              <Label htmlFor="TIN">TIN</Label>
-              <Input
-                id="TIN"
-                value={formData.TIN ?? ""}
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                value={formData.address ?? ""}
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="terms">Terms</Label>
-              <Input
-                id="terms"
-                value={formData.terms ?? ""}
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="salesPerson">Sales Agent</Label>
-              <Input
-                id="salesPerson"
-                value={formData.salesPerson ?? ""}
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="grid gap-1.5 relative">
-              <Label htmlFor="drNo">
-                DR No. <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="drNo"
-                autoComplete="off"
-                value={formData.drNo ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setFormData((prev) => ({ ...prev, drNo: val }));
-
-                  if (!val) {
-                    setItems([]);
-                    setDrSuggestions([]);
-                    return;
-                  }
-
-                  if (formData.customer) handleDrSearch(formData.customer, val);
-                }}
-                onFocus={() => {
-                  if (formData.customer) handleDrSearch(formData.customer, "");
-                  setIsDrFocused(true);
-                }}
-                placeholder="Select Delivery (DR No.)"
-                disabled={!formData.customer}
-              />
-
-              {isDrFocused && drSuggestions.length > 0 && (
-                <ul className="absolute top-full left-0 mt-1 w-full max-h-40 overflow-auto border bg-white shadow-sm rounded z-50">
-                  {drSuggestions.map((dr) => (
-                    <li
-                      key={dr._id}
-                      className="px-2 py-1 hover:bg-gray-100 cursor-pointer"
-                      onMouseDown={() => {
-                        handleDrSelect(dr._id); // fetch by _id
-                        setFormData((prev) => ({ ...prev, drNo: dr.drNo })); // show drNo
-                        setDrSuggestions([]);
-                        setIsDrFocused(false);
-                      }}>
-                      {dr.drNo}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Warehouse & Invoice Date */}
-            <div className="grid gap-1.5">
-              <Label htmlFor="warehouse">Warehouse</Label>
-              <Input
-                id="warehouse"
-                value={formData.warehouse ?? ""}
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="invoiceDate">Due Date</Label>
-              <Input
-                id="dueDate"
-                type="text"
-                value={
-                  formData.deliveryDate
-                    ? new Date(formData.deliveryDate).toLocaleDateString(
-                        "en-US",
-                        {
-                          month: "short",
-                          day: "2-digit",
-                          year: "numeric",
-                        }
-                      )
-                    : ""
-                }
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            {/* Shipping Address & Remarks */}
-            <div className="grid grid-cols-2 gap-4 col-span-2">
-              <div className="grid gap-1.5">
-                <Label htmlFor="shippingAddress">Shipping Address</Label>
-                <textarea
-                  id="shippingAddress"
-                  value={formData.shippingAddress ?? ""}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6 px-4 bg-white border rounded-lg shadow-sm">
+            <div className="space-y-4">
+              {/* Invoice No */}
+              <div className="flex flex-col gap-1.5">
+                <Label
+                  htmlFor="invoiceNo"
+                  className="text-sm font-medium text-gray-600">
+                  Invoice No.
+                </Label>
+                <Input
+                  id="invoiceNo"
+                  value={formData.invoiceNo ?? "Auto-generated"}
                   readOnly
-                  className="w-full bg-gray-100 cursor-not-allowed p-2 rounded border border-gray-300 resize-none"
-                  rows={3}
+                  className="bg-muted border-gray-300 cursor-not-allowed"
                 />
               </div>
 
-              <div className="grid gap-1.5">
-                <Label htmlFor="remarks">Remarks</Label>
-                <textarea
-                  id="remarks"
-                  value={formData.remarks ?? ""}
-                  placeholder="Additional notes (optional)"
-                  readOnly
-                  className="w-full bg-gray-100 cursor-not-allowed p-2 rounded border border-gray-300 resize-none"
-                  rows={3}
+              {/* Customer */}
+              <div className="relative flex flex-col gap-1.5">
+                <Label
+                  htmlFor="customer"
+                  className="text-sm font-medium text-gray-600">
+                  Customer <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="customer"
+                  autoComplete="off"
+                  value={formData.customer ?? ""}
+                  placeholder="Search Customer"
+                  onFocus={() => {
+                    setIsCustomerFocused(true);
+                    if (!formData.customer) handleCustomerSearch("");
+                  }}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormData((prev) => ({
+                      ...prev,
+                      customer: val,
+                      salesOrder: "",
+                      TIN: "",
+                      address: "",
+                      terms: "",
+                      salesPerson: "",
+                    }));
+                    setSoSuggestions([]);
+                    setItems([]);
+
+                    if (val.trim().length > 0) handleCustomerSearch(val);
+                    else setCustomerSuggestions([]);
+                  }}
                 />
+
+                {/* Suggestion Dropdown */}
+                {isCustomerFocused && customerSuggestions.length > 0 && (
+                  <ul className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white shadow-md z-50">
+                    {customerSuggestions.map((cust) => (
+                      <li
+                        key={cust._id}
+                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        onMouseDown={() => {
+                          handleCustomerSelect(cust._id);
+                          setIsCustomerFocused(false);
+                        }}>
+                        {cust.customerName}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            <div className="space-y-4">
+              {/* Invoice Date */}
+              <div className="flex flex-col gap-1.5">
+                <Label
+                  htmlFor="createDate"
+                  className="text-sm font-medium text-gray-600">
+                  Invoice Date
+                </Label>
+                <Input
+                  id="createDate"
+                  value={new Date().toLocaleDateString("en-US", {
+                    month: "short",
+                    day: "2-digit",
+                    year: "numeric",
+                  })}
+                  readOnly
+                  className="bg-muted border-gray-300 cursor-not-allowed"
+                />
+              </div>
+              {/* DR No */}
+              <div className="relative flex flex-col gap-1.5">
+                <Label
+                  htmlFor="drNo"
+                  className="text-sm font-medium text-gray-600">
+                  DR No. <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="drNo"
+                  autoComplete="off"
+                  placeholder="Select Delivery (DR No.)"
+                  disabled={!formData.customer}
+                  value={formData.drNo ?? ""}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setFormData((prev) => ({ ...prev, drNo: val }));
+
+                    if (!val) {
+                      setItems([]);
+                      setDrSuggestions([]);
+                      return;
+                    }
+                    if (formData.customer)
+                      handleDrSearch(formData.customer, val);
+                  }}
+                  onFocus={() => {
+                    if (formData.customer)
+                      handleDrSearch(formData.customer, "");
+                    setIsDrFocused(true);
+                  }}
+                />
+
+                {isDrFocused && drSuggestions.length > 0 && (
+                  <ul className="absolute top-full left-0 mt-1 w-full max-h-48 overflow-auto rounded-md border bg-white shadow-md z-50">
+                    {drSuggestions.map((dr) => (
+                      <li
+                        key={dr._id}
+                        className="px-3 py-2 hover:bg-gray-100 cursor-pointer text-sm"
+                        onMouseDown={() => {
+                          handleDrSelect(dr._id);
+                          setFormData((prev) => ({ ...prev, drNo: dr.drNo }));
+                          setDrSuggestions([]);
+                          setIsDrFocused(false);
+                        }}>
+                        {dr.drNo}
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            </div>
+
+            {/* 📦 CUSTOMER INFO PANEL */}
+            <div className="md:col-span-2 mt-4">
+              <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                Customer Details
+              </h3>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/40 rounded-lg border">
+                {/* Left column */}
+                <div className="space-y-2 text-sm">
+                  <InfoRow label="Sales Person" value={formData.salesPerson} />
+                  <InfoRow label="TIN" value={formData.TIN} />
+                  <InfoRow label="Terms" value={formData.terms} />
+                  <InfoRow label="Address" value={formData.address} />
+                </div>
+
+                {/* Right column */}
+                <div className="space-y-2 text-sm">
+                  <InfoRow label="Warehouse" value={formData.warehouse} />
+                  <InfoRow
+                    label="Due Date"
+                    value={
+                      formData.deliveryDate
+                        ? new Date(formData.deliveryDate).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "2-digit",
+                              year: "numeric",
+                            }
+                          )
+                        : ""
+                    }
+                  />
+                  <InfoRow label="Remarks" value={formData.remarks} />
+                </div>
               </div>
             </div>
           </div>
@@ -1025,63 +981,60 @@ export default function SalesInvoice() {
                           }
                         />
                       </th>
-                      <th className="p-2 text-left">Item Code</th>
                       <th className="p-2 text-left">Item Name</th>
-                      <th className="p-2 text-right">Available Qty</th>
-                      <th className="p-2 text-right">Qty to Invoice</th>
+                      <th className="p-2 text-left">Description</th>
+                      <th className="p-2 text-right">Quantity</th>
+                      <th className="p-2 text-left">UOM</th>
+
+                      {/* ✅ NEW COLUMN */}
+                      <th className="p-2 text-right">Price</th>
+
+                      <th className="p-2 text-right">Tax</th>
+                      <th className="p-2 text-right">Amount</th>
                     </tr>
                   </thead>
+
                   <tbody className="bg-white divide-y divide-gray-200">
-                    {items.map((item, idx) => (
-                      <tr
-                        key={item.itemCode || idx}
-                        className="hover:bg-gray-50">
-                        <td className="p-2 text-center">
-                          <Checkbox
-                            checked={item.selected}
-                            onCheckedChange={(checked) =>
-                              setItems(
-                                items.map((i, j) =>
-                                  j === idx ? { ...i, selected: !!checked } : i
+                    {items.map((item, idx) => {
+                      const priceAfterDiscount =
+                        item.quantity > 0 ? item.amount / item.quantity : 0;
+
+                      return (
+                        <tr
+                          key={item.itemCode || idx}
+                          className="hover:bg-gray-50">
+                          <td className="p-2 text-center">
+                            <Checkbox
+                              checked={item.selected}
+                              onCheckedChange={(checked) =>
+                                setItems(
+                                  items.map((i, j) =>
+                                    j === idx
+                                      ? { ...i, selected: !!checked }
+                                      : i
+                                  )
                                 )
-                              )
-                            }
-                          />
-                        </td>
-                        <td className="p-2 text-left font-medium">
-                          {item.itemCode}
-                        </td>
-                        <td className="p-2 text-left">{item.itemName}</td>
-                        <td className="p-2 text-right font-semibold">
-                          {item.availableQuantity}
-                        </td>
-                        <td className="p-2 text-right">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={item.quantity}
-                            onChange={(e) => {
-                              let val = parseInt(
-                                e.target.value.replace(/\D/g, ""),
-                                10
-                              );
-                              if (isNaN(val)) val = 1;
-                              val = Math.min(
-                                Math.max(val, 1),
-                                item.availableQuantity
-                              );
-                              setItems(
-                                items.map((i, j) =>
-                                  j === idx ? { ...i, quantity: val } : i
-                                )
-                              );
-                            }}
-                            className="w-20 text-right bg-transparent border-none focus:outline-none focus:ring-0"
-                          />
-                        </td>
-                      </tr>
-                    ))}
+                              }
+                            />
+                          </td>
+
+                          <td className="p-2 text-left">{item.itemName}</td>
+                          <td className="p-2 text-left">{item.description}</td>
+                          <td className="p-2 text-right">{item.quantity}</td>
+                          <td className="p-2 text-left">{item.unitType}</td>
+                          {/* ✅ NEW COLUMN CELL */}
+                          <td className="p-2 text-right">
+                            {priceAfterDiscount.toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                          </td>
+
+                          <td className="p-2 text-right">0.00</td>
+                          <td className="p-2 text-right">{item.amount}</td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>
@@ -1091,6 +1044,7 @@ export default function SalesInvoice() {
                 <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 py-2 text-end">
                   Invoice Summary
                 </h3>
+
                 <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
                   <table className="w-full text-sm">
                     <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
@@ -1099,23 +1053,50 @@ export default function SalesInvoice() {
                         <th className="px-4 py-2 text-right">Value</th>
                       </tr>
                     </thead>
+
                     <tbody className="divide-y divide-border">
+                      {/* Total Quantity */}
                       <tr>
-                        <td className="py-2 px-4 text-muted-foreground">
-                          Total Items
+                        <td className="py-2 px-4">Total Quantity</td>
+                        <td className="py-2 px-4 text-right font-semibold">
+                          {items
+                            .filter((i) => i.selected)
+                            .reduce((sum, i) => sum + (i.quantity || 0), 0)
+                            .toLocaleString()}
                         </td>
-                        <td className="py-2 px-4 text-right font-semibold text-foreground">
-                          {items.filter((i) => i.selected).length}
+                      </tr>
+
+                      {/* Total Amount */}
+                      <tr>
+                        <td className="py-2 px-4">Gross Total</td>
+                        <td className="py-2 px-4 text-right font-semibold">
+                          {items
+                            .filter((i) => i.selected)
+                            .reduce((sum, i) => sum + (i.amount || 0), 0)
+                            .toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                         </td>
                       </tr>
                       <tr>
-                        <td className="py-2 px-4 text-primary">
-                          Total Quantity
+                        <td className="py-2 px-4">Discount</td>
+                        <td className="py-2 px-4 text-right font-semibold">
+                          0%
                         </td>
-                        <td className="py-2 px-4 text-right font-semibold text-primary">
+                      </tr>
+
+                      {/* Net Total (same as total — discounts removed) */}
+                      <tr>
+                        <td className="py-2 px-4 text-primary">Net Total</td>
+                        <td className="py-2 px-4 text-right font-semibold text-green-600">
                           {items
                             .filter((i) => i.selected)
-                            .reduce((sum, i) => sum + i.quantity, 0)}
+                            .reduce((sum, i) => sum + (i.amount || 0), 0)
+                            .toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                         </td>
                       </tr>
                     </tbody>
@@ -1144,193 +1125,36 @@ export default function SalesInvoice() {
         </DialogPanel>
       </Dialog>
 
-      {/* Edit Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+      {/* VIEW Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
         <DialogPanel className="max-w-3xl" autoFocus={false}>
           <DialogHeader className="border-b pb-2">
             <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
-              Edit Sales Invoice
+              View Sales Invoice
             </DialogTitle>
             <DialogDescription className="text-sm text-muted-foreground">
-              Update the sales invoice details. Fields marked with
-              <span className="text-red-500"> * </span> are required.
+              Review the invoice details. This view is read-only.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="grid grid-cols-2 gap-4 py-4">
-            {/* Invoice No. */}
-            <div className="grid gap-1.5">
-              <Label htmlFor="invoiceNo">Invoice No.</Label>
-              <Input
-                id="invoiceNo"
-                value={formData.invoiceNo ?? "Auto-generated"}
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
+          {/* TOP SECTION */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 py-6 px-4 bg-white border rounded-lg shadow-sm">
+            <div className="space-y-4">
+              {/* Invoice No */}
+              <InfoRow label="Invoice No." value={formData.invoiceNo} />
+
+              {/* Customer */}
+              <InfoRow label="Customer" value={formData.customer} />
             </div>
 
-            {/* Created Date */}
-            <div className="grid gap-1.5">
-              <Label htmlFor="createdDate">Invoice Date</Label>
-              <Input
-                id="createdDate"
-                type="text"
-                value={
-                  formData.createdAt
-                    ? new Date(formData.createdAt).toLocaleDateString("en-PH", {
-                        month: "short",
-                        day: "2-digit",
-                        year: "numeric",
-                      })
-                    : ""
-                }
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            {/* Customer & Sales Order */}
-            <div className="grid gap-1.5 relative">
-              <Label htmlFor="customer">
-                Customer <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="customer"
-                autoComplete="off"
-                value={formData.customer ?? ""}
-                onFocus={() => setIsCustomerFocused(true)}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setFormData((prev) => ({
-                    ...prev,
-                    customer: val,
-                    soNumber: "",
-                  }));
-                  setSoSuggestions([]);
-                  setItems([]);
-                  if (val.trim().length > 0) handleCustomerSearch(val);
-                  else setCustomerSuggestions([]);
-                }}
-                placeholder="Search Customer"
-              />
-              {customerSuggestions.map((cust) => (
-                <li
-                  key={cust._id}
-                  onClick={() => {
-                    setFormData((prev) => ({
-                      ...prev,
-                      customer: cust.customerName,
-                      TIN: cust.TIN || "",
-                      address: cust.address || "",
-                      terms: cust.terms || "",
-                      salesPerson: cust.salesAgent || "",
-                    }));
-                    setCustomerSuggestions([]);
-                    setIsCustomerFocused(false);
-                  }}>
-                  {cust.customerName}
-                </li>
-              ))}
-            </div>
-
-            {/* Customer Details */}
-            <div className="grid gap-1.5">
-              <Label htmlFor="TIN">TIN</Label>
-              <Input
-                id="TIN"
-                value={formData.TIN ?? ""}
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="address">Address</Label>
-              <Input
-                id="address"
-                value={formData.address ?? ""}
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="terms">Terms</Label>
-              <Input
-                id="terms"
-                value={formData.terms ?? ""}
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="grid gap-1.5">
-              <Label htmlFor="salesPerson">Sales Agent</Label>
-              <Input
-                id="salesPerson"
-                value={formData.salesPerson ?? ""}
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
-
-            <div className="grid gap-1.5 relative">
-              <Label htmlFor="drNo">
-                DR No. <span className="text-red-500">*</span>
-              </Label>
-              <Input
-                id="drNo"
-                autoComplete="off"
-                value={formData.drNo ?? ""}
-                onChange={(e) => {
-                  const val = e.target.value;
-                  setFormData((prev) => ({ ...prev, drNo: val }));
-
-                  if (!val) {
-                    setItems([]);
-                    setDrSuggestions([]); // renamed suggestions array for DR
-                    return;
-                  }
-
-                  if (formData.customer) handleDrSearch(formData.customer, val);
-                }}
-                onFocus={() => {
-                  if (formData.customer) handleDrSearch(formData.customer, "");
-                  setIsDrFocused(true); // renamed focus state for DR
-                }}
-                placeholder="Select Delivery (DR No.)"
-                disabled={!formData.customer}
-              />
-
-              {isDrFocused && drSuggestions.length > 0 && (
-                <ul className="absolute top-full left-0 mt-1 w-full max-h-40 overflow-auto border bg-white shadow-sm rounded z-50">
-                  {drSuggestions.map((dr) => (
-                    <li
-                      key={dr._id}
-                      className="px-2 py-1 hover:bg-gray-100 cursor-pointer"
-                      onMouseDown={() => {
-                        handleDrSelect(dr._id); // fetch by _id
-                        setFormData((prev) => ({ ...prev, drNo: dr.drNo })); // show DR No.
-                        setDrSuggestions([]);
-                        setIsDrFocused(false);
-                      }}>
-                      {dr.drNo}
-                    </li>
-                  ))}
-                </ul>
-              )}
-            </div>
-
-            {/* Invoice Date & Payment Terms */}
-            <div className="grid gap-1.5">
-              <Label htmlFor="invoiceDate">Invoice Date</Label>
-              <Input
-                id="invoiceDate"
-                type="text"
+            <div className="space-y-4">
+              {/* Invoice Date */}
+              <InfoRow
+                label="Invoice Date"
                 value={
                   formData.invoiceDate
                     ? new Date(formData.invoiceDate).toLocaleDateString(
-                        "en-PH",
+                        "en-US",
                         {
                           month: "short",
                           day: "2-digit",
@@ -1339,120 +1163,91 @@ export default function SalesInvoice() {
                       )
                     : ""
                 }
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
               />
+
+              {/* DR No */}
+              <InfoRow label="DR No." value={formData.drNo} />
             </div>
 
-            <div className="grid gap-1.5">
-              <Label htmlFor="terms">Payment Terms</Label>
-              <Input
-                id="terms"
-                value={formData.terms ?? ""}
-                placeholder="Payment terms"
-                readOnly
-                className="bg-gray-100 cursor-not-allowed"
-              />
-            </div>
+            {/* CUSTOMER INFO PANEL */}
+            <div className="md:col-span-2 mt-4">
+              <h3 className="text-lg font-semibold text-gray-700 mb-3">
+                Customer Details
+              </h3>
 
-            {/* Shipping Address & Remarks */}
-            <div className="grid grid-cols-2 gap-4 col-span-2">
-              <div className="grid gap-1.5">
-                <Label htmlFor="shippingAddress">Shipping Address</Label>
-                <textarea
-                  id="shippingAddress"
-                  value={formData.shippingAddress ?? ""}
-                  readOnly
-                  className="w-full bg-gray-100 cursor-not-allowed p-2 rounded border border-gray-300 resize-none"
-                  rows={3}
-                />
-              </div>
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6 p-4 bg-muted/40 rounded-lg border">
+                {/* Left column */}
+                <div className="space-y-2 text-sm">
+                  <InfoRow label="Sales Person" value={formData.salesPerson} />
+                  <InfoRow label="TIN" value={formData.TIN} />
+                  <InfoRow label="Terms" value={formData.terms} />
+                  <InfoRow label="Address" value={formData.address} />
+                </div>
 
-              <div className="grid gap-1.5">
-                <Label htmlFor="remarks">Remarks</Label>
-                <textarea
-                  id="remarks"
-                  value={formData.remarks ?? ""}
-                  placeholder="Additional notes (optional)"
-                  readOnly
-                  className="w-full bg-gray-100 cursor-not-allowed p-2 rounded border border-gray-300 resize-none"
-                  rows={3}
-                />
+                {/* Right column */}
+                <div className="space-y-2 text-sm">
+                  <InfoRow label="Warehouse" value={formData.warehouse} />
+                  <InfoRow
+                    label="Due Date"
+                    value={
+                      formData.deliveryDate
+                        ? new Date(formData.deliveryDate).toLocaleDateString(
+                            "en-US",
+                            {
+                              month: "short",
+                              day: "2-digit",
+                              year: "numeric",
+                            }
+                          )
+                        : ""
+                    }
+                  />
+                  <InfoRow label="Remarks" value={formData.remarks} />
+                </div>
               </div>
             </div>
           </div>
 
-          {/* Items Table */}
+          {/* ITEMS TABLE */}
           {items.length > 0 && (
             <div className="col-span-2 mt-4">
               <div className="overflow-x-auto rounded-lg shadow-sm">
                 <table className="min-w-full">
                   <thead className="bg-primary text-white">
                     <tr>
-                      <th className="p-2">
-                        <Checkbox
-                          checked={items.every((item) => item.selected)}
-                          onCheckedChange={(checked) =>
-                            setItems(
-                              items.map((i) => ({ ...i, selected: !!checked }))
-                            )
-                          }
-                        />
-                      </th>
-                      <th className="p-2 text-left">Item Code</th>
                       <th className="p-2 text-left">Item Name</th>
-                      <th className="p-2 text-right">Available Qty</th>
-                      <th className="p-2 text-right">Qty to Invoice</th>
+                      <th className="p-2 text-left">Description</th>
+                      <th className="p-2 text-right">Quantity</th>
+                      <th className="p-2 text-left">UOM</th>
+                      <th className="p-2 text-right">Price</th>
+                      <th className="p-2 text-right">Tax</th>
+                      <th className="p-2 text-right">Amount</th>
                     </tr>
                   </thead>
+
                   <tbody className="bg-white divide-y divide-gray-200">
                     {items.map((item, idx) => (
                       <tr
                         key={item.itemCode || idx}
                         className="hover:bg-gray-50">
-                        <td className="p-2 text-center">
-                          <Checkbox
-                            checked={item.selected}
-                            onCheckedChange={(checked) =>
-                              setItems(
-                                items.map((i, j) =>
-                                  j === idx ? { ...i, selected: !!checked } : i
-                                )
-                              )
-                            }
-                          />
-                        </td>
-                        <td className="p-2 text-left font-medium">
-                          {item.itemCode}
-                        </td>
                         <td className="p-2 text-left">{item.itemName}</td>
-                        <td className="p-2 text-right font-semibold">
-                          {item.availableQuantity}
-                        </td>
+                        <td className="p-2 text-left">{item.description}</td>
+                        <td className="p-2 text-right">{item.quantity}</td>
+                        <td className="p-2 text-left">{item.unitType}</td>
                         <td className="p-2 text-right">
-                          <input
-                            type="text"
-                            inputMode="numeric"
-                            pattern="[0-9]*"
-                            value={item.quantity}
-                            onChange={(e) => {
-                              let val = parseInt(
-                                e.target.value.replace(/\D/g, ""),
-                                10
-                              );
-                              if (isNaN(val)) val = 1;
-                              val = Math.min(
-                                Math.max(val, 1),
-                                item.availableQuantity
-                              );
-                              setItems(
-                                items.map((i, j) =>
-                                  j === idx ? { ...i, quantity: val } : i
-                                )
-                              );
-                            }}
-                            className="w-20 text-right bg-transparent border-none focus:outline-none focus:ring-0"
-                          />
+                          {Number(
+                            item.priceAfterDiscount ?? item.price
+                          ).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
+                        </td>
+                        <td className="p-2 text-right">0.00</td>
+                        <td className="p-2 text-right">
+                          {Number(item.amount).toLocaleString(undefined, {
+                            minimumFractionDigits: 2,
+                            maximumFractionDigits: 2,
+                          })}
                         </td>
                       </tr>
                     ))}
@@ -1460,11 +1255,12 @@ export default function SalesInvoice() {
                 </table>
               </div>
 
-              {/* Summary */}
+              {/* INVOICE SUMMARY */}
               <div className="w-full my-8 overflow-x-auto">
                 <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 py-2 text-end">
                   Invoice Summary
                 </h3>
+
                 <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
                   <table className="w-full text-sm">
                     <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
@@ -1473,222 +1269,58 @@ export default function SalesInvoice() {
                         <th className="px-4 py-2 text-right">Value</th>
                       </tr>
                     </thead>
+
                     <tbody className="divide-y divide-border">
-                      <tr>
-                        <td className="py-2 px-4 text-muted-foreground">
-                          Total Items
-                        </td>
-                        <td className="py-2 px-4 text-right font-semibold text-foreground">
-                          {items.filter((i) => i.selected).length}
-                        </td>
-                      </tr>
+                      {/* Total Quantity */}
                       <tr>
                         <td className="py-2 px-4 text-primary">
                           Total Quantity
                         </td>
                         <td className="py-2 px-4 text-right font-semibold text-primary">
                           {items
-                            .filter((i) => i.selected)
-                            .reduce((sum, i) => sum + i.quantity, 0)}
+                            .reduce((sum, i) => sum + (i.quantity || 0), 0)
+                            .toLocaleString()}
                         </td>
                       </tr>
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            </div>
-          )}
 
-          <DialogFooter className="pt-4 border-t">
-            <DialogClose asChild>
-              <Button variant="outline">Cancel</Button>
-            </DialogClose>
-            <Button
-              onClick={handleUpdate}
-              disabled={
-                isUpdating ||
-                !formData.customer?.trim() ||
-                !formData.invoiceNo?.trim() ||
-                items.filter((i) => i.selected).length === 0
-              }>
-              {isUpdating && <Loader2 className="w-4 h-4 animate-spin mr-2" />}
-              {isUpdating ? "Updating…" : "Update Invoice"}
-            </Button>
-          </DialogFooter>
-        </DialogPanel>
-      </Dialog>
-
-      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogTitle className="sr-only">Sales Invoice details</DialogTitle>
-        <DialogPanel className="max-w-3xl" autoFocus={false}>
-          {/* 🧾 Invoice Header */}
-          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
-            <div>
-              <h2 className="text-xl font-bold text-primary tracking-wide">
-                Sales Invoice Details
-              </h2>
-              <p className="text-sm text-muted-foreground">
-                Invoice No:{" "}
-                <span className="text-foreground font-semibold">
-                  {formData.invoiceNo}
-                </span>
-              </p>
-              <p className="text-sm text-muted-foreground">
-                SO No.:{" "}
-                <span className="text-foreground font-semibold">
-                  {formData.soNumber ?? ""}
-                </span>
-              </p>
-            </div>
-            <div className="text-sm text-right text-muted-foreground">
-              <p>
-                Created Date:{" "}
-                <span className="text-foreground">
-                  {formData.createdAt
-                    ? new Date(formData.createdAt).toLocaleDateString("en-PH", {
-                        month: "short",
-                        day: "2-digit",
-                        year: "numeric",
-                      })
-                    : ""}
-                </span>
-              </p>
-              <p>
-                Invoice Date:{" "}
-                <span className="text-foreground">
-                  {formData.invoiceDate
-                    ? new Date(formData.invoiceDate).toLocaleDateString(
-                        "en-PH",
-                        {
-                          month: "short",
-                          day: "2-digit",
-                          year: "numeric",
-                        }
-                      )
-                    : ""}
-                </span>
-              </p>
-              <p>
-                Status:{" "}
-                <span
-                  className={`font-semibold ${
-                    formData.status === "PAID"
-                      ? "text-green-700 font-bold"
-                      : formData.status === "PARTIAL"
-                      ? "text-yellow-600 font-bold"
-                      : formData.status === "UNPAID"
-                      ? "text-red-600 font-bold"
-                      : "text-gray-500 font-bold"
-                  }`}>
-                  {formData.status}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          {/* 🏢 Customer & Info */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
-            <div className="text-sm space-y-1">
-              <p>
-                <span className="font-medium text-muted-foreground">
-                  Customer Name:
-                </span>{" "}
-                <span className="text-foreground font-semibold">
-                  {formData.customer ?? ""}
-                </span>
-              </p>
-              <p>
-                <span className="font-medium text-muted-foreground">
-                  Payment Terms:
-                </span>{" "}
-                <span className="text-foreground font-semibold">
-                  {formData.terms ?? ""}
-                </span>
-              </p>
-            </div>
-
-            <div className="text-sm space-y-1">
-              <p>
-                <span className="font-medium text-muted-foreground">
-                  Shipping Address:
-                </span>{" "}
-                <span className="text-foreground font-semibold truncate max-w-[60%]">
-                  {formData.shippingAddress ?? ""}
-                </span>
-              </p>
-              <p>
-                <span className="font-medium text-muted-foreground">
-                  Remarks:
-                </span>{" "}
-                <span className="text-foreground font-semibold truncate max-w-[60%]">
-                  {formData.remarks ?? ""}
-                </span>
-              </p>
-            </div>
-          </div>
-
-          {/* Items Table */}
-          {items.length > 0 && (
-            <div className="col-span-2 mt-4">
-              <div className="overflow-x-auto rounded-lg shadow-sm">
-                <table className="min-w-full">
-                  <thead className="bg-primary text-white">
-                    <tr>
-                      <th className="p-2 text-left">Item Code</th>
-                      <th className="p-2 text-left">Item Name</th>
-                      <th className="p-2 text-right">Available Qty</th>
-                      <th className="p-2 text-right">Qty to Invoice</th>
-                    </tr>
-                  </thead>
-                  <tbody className="bg-white divide-y divide-gray-200">
-                    {items.map((item, idx) => (
-                      <tr
-                        key={item.itemCode || idx}
-                        className="hover:bg-gray-50">
-                        <td className="p-2 text-left font-medium">
-                          {item.itemCode}
-                        </td>
-                        <td className="p-2 text-left">{item.itemName}</td>
-                        <td className="p-2 text-right font-semibold">
-                          {item.availableQuantity}
-                        </td>
-                        <td className="p-2 text-right font-semibold">
-                          {item.quantity}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {/* Summary */}
-              <div className="w-full my-8 overflow-x-auto">
-                <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 py-2 text-end">
-                  Invoice Summary
-                </h3>
-                <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
-                  <table className="w-full text-sm">
-                    <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                      {/* Total Amount */}
                       <tr>
-                        <th className="px-4 py-2 text-left">Metric</th>
-                        <th className="px-4 py-2 text-right">Value</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-border">
-                      <tr>
-                        <td className="py-2 px-4 text-muted-foreground">
-                          Total Items
-                        </td>
-                        <td className="py-2 px-4 text-right font-semibold text-foreground">
-                          {items.length}
+                        <td className="py-2 px-4 text-primary">Total Amount</td>
+                        <td className="py-2 px-4 text-right font-semibold text-primary">
+                          {items
+                            .reduce((sum, i) => sum + (i.amount || 0), 0)
+                            .toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                         </td>
                       </tr>
+
+                      {/* Total Discount */}
                       <tr>
                         <td className="py-2 px-4 text-primary">
-                          Total Quantity
+                          Total Discount
                         </td>
-                        <td className="py-2 px-4 text-right font-semibold text-primary">
-                          {items.reduce((sum, i) => sum + i.quantity, 0)}
+                        <td className="py-2 px-4 text-right font-semibold text-red-500">
+                          {formData.discountBreakdown
+                            ?.reduce((sum, step) => sum + (step.amount || 0), 0)
+                            .toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
+                        </td>
+                      </tr>
+
+                      {/* Net Total (sum of all item amounts, no extra discount deduction) */}
+                      <tr>
+                        <td className="py-2 px-4 text-primary">Net Total</td>
+                        <td className="py-2 px-4 text-right font-semibold text-green-600">
+                          {items
+                            .reduce((sum, i) => sum + (i.amount || 0), 0)
+                            .toLocaleString(undefined, {
+                              minimumFractionDigits: 2,
+                              maximumFractionDigits: 2,
+                            })}
                         </td>
                       </tr>
                     </tbody>
