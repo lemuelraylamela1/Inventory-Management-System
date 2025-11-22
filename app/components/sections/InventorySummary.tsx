@@ -23,7 +23,11 @@ import {
   BarChart,
   Building2,
   Loader2,
+  SearchIcon,
 } from "lucide-react";
+
+import * as Select from "@radix-ui/react-select";
+import { Check, ChevronDown } from "lucide-react";
 
 import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
 
@@ -36,6 +40,10 @@ export default function InventorySummary() {
   const [selectedWarehouse, setSelectedWarehouse] = useState<string>("all");
   const [isLoading, setIsLoading] = useState(true);
   const isFirstFetch = useRef(true);
+  const [selectedGroupedWarehouse, setSelectedGroupedWarehouse] =
+    useState<string>("all");
+  const [currentPage, setCurrentPage] = useState(1);
+  const ITEMS_PER_PAGE = 10;
 
   // ✅ Grouped totals by warehouse
   const warehouseItemSummary = useMemo(() => {
@@ -233,18 +241,105 @@ export default function InventorySummary() {
     document.body.removeChild(link);
   };
 
+  // Flatten all warehouse entries
+  const allEntries = Object.entries(warehouseItemSummary).flatMap(
+    ([warehouse, items]) =>
+      items.map((item) => ({
+        warehouse,
+        itemName: item.itemName,
+        category: item.category,
+        quantity: item.quantity,
+      }))
+  );
+
+  // Unique warehouse list (dynamic columns)
+  const warehouseList = Array.from(new Set(allEntries.map((e) => e.warehouse)));
+
+  // Group by itemName
+  const groupedByItemName = allEntries.reduce((acc, entry) => {
+    const itemKey = entry.itemName?.toUpperCase().trim();
+    if (!itemKey) return acc;
+
+    if (!acc[itemKey]) {
+      acc[itemKey] = {
+        category: entry.category,
+        warehouses: {} as Record<string, number>,
+        total: 0,
+      };
+    }
+
+    // Sum quantities per warehouse and overall
+    acc[itemKey].warehouses[entry.warehouse] =
+      (acc[itemKey].warehouses[entry.warehouse] ?? 0) + entry.quantity;
+    acc[itemKey].total += entry.quantity;
+
+    return acc;
+  }, {} as Record<string, { category: string; warehouses: Record<string, number>; total: number }>);
+
+  // Filter items by selected warehouse
+  const filteredGroupedItems = Object.entries(groupedByItemName)
+    .filter(([itemName, { warehouses }]) => {
+      if (selectedGroupedWarehouse === "all") return true;
+      return (warehouses[selectedGroupedWarehouse] ?? 0) > 0;
+    })
+    // Optional: sort alphabetically
+    .sort(([aName], [bName]) => aName.localeCompare(bName));
+
+  const paginatedGroupedItems = useMemo(() => {
+    // Determine displayed warehouses
+    const displayedWarehouses =
+      selectedGroupedWarehouse === "all"
+        ? warehouseList
+        : [selectedGroupedWarehouse];
+
+    // Filter by search term
+    const searchedItems = filteredGroupedItems
+      .filter(([itemName]) =>
+        itemName.toLowerCase().includes(searchTerm.toLowerCase())
+      )
+      .sort(([a], [b]) => a.localeCompare(b));
+
+    // Pagination
+    const totalPages = Math.ceil(searchedItems.length / ITEMS_PER_PAGE);
+    const currentPageSafe = Math.min(currentPage, totalPages || 1); // handle empty list
+    const paginatedItems = searchedItems.slice(
+      (currentPageSafe - 1) * ITEMS_PER_PAGE,
+      currentPageSafe * ITEMS_PER_PAGE
+    );
+
+    return {
+      paginatedItems,
+      displayedWarehouses,
+      totalPages,
+    };
+  }, [
+    filteredGroupedItems,
+    selectedGroupedWarehouse,
+    searchTerm,
+    currentPage,
+    warehouseList,
+  ]);
+
   return (
     <Tabs defaultValue="summary" className="space-y-8">
-      <TabsList className="w-full justify-start gap-2">
-        <TabsTrigger value="summary">📦 Summary View</TabsTrigger>
-        <TabsTrigger value="warehouse">🏬 Grouped by Warehouse</TabsTrigger>
+      <TabsList className="flex w-full gap-2 border-b border-gray-200 pb-1 bg-gray-50 rounded-lg shadow-sm">
+        <TabsTrigger
+          value="summary"
+          className="px-5 py-2 font-semibold rounded-lg text-gray-700 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 hover:bg-gray-100 transition-colors">
+          📦 Summary View
+        </TabsTrigger>
+        <TabsTrigger
+          value="warehouse"
+          className="px-5 py-2 font-semibold rounded-lg text-gray-700 data-[state=active]:bg-white data-[state=active]:shadow-md data-[state=active]:text-blue-600 hover:bg-gray-100 transition-colors">
+          🏬 Grouped by Item
+        </TabsTrigger>
       </TabsList>
 
       {/* Tab 1: Inventory Summary */}
-      <TabsContent value="summary" className="space-y-8">
-        <div className="flex items-center justify-between border-b pb-4">
+      <TabsContent value="summary" className="space-y-6">
+        <div className="flex items-center justify-between border-b pb-3">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight">
+            <h2 className="text-xl font-bold tracking-tight">
               📦 Inventory Summary
             </h2>
             <p className="text-sm text-muted-foreground">
@@ -253,6 +348,7 @@ export default function InventorySummary() {
           </div>
         </div>
 
+        {/* Summary Stats Cards */}
         <div className="grid gap-4 md:grid-cols-3">
           {[
             {
@@ -278,10 +374,12 @@ export default function InventorySummary() {
             return (
               <Card
                 key={i}
-                className="bg-background shadow-sm hover:shadow-md transition-shadow border border-muted">
-                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                  <CardTitle className="text-sm">{stat.title}</CardTitle>
-                  <Icon className="h-4 w-4 text-muted-foreground" />
+                className="bg-background shadow-md hover:shadow-lg transition-shadow border border-muted rounded-xl">
+                <CardHeader className="flex justify-between items-center pb-2">
+                  <CardTitle className="text-sm font-medium">
+                    {stat.title}
+                  </CardTitle>
+                  <Icon className="h-5 w-5 text-muted-foreground" />
                 </CardHeader>
                 <CardContent>
                   <div className="text-2xl font-bold">{stat.value}</div>
@@ -294,8 +392,9 @@ export default function InventorySummary() {
           })}
         </div>
 
-        <fieldset className="border rounded-md p-4 bg-muted/30">
-          <legend className="text-sm font-medium text-muted-foreground px-2">
+        {/* Filters */}
+        <fieldset className="border rounded-lg p-4 bg-muted/10">
+          <legend className="text-sm font-semibold text-muted-foreground px-2">
             Filter Options
           </legend>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center">
@@ -312,7 +411,7 @@ export default function InventorySummary() {
               <select
                 value={selectedWarehouse}
                 onChange={(e) => setSelectedWarehouse(e.target.value)}
-                className="h-10 rounded-md border border-input bg-input-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2">
+                className="h-10 rounded-md border border-input bg-input-background px-3 py-2 text-sm focus:ring-2 focus:ring-ring focus:outline-none">
                 <option value="all">All Warehouses</option>
                 {warehouses.map((warehouse) => (
                   <option key={warehouse} value={warehouse}>
@@ -321,211 +420,321 @@ export default function InventorySummary() {
                 ))}
               </select>
               <Button onClick={handleExportCSV} variant="outline">
-                <Download className="mr-2 h-4 w-4" />
-                Export CSV
+                <Download className="mr-2 h-4 w-4" /> Export CSV
               </Button>
             </div>
           </div>
         </fieldset>
 
-        <Card className="shadow-lg rounded-2xl border border-gray-200">
-          <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <Table className="min-w-full">
-                <TableHeader className="sticky top-0 bg-background z-10 border-b shadow-sm">
-                  <TableRow>
-                    <TableHead className="text-left px-4 py-2">
-                      Item Name
-                    </TableHead>
-                    <TableHead className="text-left px-4 py-2">
-                      Category
-                    </TableHead>
-                    <TableHead className="text-left px-4 py-2">
-                      Warehouse
-                    </TableHead>
-                    <TableHead className="text-right px-4 py-2 text-blue-600">
-                      Total Quantity
-                    </TableHead>
-                    <TableHead className="text-right px-4 py-2 text-yellow-600">
-                      Quantity on Hold
-                    </TableHead>
-                    <TableHead className="text-right px-4 py-2 text-green-600">
-                      Available Quantity
-                    </TableHead>
-                  </TableRow>
-                </TableHeader>
+        {/* Inventory Table */}
+        <Card className="shadow-lg rounded-2xl border border-gray-200 overflow-x-auto">
+          <Table className="min-w-full">
+            <TableHeader className="sticky top-0 bg-background z-10 border-b shadow-sm">
+              <TableRow>
+                {[
+                  "Item Name",
+                  "Category",
+                  "Warehouse",
+                  "Total Quantity",
+                  "Quantity on Hold",
+                  "Available Quantity",
+                ].map((head, idx) => (
+                  <TableHead
+                    key={idx}
+                    className={`px-4 py-2 ${
+                      idx > 2 ? "text-right" : "text-left"
+                    }`}>
+                    {head}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="py-6 text-center text-muted-foreground">
+                    <div className="inline-flex items-center gap-2 justify-center">
+                      <Loader2 className="w-5 h-5 animate-spin text-primary" />
+                      <span className="text-sm font-medium tracking-wide">
+                        Loading inventory data…
+                      </span>
+                    </div>
+                  </TableCell>
+                </TableRow>
+              ) : filteredData.length === 0 ? (
+                <TableRow>
+                  <TableCell
+                    colSpan={6}
+                    className="py-4 text-center text-muted-foreground">
+                    No inventory data found
+                  </TableCell>
+                </TableRow>
+              ) : (
+                filteredData.map((item, index) => {
+                  const available = item.availableQuantity ?? 0;
+                  const availableClass =
+                    available === 0
+                      ? "text-red-600 font-semibold"
+                      : available < 10
+                      ? "text-orange-500 font-medium"
+                      : "text-green-600 font-medium";
 
-                <TableBody>
-                  {isLoading ? (
-                    <TableRow>
+                  return (
+                    <TableRow
+                      key={`${item.itemCode}-${item.warehouse}-${index}`}
+                      className={`transition-colors hover:bg-muted/30 ${
+                        index % 2 === 0 ? "bg-muted/10" : ""
+                      }`}>
+                      <TableCell className="px-4 py-2 uppercase font-medium">
+                        {item.itemName}
+                      </TableCell>
+                      <TableCell className="px-4 py-2">
+                        {item.category}
+                      </TableCell>
+                      <TableCell className="px-4 py-2">
+                        {item.warehouse}
+                      </TableCell>
+                      <TableCell className="px-4 py-2 text-right text-blue-600 font-medium">
+                        {item.quantity.toLocaleString()}
+                      </TableCell>
+                      <TableCell className="px-4 py-2 text-right text-yellow-600 font-medium">
+                        {(item.quantityOnHold ?? 0).toLocaleString()}
+                      </TableCell>
                       <TableCell
-                        colSpan={6}
-                        className="py-6 text-center text-muted-foreground">
-                        <div className="inline-flex items-center justify-center gap-2">
-                          <Loader2 className="w-5 h-5 animate-spin text-primary" />
-                          <span className="text-sm font-medium tracking-wide">
-                            Loading inventory data…
-                          </span>
-                        </div>
+                        className={`px-4 py-2 text-right ${availableClass}`}>
+                        {available.toLocaleString()}
                       </TableCell>
                     </TableRow>
-                  ) : filteredData.length === 0 ? (
-                    <TableRow>
-                      <TableCell
-                        colSpan={6}
-                        className="py-4 text-center text-muted-foreground">
-                        No inventory data found
-                      </TableCell>
-                    </TableRow>
-                  ) : (
-                    filteredData.map((item, index) => {
-                      const available = item.availableQuantity ?? 0;
-                      const availableClass =
-                        available === 0
-                          ? "text-red-600 font-semibold"
-                          : available < 10
-                          ? "text-orange-500 font-medium"
-                          : "text-green-600 font-medium";
-
-                      return (
-                        <TableRow
-                          key={`${item.itemCode}-${item.warehouse}-${index}`}
-                          className={`transition-colors hover:bg-muted/30 ${
-                            index % 2 === 0 ? "bg-muted/10" : ""
-                          }`}>
-                          <TableCell className="px-4 py-2 uppercase font-medium">
-                            {item.itemName}
-                          </TableCell>
-                          <TableCell className="px-4 py-2">
-                            {item.category}
-                          </TableCell>
-                          <TableCell className="px-4 py-2">
-                            {item.warehouse}
-                          </TableCell>
-                          <TableCell className="px-4 py-2 text-right text-blue-600 font-medium">
-                            {item.quantity.toLocaleString()}
-                          </TableCell>
-                          <TableCell className="px-4 py-2 text-right text-yellow-600 font-medium">
-                            {(item.quantityOnHold ?? 0).toLocaleString()}
-                          </TableCell>
-                          <TableCell
-                            className={`px-4 py-2 text-right ${availableClass}`}>
-                            {available.toLocaleString()}
-                          </TableCell>
-                        </TableRow>
-                      );
-                    })
-                  )}
-                </TableBody>
-              </Table>
-            </div>
-          </CardContent>
+                  );
+                })
+              )}
+            </TableBody>
+          </Table>
         </Card>
 
         {filteredData.length > 0 && (
-          <Card className="bg-muted/50 border border-dashed">
-            <CardContent className="pt-6">
-              <div className="flex justify-between items-center text-sm text-muted-foreground">
-                <span>
-                  Showing <strong>{filteredData.length}</strong>{" "}
-                  {filteredData.length === 1 ? "entry" : "entries"}
-                </span>
-                <span>
-                  Total Quantity:{" "}
-                  <strong>
-                    {summaryStats.totalQuantity.toLocaleString()} units
-                  </strong>
-                </span>
-              </div>
+          <Card className="bg-muted/50 border border-dashed rounded-lg">
+            <CardContent className="pt-4 flex justify-between text-sm text-muted-foreground">
+              <span>
+                Showing <strong>{filteredData.length}</strong>{" "}
+                {filteredData.length === 1 ? "entry" : "entries"}
+              </span>
+              <span>
+                Total Quantity:{" "}
+                <strong>
+                  {summaryStats.totalQuantity.toLocaleString()} units
+                </strong>
+              </span>
             </CardContent>
           </Card>
         )}
       </TabsContent>
 
       {/* Tab 2: Warehouse Breakdown */}
-      <TabsContent value="warehouse" className="space-y-8">
-        <div className="flex items-center justify-between border-b pb-4">
+      <TabsContent value="warehouse" className="space-y-6">
+        <div className="flex items-center justify-between border-b pb-3">
           <div>
-            <h2 className="text-xl font-semibold tracking-tight">
+            <h2 className="text-xl font-bold tracking-tight">
               🏬 Warehouse Breakdown
             </h2>
             <p className="text-sm text-muted-foreground">
-              Grouped item quantities per warehouse
+              Grouped item quantities by item name across warehouses
             </p>
           </div>
         </div>
 
-        <Card>
-          <CardHeader>
-            <CardTitle>📍 Warehouse Totals</CardTitle>
-            <CardDescription>Item breakdown by warehouse</CardDescription>
-          </CardHeader>
-          <CardContent className="overflow-x-auto space-y-8">
-            <div className="text-right text-sm font-medium text-muted-foreground">
-              Total Quantity of All Items:{" "}
-              <span className="font-bold">
-                {Object.values(warehouseItemSummary)
-                  .flat()
-                  .reduce((sum, item) => sum + item.quantity, 0)
-                  .toLocaleString()}{" "}
-                units
-              </span>
-            </div>
+        {/* Filters */}
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 mb-4">
+          {/* Search by Item Name */}
+          <div className="relative flex-1">
+            <SearchIcon className="absolute left-3 top-1/2 w-4 h-4 -translate-y-1/2 text-gray-400" />
+            <Input
+              placeholder="Search by item name..."
+              value={searchTerm}
+              onChange={(e) => {
+                setSearchTerm(e.target.value);
+                setCurrentPage(1); // reset page when search changes
+              }}
+              className="pl-10 w-full"
+            />
+          </div>
 
-            {Object.entries(warehouseItemSummary).map(
-              ([warehouse, items], idx) => {
-                const warehouseTotal = items.reduce(
-                  (sum, item) => sum + item.quantity,
-                  0
-                );
-                return (
-                  <div key={warehouse}>
-                    {idx > 0 && <hr className="my-6 border-muted" />}
-                    <h4 className="text-sm font-semibold text-muted-foreground mb-2">
-                      {warehouse}
-                    </h4>
-                    <Table aria-label={`Inventory for ${warehouse}`}>
-                      <TableHeader>
-                        <TableRow>
-                          <TableHead className="w-1/4">Item Name</TableHead>
-                          <TableHead className="w-1/4">Category</TableHead>
-                          <TableHead className="w-1/4 text-right">
-                            Quantity
+          {/* Warehouse Filter */}
+          <Select.Root
+            value={selectedGroupedWarehouse}
+            onValueChange={(value) => {
+              setSelectedGroupedWarehouse(value);
+              setCurrentPage(1); // reset page when warehouse changes
+            }}>
+            <Select.Trigger className="inline-flex items-center justify-between w-64 h-10 px-3 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 transition-colors">
+              <Select.Value placeholder="Select Warehouse" />
+              <Select.Icon>
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              </Select.Icon>
+            </Select.Trigger>
+
+            <Select.Content className="overflow-hidden rounded-md bg-white shadow-lg">
+              <Select.Viewport className="p-1">
+                <Select.Item
+                  value="all"
+                  className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-blue-50 cursor-pointer">
+                  <Select.ItemText>All Warehouses</Select.ItemText>
+                  <Select.ItemIndicator>
+                    <Check className="w-4 h-4 text-blue-500" />
+                  </Select.ItemIndicator>
+                </Select.Item>
+
+                {warehouseList.map((wh) => (
+                  <Select.Item
+                    key={wh}
+                    value={wh}
+                    className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-blue-50 cursor-pointer">
+                    <Select.ItemText>{wh}</Select.ItemText>
+                    <Select.ItemIndicator>
+                      <Check className="w-4 h-4 text-blue-500" />
+                    </Select.ItemIndicator>
+                  </Select.Item>
+                ))}
+              </Select.Viewport>
+            </Select.Content>
+          </Select.Root>
+
+          {/* Export CSV */}
+          <Button onClick={handleExportCSV} variant="outline" className="h-10">
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
+          </Button>
+        </div>
+
+        {/* Table with pagination */}
+        {(() => {
+          // Pagination and filtered items
+          const displayedWarehouses =
+            selectedGroupedWarehouse === "all"
+              ? warehouseList
+              : [selectedGroupedWarehouse];
+
+          // Filter by search term
+          const searchedItems = filteredGroupedItems
+            .filter(([itemName]) =>
+              itemName.toLowerCase().includes(searchTerm.toLowerCase())
+            )
+            .sort(([a], [b]) => a.localeCompare(b)); // alphabetical
+
+          const totalPages = Math.ceil(searchedItems.length / ITEMS_PER_PAGE);
+          const currentPageSafe = Math.min(currentPage, totalPages || 1);
+          const paginatedItems = searchedItems.slice(
+            (currentPageSafe - 1) * ITEMS_PER_PAGE,
+            currentPageSafe * ITEMS_PER_PAGE
+          );
+
+          return (
+            <>
+              <Card className="shadow-lg rounded-2xl border border-gray-200 overflow-x-auto">
+                <CardContent>
+                  <div className="text-right text-sm font-medium text-muted-foreground mb-4">
+                    Total Quantity of All Items:{" "}
+                    <span className="font-bold">
+                      {allEntries
+                        .reduce((sum, e) => sum + e.quantity, 0)
+                        .toLocaleString()}{" "}
+                      units
+                    </span>
+                  </div>
+
+                  <Table className="min-w-full">
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead className="min-w-[180px]">
+                          Item Name
+                        </TableHead>
+                        <TableHead className="min-w-[130px]">
+                          Category
+                        </TableHead>
+
+                        {displayedWarehouses.map((warehouse) => (
+                          <TableHead
+                            key={warehouse}
+                            className="text-right min-w-[120px]">
+                            {warehouse}
                           </TableHead>
-                        </TableRow>
-                      </TableHeader>
-                      <TableBody>
-                        {items.map((item, index) => (
+                        ))}
+
+                        <TableHead className="text-right min-w-[120px]">
+                          Total
+                        </TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {paginatedItems.map(
+                        (
+                          [itemName, { category, warehouses, total }],
+                          rowIndex
+                        ) => (
                           <TableRow
-                            key={`${warehouse}-${item.itemName}-${index}`}
-                            className={index % 2 === 0 ? "bg-muted/20" : ""}>
-                            <TableCell className="w-1/4">
-                              {item.itemName}
+                            key={itemName}
+                            className={rowIndex % 2 === 0 ? "bg-muted/20" : ""}>
+                            <TableCell className="font-medium">
+                              {itemName}
                             </TableCell>
-                            <TableCell className="w-1/4">
-                              {item.category}
-                            </TableCell>
-                            <TableCell className="w-1/4 text-right">
-                              {item.quantity.toLocaleString()} units
+                            <TableCell>{category}</TableCell>
+
+                            {displayedWarehouses.map((warehouse) => {
+                              const qty = warehouses[warehouse] ?? 0;
+                              const qtyClass =
+                                qty === 0
+                                  ? "text-red-600 font-bold"
+                                  : qty < 10
+                                  ? "text-orange-500 font-medium"
+                                  : "text-green-600 font-medium";
+
+                              return (
+                                <TableCell
+                                  key={warehouse}
+                                  className={`text-right ${qtyClass}`}>
+                                  {qty.toLocaleString()}
+                                </TableCell>
+                              );
+                            })}
+
+                            <TableCell className="text-right font-bold">
+                              {total.toLocaleString()}
                             </TableCell>
                           </TableRow>
-                        ))}
-                        <TableRow className="bg-muted/40 font-semibold">
-                          <TableCell colSpan={2}>
-                            Subtotal for {warehouse}
-                          </TableCell>
-                          <TableCell className="text-right" colSpan={2}>
-                            {warehouseTotal.toLocaleString()} units
-                          </TableCell>
-                        </TableRow>
-                      </TableBody>
-                    </Table>
-                  </div>
-                );
-              }
-            )}
-          </CardContent>
-        </Card>
+                        )
+                      )}
+                    </TableBody>
+                  </Table>
+                </CardContent>
+              </Card>
+
+              {/* Pagination Controls */}
+              {totalPages > 1 && (
+                <div className="flex justify-center items-center gap-4 mt-4">
+                  <Button
+                    disabled={currentPage === 1}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.max(prev - 1, 1))
+                    }>
+                    Previous
+                  </Button>
+                  <span>
+                    Page {currentPage} of {totalPages || 1}
+                  </span>
+                  <Button
+                    disabled={currentPage === totalPages}
+                    onClick={() =>
+                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                    }>
+                    Next
+                  </Button>
+                </div>
+              )}
+            </>
+          );
+        })()}
       </TabsContent>
     </Tabs>
   );

@@ -3170,7 +3170,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                   <TableHead>Customer</TableHead>
                   <TableHead>Amount</TableHead>
                   <TableHead>Status</TableHead>
-                  <TableHead className="w-32">Actions</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -3254,7 +3254,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                       </TableCell>
 
                       <TableCell>
-                        <div className="flex gap-1">
+                        <div className="flex gap-1 justify-end">
                           {/* View button is always visible */}
                           <Button
                             variant="ghost"

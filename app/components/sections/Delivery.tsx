@@ -678,57 +678,60 @@ export default function Delivery() {
                       </Button>
 
                       {/* Hide Edit & Delete when status is DELIVERED */}
-                      {delivery.status !== "DELIVERED" && (
-                        <>
-                          {/* Edit Delivery */}
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            onClick={() => handleEdit(delivery)}
-                            title="Edit Delivery">
-                            <Edit className="w-4 h-4" />
-                          </Button>
+                      {delivery.status !== "DELIVERED" &&
+                        delivery.status !== "WITH SALES INVOICE" && (
+                          <>
+                            {/* Edit Delivery */}
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => handleEdit(delivery)}
+                              title="Edit Delivery">
+                              <Edit className="w-4 h-4" />
+                            </Button>
 
-                          {/* Delete Delivery */}
-                          <AlertDialog>
-                            <AlertDialogTrigger asChild>
-                              <Button
-                                variant="ghost"
-                                size="sm"
-                                title="Delete Delivery"
-                                className="text-red-600 hover:text-red-800">
-                                <Trash2 className="w-4 h-4" />
-                              </Button>
-                            </AlertDialogTrigger>
+                            {/* Delete Delivery */}
+                            <AlertDialog>
+                              <AlertDialogTrigger asChild>
+                                <Button
+                                  variant="ghost"
+                                  size="sm"
+                                  title="Delete Delivery"
+                                  className="text-red-600 hover:text-red-800">
+                                  <Trash2 className="w-4 h-4" />
+                                </Button>
+                              </AlertDialogTrigger>
 
-                            <AlertDialogContent>
-                              <AlertDialogHeader>
-                                <AlertDialogTitle>
-                                  Delete Delivery
-                                </AlertDialogTitle>
-                                <AlertDialogDescription>
-                                  This action cannot be undone. Are you sure you
-                                  want to permanently delete this delivery
-                                  record?
-                                </AlertDialogDescription>
-                              </AlertDialogHeader>
+                              <AlertDialogContent>
+                                <AlertDialogHeader>
+                                  <AlertDialogTitle>
+                                    Delete Delivery
+                                  </AlertDialogTitle>
+                                  <AlertDialogDescription>
+                                    This action cannot be undone. Are you sure
+                                    you want to permanently delete this delivery
+                                    record?
+                                  </AlertDialogDescription>
+                                </AlertDialogHeader>
 
-                              <AlertDialogFooter>
-                                <AlertDialogCancel asChild>
-                                  <Button variant="outline">Cancel</Button>
-                                </AlertDialogCancel>
-                                <AlertDialogAction asChild>
-                                  <Button
-                                    variant="destructive"
-                                    onClick={() => handleDelete(delivery._id!)}>
-                                    Confirm Delete
-                                  </Button>
-                                </AlertDialogAction>
-                              </AlertDialogFooter>
-                            </AlertDialogContent>
-                          </AlertDialog>
-                        </>
-                      )}
+                                <AlertDialogFooter>
+                                  <AlertDialogCancel asChild>
+                                    <Button variant="outline">Cancel</Button>
+                                  </AlertDialogCancel>
+                                  <AlertDialogAction asChild>
+                                    <Button
+                                      variant="destructive"
+                                      onClick={() =>
+                                        handleDelete(delivery._id!)
+                                      }>
+                                      Confirm Delete
+                                    </Button>
+                                  </AlertDialogAction>
+                                </AlertDialogFooter>
+                              </AlertDialogContent>
+                            </AlertDialog>
+                          </>
+                        )}
                     </TableCell>
                   </TableRow>
                 ))
