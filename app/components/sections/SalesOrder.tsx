@@ -1663,32 +1663,6 @@ export default function SalesOrder({ onSuccess }: Props) {
     prepareCreateForm();
   };
 
-  const handleUpdateStatus = async (soId: string, status: Status) => {
-    try {
-      const res = await fetch(`/api/sales-orders/${soId}`, {
-        method: "PATCH",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status }),
-      });
-
-      if (!res.ok) throw new Error("Failed to update Sales Order status");
-
-      const { order: updatedSO } = await res.json();
-
-      // Update local state
-      setPaginatedSalesOrders((prev) =>
-        prev.map((so) =>
-          so._id === soId ? { ...so, status: updatedSO.status } : so
-        )
-      );
-
-      toast.success(`SO ${updatedSO.soNumber} marked as ${updatedSO.status}`);
-    } catch (error) {
-      console.error(`❌ Error updating SO status to ${status}:`, error);
-      toast.error(`Could not update SO status to ${status}`);
-    }
-  };
-
   function updateQuantity(index: number, value: number | null) {
     setItemsData((prev) => {
       const updated = [...prev];

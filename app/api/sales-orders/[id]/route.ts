@@ -27,8 +27,18 @@ export async function GET(
   }
 
   try {
-    // Look up by soNumber instead of ObjectId
-    const order = await SalesOrderModel.findOne({ soNumber: trimmedId });
+    let order = null;
+
+    // Try lookup by MongoDB _id first
+    if (Types.ObjectId.isValid(trimmedId)) {
+      order = await SalesOrderModel.findById(trimmedId);
+    }
+
+    // Fallback: lookup by soNumber if not found
+    if (!order) {
+      order = await SalesOrderModel.findOne({ soNumber: trimmedId });
+    }
+
     if (!order) {
       return NextResponse.json(
         { message: "Sales order not found" },
