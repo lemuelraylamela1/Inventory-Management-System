@@ -30,6 +30,7 @@ import {
   DialogPanel,
   DialogTitle,
   DialogTrigger,
+  DialogClose,
 } from "../ui/dialog";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
@@ -419,6 +420,9 @@ export default function PurchaseReturn({ onSuccess }: Props) {
           itemCode: (item.itemCode ?? "").trim().toUpperCase(),
           itemName: (item.itemName ?? "").trim().toUpperCase() || "UNNAMED",
           unitType: (item.unitType ?? "").trim().toUpperCase(),
+          description:
+            descriptionMap[(item.itemCode ?? "").trim().toUpperCase()] ||
+            "NO DESCRIPTION",
           purchasePrice,
           quantity: returnQty, // sent to backend as quantity
           amount: returnQty * purchasePrice,
@@ -646,12 +650,13 @@ export default function PurchaseReturn({ onSuccess }: Props) {
   //   }
   // };
 
+  // Handle viewing a purchase return
   const handleView = (ret: PurchaseReturnResponse) => {
     const normalized: PurchaseReturnType = {
       ...ret,
       items: ret.items.map((item) => ({
         ...item,
-        amount: item.amount ?? item.quantity * item.purchasePrice,
+        amount: item.amount ?? item.quantity * (item.purchasePrice || 0),
       })),
       createdAt: ret.createdAt ?? new Date().toISOString(),
     };
@@ -1772,6 +1777,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                   <TableHead>Supplier</TableHead>
                   <TableHead>Purchase Receipt No.</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead className="text-right">Actions</TableHead>
                 </TableRow>
               </TableHeader>
 
@@ -1830,7 +1836,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                           </span>
                         </TableCell>
                         <TableCell>
-                          <div className="flex gap-1">
+                          <div className="flex justify-end">
                             <Button
                               variant="ghost"
                               size="sm"
@@ -1840,36 +1846,6 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                               aria-label="View Purchase Return Details">
                               <Eye className="w-4 h-4 text-muted-foreground" />
                             </Button>
-
-                            {/* <DropdownMenu>
-                              <DropdownMenuTrigger asChild>
-                                <Button
-                                  variant="ghost"
-                                  size="sm"
-                                  title="More actions">
-                                  <MoreVertical className="w-4 h-4" />
-                                </Button>
-                              </DropdownMenuTrigger>
-                              <DropdownMenuContent align="end" className="w-40">
-                                <DropdownMenuLabel>
-                                  Export Options
-                                </DropdownMenuLabel>
-                                <DropdownMenuSeparator />
-                                <DropdownMenuItem
-                                  onClick={() =>
-                                    handleExportPDF(ret.items, {
-                                      returnNumber: ret.returnNumber,
-                                      prNumber: ret.prNumber,
-                                      supplierName: ret.supplierName,
-                                      status: ret.status,
-                                      notes: ret.notes,
-                                    })
-                                  }>
-                                  <FileText className="w-4 h-4 mr-2 text-red-600" />
-                                  Export as PDF
-                                </DropdownMenuItem>
-                              </DropdownMenuContent>
-                            </DropdownMenu> */}
                           </div>
                         </TableCell>
                       </TableRow>
@@ -1927,6 +1903,208 @@ export default function PurchaseReturn({ onSuccess }: Props) {
           </div>
         </CardContent>
       </Card>
+
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogTitle className="sr-only">Purchase Return Details</DialogTitle>
+        <DialogPanel className="max-w-3xl" autoFocus={false}>
+          {/* 🧾 Purchase Return Header */}
+          <div className="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-border pb-4 mb-6 gap-2">
+            <div>
+              <h2 className="text-xl font-bold text-primary tracking-wide">
+                Purchase Return Details
+              </h2>
+              <p className="text-sm text-muted-foreground">
+                Return No:{" "}
+                <span className="text-foreground font-semibold">
+                  {viewingReturn?.returnNumber}
+                </span>
+              </p>
+              <p className="text-sm text-muted-foreground">
+                PR No.:{" "}
+                <span className="text-foreground font-semibold">
+                  {viewingReturn?.prNumber ?? ""}
+                </span>
+              </p>
+            </div>
+            <div className="text-sm text-right text-muted-foreground">
+              <p>
+                Created Date:{" "}
+                <span className="text-foreground">
+                  {viewingReturn?.createdAt
+                    ? new Date(viewingReturn.createdAt).toLocaleDateString(
+                        "en-PH",
+                        {
+                          month: "short",
+                          day: "2-digit",
+                          year: "numeric",
+                        }
+                      )
+                    : ""}
+                </span>
+              </p>
+              <p>
+                Status:{" "}
+                <span
+                  className={`font-semibold ${
+                    viewingReturn?.status === "RETURNED"
+                      ? "text-blue-700 font-bold"
+                      : viewingReturn?.status === "APPROVED"
+                      ? "text-green-700 font-bold"
+                      : viewingReturn?.status === "REJECTED"
+                      ? "text-red-600 font-bold"
+                      : viewingReturn?.status === "CLOSED"
+                      ? "text-gray-600 font-bold"
+                      : "text-gray-500 font-bold"
+                  }`}>
+                  {viewingReturn?.status}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* 🏢 Supplier & Warehouse Info */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Supplier Name:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {viewingReturn?.supplierName ?? ""}
+                </span>
+              </p>
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Warehouse:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {viewingReturn?.warehouse ?? ""}
+                </span>
+              </p>
+            </div>
+
+            <div className="text-sm space-y-1">
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Reason:
+                </span>{" "}
+                <span className="text-foreground font-semibold">
+                  {viewingReturn?.reason ?? ""}
+                </span>
+              </p>
+              <p>
+                <span className="font-medium text-muted-foreground">
+                  Notes:
+                </span>{" "}
+                <span className="text-foreground font-semibold truncate max-w-[60%]">
+                  {viewingReturn?.notes ?? ""}
+                </span>
+              </p>
+            </div>
+          </div>
+
+          {/* Items Table */}
+          {viewingReturn?.items?.length ? (
+            <div className="col-span-2 mt-4">
+              <div className="overflow-x-auto rounded-lg shadow-sm">
+                <table className="min-w-full">
+                  <thead className="bg-primary text-white">
+                    <tr>
+                      <th className="p-2 text-left">Item Code</th>
+                      <th className="p-2 text-left">Description</th>
+                      <th className="p-2 text-left">UOM</th>
+                      <th className="p-2 text-right">Unit Price</th>
+                      <th className="p-2 text-right">Quantity</th>
+                      <th className="p-2 text-right">Amount</th>
+                    </tr>
+                  </thead>
+                  <tbody className="bg-white divide-y divide-gray-200">
+                    {viewingReturn.items.map((item, idx) => (
+                      <tr
+                        key={item.itemCode || idx}
+                        className="hover:bg-gray-50">
+                        <td className="p-2 text-left font-medium">
+                          {item.itemCode}
+                        </td>
+
+                        <td className="p-2 text-left">
+                          {item.description || "NO DESCRIPTION"}
+                        </td>
+                        <td className="p-2 text-left font-medium">
+                          {item.unitType}
+                        </td>
+                        <td className="p-2 text-right">
+                          {(item.unitPrice ?? 0).toLocaleString("en-PH", {
+                            style: "currency",
+                            currency: "PHP",
+                          })}
+                        </td>
+                        <td className="p-2 text-right font-semibold">
+                          {item.quantity ?? 0}
+                        </td>
+                        <td className="p-2 text-right font-semibold">
+                          {(item.amount ?? 0).toLocaleString("en-PH", {
+                            style: "currency",
+                            currency: "PHP",
+                          })}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+
+              {/* Summary */}
+              <div className="w-full my-8 overflow-x-auto">
+                <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 py-2 text-end">
+                  Purchase Return Summary
+                </h3>
+                <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                  <table className="w-full text-sm">
+                    <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                      <tr>
+                        <th className="px-4 py-2 text-left">Metric</th>
+                        <th className="px-4 py-2 text-right">Value</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-border">
+                      <tr>
+                        <td className="py-2 px-4 text-muted-foreground">
+                          Total Items
+                        </td>
+                        <td className="py-2 px-4 text-right font-semibold text-foreground">
+                          {viewingReturn.items?.length ?? 0}
+                        </td>
+                      </tr>
+                      <tr>
+                        <td className="py-2 px-4 text-primary">
+                          Total Quantity
+                        </td>
+                        <td className="py-2 px-4 text-right font-semibold text-primary">
+                          {viewingReturn.items?.reduce(
+                            (sum, i) => sum + (i.quantity ?? 0),
+                            0
+                          )}
+                        </td>
+                      </tr>
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-muted-foreground">
+              No items in this return.
+            </p>
+          )}
+
+          <DialogFooter className="pt-4 border-t">
+            <DialogClose asChild>
+              <Button variant="outline">Close</Button>
+            </DialogClose>
+          </DialogFooter>
+        </DialogPanel>
+      </Dialog>
     </div>
   );
 }

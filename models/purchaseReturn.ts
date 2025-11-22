@@ -21,6 +21,11 @@ const PurchaseReturnSchema = new mongoose.Schema(
       uppercase: true,
       trim: true,
     },
+    warehouse: {
+      type: String,
+      uppercase: true,
+      trim: true,
+    },
     reason: {
       type: String,
       required: true,
@@ -42,11 +47,7 @@ const PurchaseReturnSchema = new mongoose.Schema(
       {
         itemCode: { type: String, required: true, uppercase: true, trim: true },
         description: { type: String, trim: true },
-        warehouse: {
-          type: String,
-          uppercase: true,
-          trim: true,
-        },
+        unitType: { type: String, required: true, uppercase: true, trim: true },
         quantity: { type: Number, required: true, min: 0 }, // qty being returned
         unitPrice: { type: Number, required: true, min: 0 },
         amount: { type: Number, required: true, min: 0 }, // quantity * unitPrice
