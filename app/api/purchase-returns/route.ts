@@ -5,7 +5,7 @@ import { generateNextReturnNumber } from "@/libs/generateNextReturnNumber";
 import Inventory, { InventoryItem } from "@/models/inventory";
 import InventoryMain from "@/models/inventoryMain";
 
-type ReturnItem = {
+export type ReturnItem = {
   selected?: boolean;
   quantity?: number;
   receiptQty?: number;
@@ -13,6 +13,12 @@ type ReturnItem = {
   itemCode?: string;
   itemName?: string;
   unitType?: string;
+
+  // ✅ Add these to match your Mongoose schema
+  description?: string;
+  warehouse?: string;
+  amount?: number;
+  unitPrice?: number; // if your schema requires it
 };
 
 export async function POST(request: Request) {
@@ -32,13 +38,14 @@ export async function POST(request: Request) {
       );
     }
 
+    // Normalize status
     const allowedStatuses = ["RETURNED", "APPROVED", "REJECTED", "CLOSED"];
     const normalizedStatus = allowedStatuses.includes(status)
       ? status
       : "RETURNED";
 
+    // Find the original purchase receipt
     const receipt = await PurchaseReceipt.findOne({ prNumber });
-
     if (!receipt) {
       return NextResponse.json(
         { error: `No purchase receipt found for PR number ${prNumber}.` },
@@ -46,27 +53,27 @@ export async function POST(request: Request) {
       );
     }
 
+    // Filter and map valid return items
     const validItems = items
       .filter(
         (item) =>
           item.selected === true &&
           Number(item.quantity) >= 1 &&
-          Number(item.quantity) <= Number(item.receiptQty)
+          Number(item.quantity) <= Number(item.receiptQty) // Make sure not exceeding PR qty
       )
       .map((item) => {
         const quantity = Number(item.quantity) || 0;
-        const purchasePrice = Number(item.purchasePrice) || 0;
-        const receiptQty = Number(item.receiptQty) || 0;
+        const unitPrice = Number(item.purchasePrice) || 0;
 
         return {
           itemCode: item.itemCode?.trim().toUpperCase() || "",
           itemName: item.itemName?.trim().toUpperCase() || "UNNAMED",
           unitType: item.unitType?.trim().toUpperCase() || "",
-          purchasePrice,
+          unitPrice,
           quantity,
-          amount: quantity * purchasePrice,
-          receiptQty,
-          qtyLeft: Math.max(receiptQty - quantity, 0),
+          amount: quantity * unitPrice,
+          warehouse: body.warehouse?.trim().toUpperCase() || "UNKNOWN",
+          description: item.description?.trim() || "NO DESCRIPTION",
         };
       });
 
@@ -77,18 +84,7 @@ export async function POST(request: Request) {
       );
     }
 
-    const receiptQty = validItems.reduce(
-      (sum, item) => sum + item.receiptQty,
-      0
-    );
-
-    const returnedQty = validItems.reduce(
-      (sum, item) => sum + item.quantity,
-      0
-    );
-
-    const qtyLeft = Math.max(receiptQty - returnedQty, 0);
-
+    // Generate return number
     let returnNumber = "PRTN0000000001";
     try {
       returnNumber = await generateNextReturnNumber();
@@ -96,6 +92,19 @@ export async function POST(request: Request) {
       console.warn("⚠️ Failed to generate return number, using fallback.");
     }
 
+    // Log before saving
+    console.log("Creating PurchaseReturn with:", {
+      returnNumber,
+      prNumber,
+      supplierName: receipt.supplierName?.trim().toUpperCase() || "UNKNOWN",
+      warehouse: receipt.warehouse?.trim().toUpperCase() || "UNKNOWN",
+      reason,
+      notes,
+      status: normalizedStatus,
+      items: validItems,
+    });
+
+    // Create purchase return
     const newReturn = await PurchaseReturn.create({
       returnNumber,
       prNumber,
@@ -104,19 +113,18 @@ export async function POST(request: Request) {
       reason,
       notes,
       status: normalizedStatus,
-      receiptQty,
-      qtyLeft,
       items: validItems,
       createdAt: new Date().toISOString(),
     });
 
-    // ✅ Deduct returned quantities from inventory
+    // Deduct returned quantities from inventory
     for (const item of validItems) {
       const now = new Date();
+
+      // Update inventory document
       const inventoryDoc = await Inventory.findOne({
         warehouse: receipt.warehouse?.trim().toUpperCase(),
       });
-
       if (!inventoryDoc) {
         console.warn(`⚠️ No inventory document found for ${receipt.warehouse}`);
         continue;
@@ -132,7 +140,7 @@ export async function POST(request: Request) {
         category: "UNCATEGORIZED",
         quantity: -Math.abs(item.quantity),
         unitType: item.unitType,
-        purchasePrice: item.purchasePrice,
+        purchasePrice: item.unitPrice,
         source: prNumber,
         referenceNumber: returnNumber,
         receivedAt: now,
@@ -150,13 +158,18 @@ export async function POST(request: Request) {
       inventoryDoc.items.push(returnEntry);
       await inventoryDoc.save();
 
+      // Update InventoryMain
+      // Update InventoryMain
       await InventoryMain.findOneAndUpdate(
         {
           itemCode: item.itemCode,
           warehouse: receipt.warehouse?.trim().toUpperCase(),
         },
         {
-          $inc: { quantity: -Math.abs(item.quantity) },
+          $inc: {
+            quantity: -Math.abs(item.quantity), // total quantity
+            availableQuantity: -Math.abs(item.quantity), // decrement available stock too
+          },
           $set: {
             itemName: item.itemName,
             unitType: item.unitType,

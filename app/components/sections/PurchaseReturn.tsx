@@ -133,7 +133,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
   const [filteredReturns, setFilteredReturns] = useState<PurchaseReturnType[]>(
     []
   );
-
+  const [itemCatalog, setItemCatalog] = useState<ItemType[]>([]);
   const [suppliers, setSuppliers] = useState<SupplierType[]>([]);
   const [warehouses, setWarehouses] = useState<WarehouseType[]>([]);
 
@@ -149,21 +149,8 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       purchasePrice: 0,
       quantity: 1,
       amount: 0,
-      receiptQty: 0, // ✅ required by ReceiptItem
-      qtyLeft: 0, // ✅ required by ReceiptItem
     },
   ]);
-
-  const [itemCatalog, setItemCatalog] = useState<ItemType[]>([]);
-
-  const descriptionMap = useMemo(() => {
-    const map: Record<string, string> = {};
-    itemCatalog.forEach((item) => {
-      const key = item.itemName.trim().toUpperCase();
-      map[key] = item.description?.trim().toUpperCase() || "NO DESCRIPTION";
-    });
-    return map;
-  }, [itemCatalog]);
 
   useEffect(() => {
     console.log("Fetching suppliers...");
@@ -189,31 +176,39 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       .then((response) => {
         console.log("Raw response:", response);
 
-        const data = Array.isArray(response?.items) ? response.items : [];
+        const data: ItemType[] = Array.isArray(response?.items)
+          ? response.items
+          : [];
         console.log("Parsed items:", data);
 
-        setItems(data);
+        // Log each item's key info
+        data.forEach((item: ItemType, index: number) => {
+          console.log(
+            `Item[${index}]: itemCode="${item.itemCode}", itemName="${item.itemName}", description="${item.description}"`
+          );
+        });
+
+        setItemCatalog(data);
       })
       .catch((err) => console.error("Failed to fetch items", err));
   }, []);
 
+  const descriptionMap = useMemo(() => {
+    const map: Record<string, string> = {};
+
+    itemCatalog.forEach((item: ItemType, index: number) => {
+      const key = item.itemCode?.trim().toUpperCase() || "";
+      const desc = item.description?.trim() || "NO DESCRIPTION";
+      map[key] = desc;
+
+      console.log(`Mapping[${index}]: key="${key}" => description="${desc}"`);
+    });
+
+    console.log("Final descriptionMap:", map);
+    return map;
+  }, [itemCatalog]);
+
   const router = useRouter();
-
-  // const enrichedItems: ReceiptItem[] = (receipt.items || []).map((item) => {
-  //   const normalizedQty = Number(item.quantity) || 0;
-  //   const normalizedPrice = Number(item.purchasePrice) || 0;
-
-  //   return {
-  //     itemCode: item.itemCode?.trim().toUpperCase() || "",
-  //     itemName: item.itemName?.trim().toUpperCase() || "",
-  //     unitType: item.unitType?.trim().toUpperCase() || "",
-  //     purchasePrice: normalizedPrice,
-  //     quantity: 0, // default return quantity
-  //     amount: 0, // will be computed on mutation
-  //     receiptQty: normalizedQty,
-  //     qtyLeft: normalizedQty, // initially same as receiptQty
-  //   };
-  // });
 
   const [formData, setFormData] = useState<
     Omit<PurchaseReturnType, "_id" | "createdAt" | "updatedAt">
@@ -409,19 +404,15 @@ export default function PurchaseReturn({ onSuccess }: Props) {
     }));
   }, [itemsData]);
 
-  // const formattedTotal = new Intl.NumberFormat("en-PH", {
-  //   style: "currency",
-  //   currency: "PHP",
-  // }).format(Number(formData.total ?? 0));
-
   const handleCreate = async () => {
     if (!validateForm()) return;
 
+    // Normalize selected items
     const normalizedItems = formData.items
       .filter((item) => !!item.selected)
       .map((item) => {
-        const quantity = Number(item.quantity) || 0;
-        const receiptQty = Number(item.receiptQty) || 0;
+        const returnQty = Number(item.returnQty) || 0; // ✅ use returnQty
+        const receiptQty = Number(item.quantity) || 0; // PR Qty
         const purchasePrice = Number(item.purchasePrice) || 0;
 
         return {
@@ -429,34 +420,21 @@ export default function PurchaseReturn({ onSuccess }: Props) {
           itemName: (item.itemName ?? "").trim().toUpperCase() || "UNNAMED",
           unitType: (item.unitType ?? "").trim().toUpperCase(),
           purchasePrice,
-          quantity,
-          amount: quantity * purchasePrice,
-          receiptQty,
-          qtyLeft: Math.max(receiptQty - quantity, 0),
+          quantity: returnQty, // sent to backend as quantity
+          amount: returnQty * purchasePrice,
+          receiptQty, // original PR qty
+          qtyLeft: Math.max(receiptQty - returnQty, 0),
           selected: true,
         };
       })
-      .filter(
-        (item) =>
-          item.quantity >= 1 &&
-          item.quantity <= item.receiptQty &&
-          item.itemCode !== ""
-      );
+      .filter((item) => item.quantity >= 1 && item.itemCode !== "");
 
     if (normalizedItems.length === 0) {
-      alert("Please select at least one valid item with quantity ≥ 1.");
+      alert(
+        "Please select at least one valid item with quantity ≥ 1 and within PR quantity."
+      );
       return;
     }
-
-    const receiptQty = normalizedItems.reduce(
-      (sum, item) => sum + item.receiptQty,
-      0
-    );
-    const returnedQty = normalizedItems.reduce(
-      (sum, item) => sum + item.quantity,
-      0
-    );
-    const qtyLeft = Math.max(receiptQty - returnedQty, 0);
 
     const payload = {
       prNumber: formData.prNumber.trim().toUpperCase(),
@@ -494,9 +472,6 @@ export default function PurchaseReturn({ onSuccess }: Props) {
       console.error("🌐 Network or unexpected error:", error);
       alert("Something went wrong. Please check your connection or try again.");
     }
-
-    // Optionally close dialog
-    // setIsCreateDialogOpen(false);
   };
 
   const defaultValidationErrors: Record<
@@ -958,35 +933,6 @@ export default function PurchaseReturn({ onSuccess }: Props) {
   //   toast.success("PDF exported successfully");
   // };
 
-  useEffect(() => {
-    const syncQtyLeft = async () => {
-      const updatedItems = await Promise.all(
-        formData.items.map(async (item) => {
-          if (!item.itemCode || !formData.warehouse) return item;
-
-          try {
-            const res = await fetch(
-              `/api/inventory?itemCode=${item.itemCode}&warehouse=${formData.warehouse}`
-            );
-            const data = await res.json();
-
-            return {
-              ...item,
-              qtyLeft: res.ok ? data.qtyLeft : item.qtyLeft || 0,
-            };
-          } catch (err) {
-            console.warn(`❌ Failed to sync qtyLeft for ${item.itemCode}`, err);
-            return item;
-          }
-        })
-      );
-
-      setFormData((prev) => ({ ...prev, items: updatedItems }));
-    };
-
-    syncQtyLeft();
-  }, [formData.warehouse]);
-
   return (
     <div className="space-y-6">
       <Card>
@@ -1042,9 +988,7 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                     <div className="flex flex-row flex-wrap gap-4">
                       {/* Return Number */}
                       <div className="flex flex-col flex-1 min-w-[200px]">
-                        <Label htmlFor="create-return-number">
-                          Return Number
-                        </Label>
+                        <Label htmlFor="create-return-number">PR Number</Label>
                         <Input
                           id="create-return-number"
                           value={"Auto-generated"}
@@ -1289,43 +1233,48 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                                             pr.warehouse
                                               ?.trim()
                                               .toUpperCase() || "UNKNOWN",
-                                          receiptQty:
-                                            pr.items?.reduce(
-                                              (sum, item) =>
-                                                sum +
-                                                Number(item.quantity || 0),
-                                              0
-                                            ) || 0,
-                                          qtyLeft:
-                                            pr.items?.reduce(
-                                              (sum, item) =>
-                                                sum +
-                                                Number(item.quantity || 0),
-                                              0
-                                            ) || 0,
                                           items: (pr.items || []).map(
-                                            (item) => ({
-                                              itemCode:
-                                                item.itemCode
-                                                  ?.trim()
-                                                  .toUpperCase() || "",
-                                              itemName:
-                                                item.itemName
-                                                  ?.trim()
-                                                  .toUpperCase() || "",
-                                              unitType:
-                                                item.unitType
-                                                  ?.trim()
-                                                  .toUpperCase() || "",
-                                              purchasePrice:
-                                                Number(item.purchasePrice) || 0,
-                                              quantity: 0, // default return quantity
-                                              amount: 0,
-                                              receiptQty:
-                                                Number(item.quantity) || 0,
-                                              qtyLeft:
-                                                Number(item.quantity) || 0,
-                                            })
+                                            (item) => {
+                                              const description =
+                                                itemCatalog.find(
+                                                  (i) =>
+                                                    i.itemName
+                                                      ?.trim()
+                                                      .toUpperCase() ===
+                                                    item.itemName
+                                                      ?.trim()
+                                                      .toUpperCase()
+                                                )?.description ||
+                                                "NO DESCRIPTION";
+
+                                              return {
+                                                itemCode:
+                                                  item.itemCode
+                                                    ?.trim()
+                                                    .toUpperCase() || "",
+                                                itemName:
+                                                  item.itemName
+                                                    ?.trim()
+                                                    .toUpperCase() || "",
+                                                description,
+                                                unitType:
+                                                  item.unitType
+                                                    ?.trim()
+                                                    .toUpperCase() || "",
+                                                quantity:
+                                                  Number(item.quantity) || 0, // original quantity from PR
+                                                purchasePrice:
+                                                  Number(item.purchasePrice) ||
+                                                  0,
+                                                amount: 0, // will compute later
+                                                warehouse:
+                                                  pr.warehouse
+                                                    ?.trim()
+                                                    .toUpperCase() || "UNKNOWN",
+                                                selected: true, // ✅ auto-select all items
+                                                returnQty: 1, // default return quantity
+                                              };
+                                            }
                                           ),
                                         }));
 
@@ -1363,298 +1312,279 @@ export default function PurchaseReturn({ onSuccess }: Props) {
                       </div>
                     </div>
 
-                    {/* Reason for Return */}
-                    <div className="flex flex-col flex-1 min-w-[200px]">
-                      <Label htmlFor="create-reason">Reason</Label>
+                    {/* Reason for Return and Notes in same row with equal width */}
+                    <div className="flex flex-row flex-wrap gap-4">
+                      {/* Reason for Return */}
+                      <div className="flex flex-col flex-1 min-w-[200px]">
+                        <Label htmlFor="create-reason">Reason</Label>
+                        <div className="relative">
+                          <Input
+                            id="create-reason"
+                            type="text"
+                            autoComplete="off"
+                            value={formData.reason}
+                            placeholder="e.g. Damaged items, wrong delivery"
+                            className={`text-sm ${
+                              validationErrors.reason
+                                ? "border-destructive"
+                                : ""
+                            }`}
+                            onClick={() => setShowReasonSuggestions(true)}
+                            onBlur={() =>
+                              setTimeout(
+                                () => setShowReasonSuggestions(false),
+                                200
+                              )
+                            }
+                            onChange={(e) => {
+                              const value = e.target.value;
+                              setFormData((prev) => ({
+                                ...prev,
+                                reason: value,
+                              }));
+                              setValidationErrors((prev) => ({
+                                ...prev,
+                                reason: "",
+                              }));
+                            }}
+                          />
 
-                      <div className="relative">
-                        <Input
-                          id="create-reason"
-                          type="text"
-                          autoComplete="off"
-                          value={formData.reason}
-                          placeholder="e.g. Damaged items, wrong delivery"
-                          className={`text-sm ${
-                            validationErrors.reason ? "border-destructive" : ""
-                          }`}
-                          onClick={() => setShowReasonSuggestions(true)}
-                          onBlur={() =>
-                            setTimeout(
-                              () => setShowReasonSuggestions(false),
-                              200
-                            )
-                          }
-                          onChange={(e) => {
-                            const value = e.target.value;
-                            setFormData((prev) => ({
-                              ...prev,
-                              reason: value,
-                            }));
-                            setValidationErrors((prev) => ({
-                              ...prev,
-                              reason: "",
-                            }));
-                          }}
-                        />
-
-                        {/* Scrollable Dropdown */}
-                        {showReasonSuggestions && (
-                          <div className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg text-sm">
-                            <ul className="max-h-48 overflow-y-auto">
-                              {reasonOptions
-                                .filter((option) =>
+                          {/* Reason suggestions dropdown */}
+                          {showReasonSuggestions && (
+                            <div className="absolute top-full mt-1 w-full z-10 bg-white border border-border rounded-md shadow-lg text-sm">
+                              <ul className="max-h-48 overflow-y-auto">
+                                {reasonOptions
+                                  .filter((option) =>
+                                    option
+                                      .toLowerCase()
+                                      .includes(formData.reason.toLowerCase())
+                                  )
+                                  .map((option) => (
+                                    <li
+                                      key={option}
+                                      className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                      onClick={() => {
+                                        setFormData((prev) => ({
+                                          ...prev,
+                                          reason: option,
+                                        }));
+                                        setShowReasonSuggestions(false);
+                                      }}>
+                                      {option}
+                                    </li>
+                                  ))}
+                                {reasonOptions.filter((option) =>
                                   option
                                     .toLowerCase()
                                     .includes(formData.reason.toLowerCase())
-                                )
-                                .map((option) => (
-                                  <li
-                                    key={option}
-                                    className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
-                                    onClick={() => {
-                                      setFormData((prev) => ({
-                                        ...prev,
-                                        reason: option,
-                                      }));
-                                      setShowReasonSuggestions(false);
-                                    }}>
-                                    {option}
+                                ).length === 0 && (
+                                  <li className="px-3 py-2 text-muted-foreground">
+                                    No matching reason found
                                   </li>
-                                ))}
-                              {reasonOptions.filter((option) =>
-                                option
-                                  .toLowerCase()
-                                  .includes(formData.reason.toLowerCase())
-                              ).length === 0 && (
-                                <li className="px-3 py-2 text-muted-foreground">
-                                  No matching reason found
-                                </li>
-                              )}
-                            </ul>
-                          </div>
+                                )}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+                        {validationErrors.reason && (
+                          <p className="text-sm text-destructive">
+                            {validationErrors.reason}
+                          </p>
                         )}
                       </div>
 
-                      {validationErrors.reason && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.reason}
-                        </p>
-                      )}
-                    </div>
-
-                    {/* Notes */}
-                    <div className="flex flex-col flex-[2] min-w-[300px]">
-                      <Label htmlFor="create-notes">Notes</Label>
-                      <Textarea
-                        id="create-notes"
-                        value={formData.notes}
-                        onChange={(e) => {
-                          const value = e.target.value;
-                          setFormData((prev) => ({
-                            ...prev,
-                            notes: value,
-                          }));
-                          setValidationErrors((prev) => ({
-                            ...prev,
-                            notes: "",
-                          }));
-                        }}
-                        placeholder="Add any additional notes or comments here"
-                        className={`text-sm ${
-                          validationErrors.notes ? "border-destructive" : ""
-                        }`}
-                      />
-                      {validationErrors.notes && (
-                        <p className="text-sm text-destructive">
-                          {validationErrors.notes}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                </div>
-                {/* Header Row */}
-                <div className="grid w-full grid-cols-[40px_1.5fr_2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr] gap-4 border-b py-2 mb-4 bg-primary text-primary-foreground rounded-t">
-                  {/* Select All Checkbox */}
-                  <div className="flex justify-center items-center">
-                    <input
-                      type="checkbox"
-                      checked={formData.items.every((item) => item.selected)}
-                      onChange={(e) => {
-                        const updatedItems = formData.items.map((item) => ({
-                          ...item,
-                          selected: e.target.checked,
-                        }));
-                        setFormData({ ...formData, items: updatedItems });
-                      }}
-                      className="w-4 h-4"
-                    />
-                  </div>
-
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Item Code
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Description
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Warehouse
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Unit Cost
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Receipt Qty
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Qty Left
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Qty
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    UOM
-                  </div>
-                  <div className="text-xs font-semibold uppercase text-center">
-                    Amount
-                  </div>
-                </div>
-
-                {/* Item Rows */}
-                {formData.items?.length > 0 ? (
-                  formData.items.map((item, index) => (
-                    <div
-                      key={index}
-                      className="grid w-full grid-cols-[40px_1.5fr_2fr_1fr_1fr_1fr_1fr_1fr_1fr_1fr] items-center border-t border-border text-sm m-0">
-                      {/* Checkbox */}
-                      <div className="flex justify-center items-center">
-                        <input
-                          type="checkbox"
-                          checked={item.selected || false}
+                      {/* Notes */}
+                      <div className="flex flex-col flex-1 min-w-[200px]">
+                        <Label htmlFor="create-notes">Notes</Label>
+                        <Textarea
+                          id="create-notes"
+                          value={formData.notes}
                           onChange={(e) => {
-                            const updatedItems = [...formData.items];
-                            updatedItems[index].selected = e.target.checked;
-                            setFormData({ ...formData, items: updatedItems });
+                            const value = e.target.value;
+                            setFormData((prev) => ({ ...prev, notes: value }));
+                            setValidationErrors((prev) => ({
+                              ...prev,
+                              notes: "",
+                            }));
                           }}
-                          className="w-4 h-4"
+                          placeholder="Add any additional notes or comments here"
+                          className={`text-sm ${
+                            validationErrors.notes ? "border-destructive" : ""
+                          }`}
                         />
+                        {validationErrors.notes && (
+                          <p className="text-sm text-destructive">
+                            {validationErrors.notes}
+                          </p>
+                        )}
                       </div>
-
-                      {/* Item Code */}
-                      <input
-                        type="text"
-                        value={item.itemCode || ""}
-                        readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-center"
-                      />
-
-                      {/* Description */}
-                      <input
-                        type="text"
-                        value={
-                          descriptionMap[item.itemName.trim().toUpperCase()] ??
-                          "No description"
-                        }
-                        readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-left"
-                      />
-
-                      {/* Warehouse */}
-                      <input
-                        type="text"
-                        value={formData.warehouse || ""}
-                        readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-center"
-                      />
-
-                      {/* Unit Cost */}
-                      <input
-                        type="text"
-                        value={
-                          item.purchasePrice !== undefined
-                            ? item.purchasePrice.toLocaleString("en-PH", {
-                                style: "currency",
-                                currency: "PHP",
-                              })
-                            : ""
-                        }
-                        readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
-                      />
-
-                      {/* Receipt Quantity */}
-                      <input
-                        type="number"
-                        value={item.receiptQty || 0}
-                        readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
-                      />
-
-                      {/* Qty Left */}
-                      <input
-                        type="number"
-                        value={item.qtyLeft || 0}
-                        readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
-                      />
-
-                      {/* Qty (editable if selected) */}
-                      <input
-                        type="number"
-                        value={item.selected ? item.quantity || 0 : ""}
-                        min={item.selected ? 1 : undefined}
-                        max={
-                          item.selected ? item.qtyLeft || undefined : undefined
-                        }
-                        onChange={(e) => {
-                          if (!item.selected) return;
-
-                          const inputValue = Number(e.target.value);
-                          const clampedValue = Math.min(
-                            Math.max(inputValue, 1),
-                            item.qtyLeft || 0
-                          );
-
-                          const updatedItems = [...formData.items];
-                          updatedItems[index].quantity = clampedValue;
-                          setFormData({ ...formData, items: updatedItems });
-                        }}
-                        disabled={!item.selected}
-                        className={`w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right ${
-                          !item.selected
-                            ? "bg-muted text-muted-foreground cursor-not-allowed"
-                            : ""
-                        }`}
-                      />
-
-                      {/* UOM */}
-                      <input
-                        type="text"
-                        value={item.unitType || ""}
-                        readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white uppercase text-center"
-                      />
-
-                      {/* Amount */}
-                      <input
-                        type="text"
-                        value={
-                          item.purchasePrice && item.quantity
-                            ? (
-                                item.purchasePrice * item.quantity
-                              ).toLocaleString("en-PH", {
-                                style: "currency",
-                                currency: "PHP",
-                              })
-                            : ""
-                        }
-                        readOnly
-                        className="w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white text-right"
-                      />
                     </div>
-                  ))
-                ) : (
-                  <div className="text-sm text-muted-foreground py-2">
-                    No items linked to this PR.
+                  </div>
+                </div>
+
+                {formData.items?.length > 0 && (
+                  <div className="col-span-2 mt-4">
+                    <div className="overflow-x-auto rounded-lg shadow-sm">
+                      <table className="min-w-full">
+                        <thead className="bg-primary text-white">
+                          <tr>
+                            <th className="p-2 text-center">
+                              <Checkbox
+                                checked={formData.items.every(
+                                  (item) => item.selected
+                                )}
+                                onCheckedChange={(checked) =>
+                                  setFormData({
+                                    ...formData,
+                                    items: formData.items.map((i) => ({
+                                      ...i,
+                                      selected: !!checked,
+                                    })),
+                                  })
+                                }
+                              />
+                            </th>
+                            <th className="p-2 text-left">Item Code</th>
+                            <th className="p-2 text-left">Description</th>
+                            <th className="p-2 text-left">Warehouse</th>
+                            <th className="p-2 text-right">Unit Cost</th>
+                            <th className="p-2 text-left">UOM</th>
+                            <th className="p-2 text-right">PR Qty</th>
+                            <th className="p-2 text-right">Qty to Return</th>
+                            <th className="p-2 text-right">Amount</th>
+                          </tr>
+                        </thead>
+                        <tbody className="bg-white divide-y divide-gray-200">
+                          {formData.items.map((item, idx) => (
+                            <tr
+                              key={item.itemCode || idx}
+                              className="hover:bg-accent/10 transition-colors">
+                              <td className="p-2 text-center">
+                                <Checkbox
+                                  checked={item.selected}
+                                  onCheckedChange={(checked) => {
+                                    const updatedItems = [...formData.items];
+                                    updatedItems[idx].selected = !!checked;
+
+                                    // Only reset returnQty when unchecking
+                                    if (!checked)
+                                      updatedItems[idx].returnQty = 0;
+
+                                    setFormData({
+                                      ...formData,
+                                      items: updatedItems,
+                                    });
+                                  }}
+                                />
+                              </td>
+                              <td className="p-2 text-left font-medium">
+                                {item.itemCode}
+                              </td>
+                              <td className="p-2 text-left">
+                                {descriptionMap[
+                                  item.itemCode?.trim().toUpperCase()
+                                ] || "NO DESCRIPTION"}
+                              </td>
+
+                              <td className="p-2 text-left">
+                                {formData.warehouse}
+                              </td>
+
+                              <td className="p-2 text-right">
+                                {item.purchasePrice}
+                              </td>
+                              <td className="p-2 text-left">{item.unitType}</td>
+                              <td className="p-2 text-right">
+                                {item.quantity}
+                              </td>
+                              <td className="p-2 text-right">
+                                <input
+                                  type="number"
+                                  min={1}
+                                  max={item.quantity ?? 1} // cannot return more than PR Qty
+                                  value={
+                                    item.selected ? item.returnQty || 0 : ""
+                                  }
+                                  disabled={!item.selected}
+                                  onChange={(e) => {
+                                    if (!item.selected) return;
+
+                                    let val = parseInt(e.target.value, 10);
+                                    if (isNaN(val) || val < 1) val = 1;
+                                    val = Math.min(val, item.quantity ?? 0); // clamp to PR Qty
+
+                                    const updatedItems = [...formData.items];
+                                    updatedItems[idx].returnQty = val;
+                                    updatedItems[idx].amount =
+                                      val * (item.purchasePrice || 0);
+
+                                    setFormData({
+                                      ...formData,
+                                      items: updatedItems,
+                                    });
+                                  }}
+                                  className={`w-20 text-right px-1 py-1 border rounded-sm ${
+                                    !item.selected
+                                      ? "bg-muted text-muted-foreground cursor-not-allowed"
+                                      : "bg-white focus:outline-none focus:ring-1 focus:ring-primary"
+                                  }`}
+                                />
+                              </td>
+
+                              <td className="p-2 text-right">
+                                {(
+                                  item.amount ||
+                                  (item.returnQty ?? 0) * item.purchasePrice
+                                ).toLocaleString("en-PH", {
+                                  style: "currency",
+                                  currency: "PHP",
+                                })}
+                              </td>
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+
+                    {/* Purchase Return Summary */}
+                    <div className="w-full my-8 overflow-x-auto">
+                      <h3 className="text-lg font-semibold text-primary tracking-wide mb-4 py-2 text-end">
+                        Purchase Return Summary
+                      </h3>
+                      <div className="w-full max-w-md ml-auto mt-2 bg-muted/10 rounded-md shadow-sm border border-border">
+                        <table className="w-full text-sm">
+                          <thead className="bg-muted text-muted-foreground uppercase text-[11px] tracking-wide">
+                            <tr>
+                              <th className="px-4 py-2 text-left">Metric</th>
+                              <th className="px-4 py-2 text-right">Value</th>
+                            </tr>
+                          </thead>
+                          <tbody className="divide-y divide-border">
+                            <tr>
+                              <td className="py-2 px-4 text-muted-foreground">
+                                Total Items
+                              </td>
+                              <td className="py-2 px-4 text-right font-semibold text-foreground">
+                                {
+                                  formData.items.filter((i) => i.selected)
+                                    .length
+                                }
+                              </td>
+                            </tr>
+                            <tr>
+                              <td className="py-2 px-4 text-primary">
+                                Total Quantity
+                              </td>
+                              <td className="py-2 px-4 text-right font-semibold text-primary">
+                                {formData.items
+                                  .filter((i) => i.selected)
+                                  .reduce((sum, i) => sum + i.quantity, 0)}
+                              </td>
+                            </tr>
+                          </tbody>
+                        </table>
+                      </div>
+                    </div>
                   </div>
                 )}
 

@@ -38,16 +38,20 @@ const PurchaseReturnSchema = new mongoose.Schema(
       uppercase: true,
       trim: true,
     },
-    receiptQty: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
-    qtyLeft: {
-      type: Number,
-      required: true,
-      min: 0,
-    },
+    items: [
+      {
+        itemCode: { type: String, required: true, uppercase: true, trim: true },
+        description: { type: String, trim: true },
+        warehouse: {
+          type: String,
+          uppercase: true,
+          trim: true,
+        },
+        quantity: { type: Number, required: true, min: 0 }, // qty being returned
+        unitPrice: { type: Number, required: true, min: 0 },
+        amount: { type: Number, required: true, min: 0 }, // quantity * unitPrice
+      },
+    ],
   },
   {
     timestamps: true, // adds createdAt and updatedAt

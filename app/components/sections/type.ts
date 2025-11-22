@@ -146,13 +146,17 @@ export type PurchaseReceiptType = {
 export type ReceiptItem = {
   itemCode: string;
   itemName: string;
+  description?: string;
+  warehouse?: string;
   quantity: number;
   unitType: string;
   purchasePrice: number;
+  unitPrice?: number;
   receiptQty?: number;
   qtyLeft?: number;
   amount: number;
   selected?: boolean;
+  returnQty?: number;
 };
 
 export type PurchaseReceiptResponse = Required<PurchaseReceiptType>;
