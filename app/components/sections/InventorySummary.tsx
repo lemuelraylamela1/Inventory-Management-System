@@ -320,6 +320,18 @@ export default function InventorySummary() {
     warehouseList,
   ]);
 
+  // Add state for selected category
+  const [selectedCategory, setSelectedCategory] =
+    useState<string>("All Categories");
+
+  // Generate unique categories from grouped items
+  const categoryList = useMemo(() => {
+    const allCategories = Object.values(groupedByItemName).map(
+      (item) => item.category?.trim() || "UNCATEGORIZED"
+    );
+    return ["All Categories", ...Array.from(new Set(allCategories)).sort()];
+  }, [groupedByItemName]);
+
   return (
     <Tabs defaultValue="summary" className="space-y-8">
       <TabsList className="flex w-full gap-2 border-b border-gray-200 pb-1 bg-gray-50 rounded-lg shadow-sm">
@@ -566,16 +578,16 @@ export default function InventorySummary() {
             value={selectedGroupedWarehouse}
             onValueChange={(value) => {
               setSelectedGroupedWarehouse(value);
-              setCurrentPage(1); // reset page when warehouse changes
+              setCurrentPage(1);
             }}>
-            <Select.Trigger className="inline-flex items-center justify-between w-64 h-10 px-3 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 hover:border-gray-400 transition-colors">
+            <Select.Trigger className="inline-flex items-center justify-between w-64 h-10 px-3 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-400 transition-colors">
               <Select.Value placeholder="Select Warehouse" />
               <Select.Icon>
                 <ChevronDown className="w-4 h-4 text-gray-500" />
               </Select.Icon>
             </Select.Trigger>
 
-            <Select.Content className="overflow-hidden rounded-md bg-white shadow-lg">
+            <Select.Content className="overflow-hidden rounded-md bg-white shadow-lg z-1000">
               <Select.Viewport className="p-1">
                 <Select.Item
                   value="all"
@@ -601,6 +613,37 @@ export default function InventorySummary() {
             </Select.Content>
           </Select.Root>
 
+          {/* Category Filter */}
+          <Select.Root
+            value={selectedCategory}
+            onValueChange={(value) => {
+              setSelectedCategory(value);
+              setCurrentPage(1);
+            }}>
+            <Select.Trigger className="inline-flex items-center justify-between w-64 h-10 px-3 rounded-lg border border-gray-300 bg-white text-sm text-gray-700 shadow-sm focus:outline-none focus:ring-2 focus:ring-blue-500 hover:border-gray-400 transition-colors">
+              <Select.Value placeholder="Select Category" />
+              <Select.Icon>
+                <ChevronDown className="w-4 h-4 text-gray-500" />
+              </Select.Icon>
+            </Select.Trigger>
+
+            <Select.Content className="overflow-hidden rounded-md bg-white shadow-lg z-1000">
+              <Select.Viewport className="p-1">
+                {categoryList.map((cat) => (
+                  <Select.Item
+                    key={cat}
+                    value={cat}
+                    className="flex items-center justify-between px-3 py-2 text-sm text-gray-700 rounded-md hover:bg-blue-50 cursor-pointer">
+                    <Select.ItemText>{cat}</Select.ItemText>
+                    <Select.ItemIndicator>
+                      <Check className="w-4 h-4 text-blue-500" />
+                    </Select.ItemIndicator>
+                  </Select.Item>
+                ))}
+              </Select.Viewport>
+            </Select.Content>
+          </Select.Root>
+
           {/* Export CSV */}
           <Button onClick={handleExportCSV} variant="outline" className="h-10">
             <Download className="mr-2 h-4 w-4" />
@@ -610,18 +653,23 @@ export default function InventorySummary() {
 
         {/* Table with pagination */}
         {(() => {
-          // Pagination and filtered items
+          // Determine displayed warehouses
           const displayedWarehouses =
             selectedGroupedWarehouse === "all"
               ? warehouseList
               : [selectedGroupedWarehouse];
 
-          // Filter by search term
+          // Filter and search
           const searchedItems = filteredGroupedItems
-            .filter(([itemName]) =>
+            .filter(([itemName, { category }]) =>
               itemName.toLowerCase().includes(searchTerm.toLowerCase())
             )
-            .sort(([a], [b]) => a.localeCompare(b)); // alphabetical
+            .filter(([itemName, { category }]) =>
+              selectedCategory === "All Categories"
+                ? true
+                : category === selectedCategory
+            )
+            .sort(([a], [b]) => a.localeCompare(b));
 
           const totalPages = Math.ceil(searchedItems.length / ITEMS_PER_PAGE);
           const currentPageSafe = Math.min(currentPage, totalPages || 1);
@@ -653,7 +701,6 @@ export default function InventorySummary() {
                         <TableHead className="min-w-[130px]">
                           Category
                         </TableHead>
-
                         {displayedWarehouses.map((warehouse) => (
                           <TableHead
                             key={warehouse}
@@ -661,7 +708,6 @@ export default function InventorySummary() {
                             {warehouse}
                           </TableHead>
                         ))}
-
                         <TableHead className="text-right min-w-[120px]">
                           Total
                         </TableHead>
@@ -689,7 +735,6 @@ export default function InventorySummary() {
                                   : qty < 10
                                   ? "text-orange-500 font-medium"
                                   : "text-green-600 font-medium";
-
                               return (
                                 <TableCell
                                   key={warehouse}
