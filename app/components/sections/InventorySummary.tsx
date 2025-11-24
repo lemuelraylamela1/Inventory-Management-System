@@ -1,4 +1,8 @@
+"use client";
+
 import React, { useState, useMemo, useEffect, useRef } from "react";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
 import { Input } from "../ui/input";
 import { Button } from "../ui/button";
 import {
@@ -33,7 +37,14 @@ import { Tabs, TabsList, TabsTrigger, TabsContent } from "../ui/tabs";
 
 import { InventoryType, ItemType } from "./type";
 
-export default function InventorySummary() {
+type InventorySummaryProps = {
+  onSelectWarehouse?: (warehouse: string) => void;
+};
+
+export default function InventorySummary({
+  onSelectWarehouse,
+}: InventorySummaryProps) {
+  const router = useRouter();
   const [inventoryItems, setInventoryItems] = useState<InventoryType[]>([]);
   const [itemCatalog, setItemCatalog] = useState<ItemType[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
@@ -44,6 +55,9 @@ export default function InventorySummary() {
     useState<string>("all");
   const [currentPage, setCurrentPage] = useState(1);
   const ITEMS_PER_PAGE = 10;
+  const [showInventoryTracker, setShowInventoryTracker] = useState(false);
+  const [selectedWarehouseForTracker, setSelectedWarehouseForTracker] =
+    useState<string | null>(null);
 
   // ✅ Grouped totals by warehouse
   const warehouseItemSummary = useMemo(() => {
@@ -545,6 +559,7 @@ export default function InventorySummary() {
       </TabsContent>
 
       {/* Tab 2: Warehouse Breakdown */}
+
       <TabsContent value="warehouse" className="space-y-6">
         <div className="flex items-center justify-between border-b pb-3">
           <div>
@@ -567,7 +582,7 @@ export default function InventorySummary() {
               value={searchTerm}
               onChange={(e) => {
                 setSearchTerm(e.target.value);
-                setCurrentPage(1); // reset page when search changes
+                setCurrentPage(1);
               }}
               className="pl-10 w-full"
             />
@@ -651,15 +666,13 @@ export default function InventorySummary() {
           </Button>
         </div>
 
-        {/* Table with pagination */}
+        {/* Table */}
         {(() => {
-          // Determine displayed warehouses
           const displayedWarehouses =
             selectedGroupedWarehouse === "all"
               ? warehouseList
               : [selectedGroupedWarehouse];
 
-          // Filter and search
           const searchedItems = filteredGroupedItems
             .filter(([itemName, { category }]) =>
               itemName.toLowerCase().includes(searchTerm.toLowerCase())
@@ -682,35 +695,17 @@ export default function InventorySummary() {
             <>
               <Card className="shadow-lg rounded-2xl border border-gray-200 overflow-x-auto">
                 <CardContent>
-                  <div className="text-right text-sm font-medium text-muted-foreground mb-4">
-                    Total Quantity of All Items:{" "}
-                    <span className="font-bold">
-                      {allEntries
-                        .reduce((sum, e) => sum + e.quantity, 0)
-                        .toLocaleString()}{" "}
-                      units
-                    </span>
-                  </div>
-
                   <Table className="min-w-full">
                     <TableHeader>
                       <TableRow>
-                        <TableHead className="min-w-[180px]">
-                          Item Name
-                        </TableHead>
-                        <TableHead className="min-w-[130px]">
-                          Category
-                        </TableHead>
+                        <TableHead>Item Name</TableHead>
+                        <TableHead>Category</TableHead>
                         {displayedWarehouses.map((warehouse) => (
-                          <TableHead
-                            key={warehouse}
-                            className="text-right min-w-[120px]">
+                          <TableHead key={warehouse} className="text-right">
                             {warehouse}
                           </TableHead>
                         ))}
-                        <TableHead className="text-right min-w-[120px]">
-                          Total
-                        </TableHead>
+                        <TableHead className="text-right">Total</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
@@ -722,11 +717,8 @@ export default function InventorySummary() {
                           <TableRow
                             key={itemName}
                             className={rowIndex % 2 === 0 ? "bg-muted/20" : ""}>
-                            <TableCell className="font-medium">
-                              {itemName}
-                            </TableCell>
+                            <TableCell>{itemName}</TableCell>
                             <TableCell>{category}</TableCell>
-
                             {displayedWarehouses.map((warehouse) => {
                               const qty = warehouses[warehouse] ?? 0;
                               const qtyClass =
@@ -738,12 +730,20 @@ export default function InventorySummary() {
                               return (
                                 <TableCell
                                   key={warehouse}
-                                  className={`text-right ${qtyClass}`}>
+                                  className={`text-right ${qtyClass} ${
+                                    qty > 0
+                                      ? "cursor-pointer hover:underline"
+                                      : ""
+                                  }`}
+                                  onClick={() => {
+                                    if (qty > 0 && onSelectWarehouse) {
+                                      onSelectWarehouse(warehouse);
+                                    }
+                                  }}>
                                   {qty.toLocaleString()}
                                 </TableCell>
                               );
                             })}
-
                             <TableCell className="text-right font-bold">
                               {total.toLocaleString()}
                             </TableCell>
@@ -754,29 +754,6 @@ export default function InventorySummary() {
                   </Table>
                 </CardContent>
               </Card>
-
-              {/* Pagination Controls */}
-              {totalPages > 1 && (
-                <div className="flex justify-center items-center gap-4 mt-4">
-                  <Button
-                    disabled={currentPage === 1}
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.max(prev - 1, 1))
-                    }>
-                    Previous
-                  </Button>
-                  <span>
-                    Page {currentPage} of {totalPages || 1}
-                  </span>
-                  <Button
-                    disabled={currentPage === totalPages}
-                    onClick={() =>
-                      setCurrentPage((prev) => Math.min(prev + 1, totalPages))
-                    }>
-                    Next
-                  </Button>
-                </div>
-              )}
             </>
           );
         })()}

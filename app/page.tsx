@@ -44,6 +44,7 @@ export default function App() {
   const [userRole, setUserRole] = useState<"admin" | "user">("user");
   const [activeSection, setActiveSection] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [warehouseFilter, setWarehouseFilter] = useState<string>("all");
 
   const handleLogin = (email: string, role: "admin" | "user") => {
     setIsAuthenticated(true);
@@ -93,6 +94,18 @@ export default function App() {
         return <Delivery />;
       case "inventory-adjustment":
         return <InventoryAdjustment />;
+
+      case "inventory-summary":
+        return (
+          <InventorySummary
+            onSelectWarehouse={(warehouse: string) => {
+              setWarehouseFilter(warehouse); // set selected warehouse
+              setActiveSection("inventory-tracker"); // navigate to tracker
+            }}
+          />
+        );
+      case "inventory-tracker":
+        return <InventoryTracker selectedWarehouse={warehouseFilter} />;
       case "inventory-summary":
         return <InventorySummary />;
       case "inventory-tracker":
