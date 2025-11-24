@@ -12,7 +12,7 @@ import { GenericSection } from "./components/sections/GenericSection";
 import { Toaster } from "./components/ui/sonner";
 import ItemMaster from "./components/sections/ItemMaster";
 import SalesPerson from "./components/sections/SalesPerson";
-import CustomerType from "./components/sections/CustomerType";
+import CustomerGroup from "./components/sections/CustomerGroup";
 import ItemClass from "./components/sections/ItemClass";
 import PriceList from "./components/sections/PriceList";
 import Supplier from "./components/sections/Supplier";
@@ -88,8 +88,8 @@ export default function App() {
         return <ChartOfAccount />;
       case "customer":
         return <Customer />;
-      case "customer-type":
-        return <CustomerType />;
+      case "customer-group":
+        return <CustomerGroup />;
       case "delivery":
         return <Delivery />;
       case "inventory-adjustment":

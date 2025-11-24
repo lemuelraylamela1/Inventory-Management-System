@@ -60,7 +60,7 @@ type Props = {
   onSuccess?: () => void;
 };
 
-export default function CustomerType({ onSuccess }: Props) {
+export default function CustomerGroup({ onSuccess }: Props) {
   const [customerTypes, setCustomerTypes] = useState<CustomerType[]>([]);
   const [searchTerm, setSearchTerm] = useState("");
   const [currentPage, setCurrentPage] = useState(1);
@@ -446,8 +446,8 @@ export default function CustomerType({ onSuccess }: Props) {
         <CardHeader>
           <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
             <div>
-              <CardTitle>Customer Type</CardTitle>
-              <CardDescription>Manage customer type</CardDescription>
+              <CardTitle>Customer Group</CardTitle>
+              <CardDescription>Manage customer group</CardDescription>
             </div>
           </div>
         </CardHeader>

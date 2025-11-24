@@ -114,7 +114,7 @@ export function Sidebar({
     { id: "bank", label: "Bank", icon: Building2 },
     { id: "chart-of-account", label: "Chart of Account", icon: BarChart2 },
     { id: "customer", label: "Customer", icon: Users },
-    { id: "customer-type", label: "Customer Type", icon: UserCheck },
+    { id: "customer-group", label: "Customer Group", icon: UserCheck },
     { id: "item-class", label: "Item Class", icon: Shapes },
     { id: "item-master", label: "Item Master", icon: Package },
     { id: "price-list", label: "Price List", icon: DollarSign },
