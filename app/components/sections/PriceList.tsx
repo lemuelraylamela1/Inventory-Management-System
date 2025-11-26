@@ -41,6 +41,8 @@ import {
   AlertDialogCancel,
   AlertDialogAction,
 } from "../ui/alert-dialog";
+import { toast } from "sonner";
+import clsx from "clsx";
 
 import {
   Dialog,
@@ -265,34 +267,66 @@ export default function PriceList() {
     console.log(`[SelectSuggestion] Suggestions cleared for index ${index}`);
   };
 
-  const handleCreate = async (formData: Partial<PriceListType>) => {
-    const payload: Partial<PriceListType> = {
-      priceLevelCode: formData.priceLevelCode?.trim().toUpperCase() || "",
-      priceLevelName: formData.priceLevelName?.trim() || "",
-      items: (formData.items || []).map((item) => ({
-        itemCode: item.itemCode?.trim().toUpperCase() || "",
-        itemName: item.itemName?.trim() || "",
-        salesPrice: Number(item.salesPrice) || 0,
-      })),
-    };
+  const [errorFields, setErrorFields] = useState<{
+    code?: boolean;
+    name?: boolean;
+  }>({});
+  const [errorMessages, setErrorMessages] = useState<{
+    code?: string;
+    name?: string;
+  }>({});
 
+  // handleCreate function
+  const handleCreate = async (formData: Partial<PriceListType>) => {
+    setErrorFields({});
+    setErrorMessages({});
+
+    // Check for duplicates
+    const codeExists = priceLists.some(
+      (pl) =>
+        pl.priceLevelCode?.toUpperCase() ===
+        formData.priceLevelCode?.toUpperCase()
+    );
+    const nameExists = priceLists.some(
+      (pl) =>
+        pl.priceLevelName?.toUpperCase() ===
+        formData.priceLevelName?.toUpperCase()
+    );
+
+    if (codeExists || nameExists) {
+      setErrorFields({ code: codeExists, name: nameExists });
+      setErrorMessages({
+        code: codeExists ? "Price Level Code already exists." : undefined,
+        name: nameExists ? "Price Level Name already exists." : undefined,
+      });
+
+      // Toast notification
+      if (codeExists) toast.error("Price Level Code already exists.");
+      if (nameExists) toast.error("Price Level Name already exists.");
+      return;
+    }
+
+    // Proceed with API call
     try {
       const res = await fetch("/api/price-lists", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(formData),
       });
-
       if (!res.ok) throw new Error("Failed to create price list");
 
-      const created = await res.json();
-      console.log("Price list created:", created);
-
-      await refreshPriceList();
+      toast.success("Price list created successfully!");
+      await fetchPriceLists();
       setIsCreateDialogOpen(false);
-      setFormData({});
+      setFormData({
+        _id: undefined,
+        priceLevelCode: "",
+        priceLevelName: "",
+        items: [],
+      });
     } catch (err) {
-      console.error("Create error:", err);
+      console.error(err);
+      toast.error("Something went wrong while creating the price list.");
     }
   };
 
@@ -308,26 +342,57 @@ export default function PriceList() {
       })),
     });
 
+    setErrorFields({ code: false, name: false });
+    setErrorMessages({ code: "", name: "" });
+
     setIsEditDialogOpen(true);
   };
 
   const handleUpdate = async (
     formData: Partial<PriceListType> & { _id?: string }
   ) => {
-    if (!formData._id) return console.warn("Missing price list ID for update");
+    setErrorMessages({});
+    setErrorFields({});
 
-    const payload: Partial<PriceListType> = {
-      priceLevelCode: formData.priceLevelCode?.trim() || "",
-      priceLevelName: formData.priceLevelName?.trim() || "",
-      items:
-        formData.items?.map((item) => ({
-          itemCode: item.itemCode?.trim() || "",
-          itemName: item.itemName?.trim() || "",
-          salesPrice: item.salesPrice || 0,
-        })) || [],
-    };
+    // Validate duplicates in other price lists
+    const codeExists = priceLists.some(
+      (pl) =>
+        pl._id !== formData._id &&
+        pl.priceLevelCode?.toUpperCase() ===
+          formData.priceLevelCode?.toUpperCase()
+    );
 
+    const nameExists = priceLists.some(
+      (pl) =>
+        pl._id !== formData._id &&
+        pl.priceLevelName?.toUpperCase() ===
+          formData.priceLevelName?.toUpperCase()
+    );
+
+    if (codeExists || nameExists) {
+      setErrorFields({ code: codeExists, name: nameExists });
+      setErrorMessages({
+        code: codeExists ? "Price Level Code already exists." : "",
+        name: nameExists ? "Price Level Name already exists." : "",
+      });
+
+      toast.error("Price Level Code or Name already exists.");
+      return;
+    }
+
+    // Proceed with API update
     try {
+      const payload: Partial<PriceListType> = {
+        priceLevelCode: formData.priceLevelCode?.trim() || "",
+        priceLevelName: formData.priceLevelName?.trim() || "",
+        items:
+          formData.items?.map((item) => ({
+            itemCode: item.itemCode?.trim() || "",
+            itemName: item.itemName?.trim() || "",
+            salesPrice: item.salesPrice || 0,
+          })) || [],
+      };
+
       const res = await fetch(`/api/price-lists/${formData._id}`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
@@ -339,7 +404,8 @@ export default function PriceList() {
       const updated = await res.json();
       console.log("Price list updated:", updated);
 
-      await fetchPriceLists(); // refresh the list
+      toast.success("Price list updated successfully!");
+      await fetchPriceLists();
       setIsEditDialogOpen(false);
       setFormData({
         _id: undefined,
@@ -348,7 +414,8 @@ export default function PriceList() {
         items: [],
       });
     } catch (err) {
-      console.error("Update error:", err);
+      console.error(err);
+      toast.error("Failed to update price list.");
     }
   };
 
@@ -448,8 +515,9 @@ export default function PriceList() {
                   />
                 </TableHead>
                 <TableHead>Creation Date</TableHead>
-                <TableHead>Price Level Name</TableHead>
                 <TableHead>Price Level Code</TableHead>
+                <TableHead>Price Level Name</TableHead>
+
                 <TableHead>Items</TableHead>
                 <TableHead className="text-right">Actions</TableHead>
               </TableRow>
@@ -509,19 +577,71 @@ export default function PriceList() {
                           })
                         : "—"}
                     </TableCell>
-                    <TableCell>{pl.priceLevelName ?? "—"}</TableCell>
                     <TableCell>{pl.priceLevelCode ?? "—"}</TableCell>
+                    <TableCell>{pl.priceLevelName ?? "—"}</TableCell>
+
                     <TableCell>
-                      {pl.items?.map((i) => (
-                        <div key={i.itemCode}>
-                          {i.itemName} ({i.itemCode}):{" "}
-                          {i.salesPrice.toLocaleString("en-PH", {
-                            style: "currency",
-                            currency: "PHP",
-                          })}
+                      {pl.items && pl.items.length > 0 ? (
+                        <div className="relative flex flex-col gap-1 group">
+                          {/* Display first 3 items */}
+                          {pl.items.slice(0, 3).map((i) => (
+                            <div
+                              key={i.itemCode}
+                              className="text-sm text-gray-700 truncate"
+                              title={`${i.itemName} (${
+                                i.itemCode
+                              }): ${i.salesPrice.toLocaleString("en-PH", {
+                                style: "currency",
+                                currency: "PHP",
+                              })}`}>
+                              <span className="font-medium">{i.itemName}</span>{" "}
+                              <span className="text-muted-foreground">
+                                ({i.itemCode})
+                              </span>
+                              :{" "}
+                              <span className="text-primary font-semibold">
+                                {i.salesPrice.toLocaleString("en-PH", {
+                                  style: "currency",
+                                  currency: "PHP",
+                                })}
+                              </span>
+                            </div>
+                          ))}
+
+                          {pl.items.length > 3 && (
+                            <div className="text-xs text-gray-500">
+                              +{pl.items.length - 3} more
+                            </div>
+                          )}
+
+                          {/* Hover popup showing all items */}
+                          <div className="absolute top-full left-0 w-max bg-white border border-gray-300 shadow-lg rounded-md p-2 mt-1 hidden group-hover:block z-50">
+                            {pl.items.map((i) => (
+                              <div
+                                key={i.itemCode}
+                                className="text-sm text-gray-700 whitespace-nowrap">
+                                <span className="font-medium">
+                                  {i.itemName}
+                                </span>{" "}
+                                <span className="text-muted-foreground">
+                                  ({i.itemCode})
+                                </span>
+                                :{" "}
+                                <span className="text-primary font-semibold">
+                                  {i.salesPrice.toLocaleString("en-PH", {
+                                    style: "currency",
+                                    currency: "PHP",
+                                  })}
+                                </span>
+                              </div>
+                            ))}
+                          </div>
                         </div>
-                      )) || "—"}
+                      ) : (
+                        "—"
+                      )}
                     </TableCell>
+
                     <TableCell className="text-right">
                       <Button
                         variant="ghost"
@@ -593,7 +713,7 @@ export default function PriceList() {
 
           {/* Price List Form */}
           <div className="space-y-4 py-4">
-            {/* Price Level Code + Name in one row */}
+            {/* Price Level Code + Name */}
             <div className="grid grid-cols-2 gap-4">
               <div className="grid gap-1.5">
                 <Label htmlFor="priceLevelCode">
@@ -609,7 +729,11 @@ export default function PriceList() {
                     }))
                   }
                   placeholder="e.g. PL-001"
+                  className={clsx(errorFields.code && "border-red-500")}
                 />
+                {errorMessages.code && (
+                  <p className="text-red-500 text-sm">{errorMessages.code}</p>
+                )}
               </div>
 
               <div className="grid gap-1.5">
@@ -626,20 +750,25 @@ export default function PriceList() {
                     }))
                   }
                   placeholder="e.g. Retail Price"
+                  className={clsx(errorFields.name && "border-red-500")}
                 />
+                {errorMessages.name && (
+                  <p className="text-red-500 text-sm">{errorMessages.name}</p>
+                )}
               </div>
             </div>
 
             {/* Items Section */}
             <div className="space-y-2">
-              {/* Header row */}
-              <div className="flex gap-2 px-2 py-1 font-semibold text-sm text-muted-foreground items-center">
+              {/* Header */}
+              <div className="flex gap-2 items-center px-4 py-2 bg-primary text-white font-semibold text-sm rounded-t shadow">
                 <div className="flex-1">Item Code</div>
                 <div className="flex-1">Item Name</div>
-                <div className="w-28">Sales Price</div>
+                <div className="w-28 text-right">Sales Price</div>
                 <div className="w-10 text-center">Actions</div>
               </div>
 
+              {/* Items */}
               {formData.items?.map((item, index) => {
                 const suggestions = itemSuggestions[index]?.suggestions || [];
                 const showSuggestions = itemSuggestions[index]?.show || false;
@@ -647,20 +776,19 @@ export default function PriceList() {
                 return (
                   <div
                     key={index}
-                    className="flex gap-2 items-center px-2 py-1 border rounded relative">
+                    className="flex gap-2 items-center px-3 py-2 border rounded-md shadow-sm relative hover:shadow-md transition-shadow bg-white">
                     {/* Item Code */}
                     <Input
                       placeholder="Item Code"
                       value={item.itemCode}
-                      className="flex-1"
+                      className="flex-1 text-sm bg-gray-50 border border-border rounded px-2 py-1"
                       readOnly
                     />
 
                     {/* Item Name with suggestions */}
                     <div
                       ref={(el) => {
-                        inputRefs.current[index] = el; // Assign the element
-                        // Do NOT return anything
+                        inputRefs.current[index] = el;
                       }}
                       className="flex-1 relative">
                       <Input
@@ -671,47 +799,56 @@ export default function PriceList() {
                         }
                         onFocus={() =>
                           handleItemNameChange(index, item.itemName || "")
-                        } // show suggestions on focus
+                        }
                       />
 
                       {showSuggestions && suggestions.length > 0 && (
                         <div className="absolute z-10 top-full left-0 right-0 border bg-white shadow-md rounded mt-1 max-h-60 overflow-y-auto">
-                          {suggestions.map((s, i) => {
-                            const query = item.itemName?.toLowerCase() || "";
+                          {suggestions
+                            .filter(
+                              (s) =>
+                                !(formData.items || []).some(
+                                  (i, iIndex) =>
+                                    iIndex !== index &&
+                                    i.itemCode === s.itemCode
+                                )
+                            )
+                            .map((s, i) => {
+                              const query = item.itemName?.toLowerCase() || "";
 
-                            const highlight = (text: string) => {
-                              const lower = text.toLowerCase();
-                              const start = lower.indexOf(query);
-                              if (start === -1) return text;
-                              const end = start + query.length;
+                              const highlight = (text: string) => {
+                                const lower = text.toLowerCase();
+                                const start = lower.indexOf(query);
+                                if (start === -1) return text;
+                                const end = start + query.length;
+                                return (
+                                  <>
+                                    {text.substring(0, start)}
+                                    <span className="font-semibold bg-yellow-200">
+                                      {text.substring(start, end)}
+                                    </span>
+                                    {text.substring(end)}
+                                  </>
+                                );
+                              };
+
                               return (
-                                <>
-                                  {text.substring(0, start)}
-                                  <span className="font-semibold bg-yellow-200">
-                                    {text.substring(start, end)}
-                                  </span>
-                                  {text.substring(end)}
-                                </>
-                              );
-                            };
-
-                            return (
-                              <div
-                                key={i}
-                                className="p-2 cursor-pointer hover:bg-gray-100"
-                                onMouseDown={(e) => e.preventDefault()} // prevent blur
-                                onClick={() =>
-                                  handleSelectSuggestion(index, s)
-                                }>
-                                <div className="flex flex-col">
-                                  <span>{highlight(s.itemName)}</span>
-                                  <span className="text-xs text-gray-500">
-                                    {highlight(s.itemCode)}
-                                  </span>
+                                <div
+                                  key={i}
+                                  className="p-2 cursor-pointer hover:bg-gray-100"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() =>
+                                    handleSelectSuggestion(index, s)
+                                  }>
+                                  <div className="flex flex-col">
+                                    <span>{highlight(s.itemName)}</span>
+                                    <span className="text-xs text-gray-500">
+                                      {highlight(s.itemCode)}
+                                    </span>
+                                  </div>
                                 </div>
-                              </div>
-                            );
-                          })}
+                              );
+                            })}
                         </div>
                       )}
                     </div>
@@ -726,7 +863,7 @@ export default function PriceList() {
                         updated[index].salesPrice = Number(e.target.value);
                         setFormData((prev) => ({ ...prev, items: updated }));
                       }}
-                      className="w-28"
+                      className="w-28 text-sm bg-gray-50 border border-border rounded px-2 py-1 text-right"
                     />
 
                     {/* Remove Item */}
@@ -750,6 +887,10 @@ export default function PriceList() {
               <Button
                 size="sm"
                 variant="outline"
+                className="w-full border-dashed border-primary text-primary hover:bg-primary/10 mt-1"
+                disabled={formData.items?.some(
+                  (item) => !item.itemName || !item.itemCode
+                )}
                 onClick={() =>
                   setFormData((prev) => ({
                     ...prev,
@@ -759,7 +900,7 @@ export default function PriceList() {
                     ],
                   }))
                 }>
-                Add Item
+                + Add Item
               </Button>
             </div>
           </div>
@@ -772,9 +913,301 @@ export default function PriceList() {
               onClick={() => handleCreate(formData)}
               disabled={
                 !formData.priceLevelCode?.trim() ||
-                !formData.priceLevelName?.trim()
+                !formData.priceLevelName?.trim() ||
+                !formData.items ||
+                formData.items.length === 0 ||
+                formData.items.some((item) => !item.itemCode || !item.itemName)
               }>
               Create Price List
+            </Button>
+          </DialogFooter>
+        </DialogPanel>
+      </Dialog>
+
+      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
+        <DialogPanel className="max-w-2xl">
+          <DialogHeader className="border-b pb-2">
+            <DialogTitle className="text-xl font-semibold tracking-tight text-primary">
+              Edit Price List
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Fields marked with <span className="text-red-500">*</span> are
+              required.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-4">
+            {/* Price Level Code + Name */}
+            <div className="grid grid-cols-2 gap-4">
+              <div className="grid gap-1.5">
+                <Label htmlFor="priceLevelCode">
+                  Price Level Code <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="priceLevelCode"
+                  value={formData.priceLevelCode ?? ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      priceLevelCode: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g. PL-001"
+                  className={clsx(errorFields.code && "border-red-500")}
+                />
+                {errorMessages.code && (
+                  <p className="text-red-500 text-sm">{errorMessages.code}</p>
+                )}
+              </div>
+
+              <div className="grid gap-1.5">
+                <Label htmlFor="priceLevelName">
+                  Price Level Name <span className="text-red-500">*</span>
+                </Label>
+                <Input
+                  id="priceLevelName"
+                  value={formData.priceLevelName ?? ""}
+                  onChange={(e) =>
+                    setFormData((prev) => ({
+                      ...prev,
+                      priceLevelName: e.target.value,
+                    }))
+                  }
+                  placeholder="e.g. Retail Price"
+                  className={clsx(errorFields.name && "border-red-500")}
+                />
+                {errorMessages.name && (
+                  <p className="text-red-500 text-sm">{errorMessages.name}</p>
+                )}
+              </div>
+            </div>
+
+            {/* Items Section */}
+            <div className="space-y-2">
+              {/* Header */}
+              <div className="flex gap-2 items-center px-4 py-2 bg-primary text-white font-semibold text-sm rounded-t shadow">
+                <div className="flex-1">Item Code</div>
+                <div className="flex-1">Item Name</div>
+                <div className="w-28 text-right">Sales Price</div>
+                <div className="w-10 text-center">Actions</div>
+              </div>
+
+              {/* Items */}
+              {formData.items?.map((item, index) => {
+                const suggestions = itemSuggestions[index]?.suggestions || [];
+                const showSuggestions = itemSuggestions[index]?.show || false;
+
+                return (
+                  <div
+                    key={index}
+                    className="flex gap-2 items-center px-3 py-2 border rounded-md shadow-sm relative hover:shadow-md transition-shadow bg-white">
+                    {/* Item Code */}
+                    <Input
+                      placeholder="Item Code"
+                      value={item.itemCode}
+                      className="flex-1 text-sm bg-gray-50 border border-border rounded px-2 py-1"
+                      readOnly
+                    />
+
+                    {/* Item Name with suggestions */}
+                    <div
+                      ref={(el) => {
+                        inputRefs.current[index] = el;
+                      }}
+                      className="flex-1 relative">
+                      <Input
+                        placeholder="Item Name"
+                        value={item.itemName}
+                        onChange={(e) =>
+                          handleItemNameChange(index, e.target.value)
+                        }
+                        onFocus={() =>
+                          handleItemNameChange(index, item.itemName || "")
+                        }
+                      />
+
+                      {showSuggestions && suggestions.length > 0 && (
+                        <div className="absolute z-10 top-full left-0 right-0 border bg-white shadow-md rounded mt-1 max-h-60 overflow-y-auto">
+                          {suggestions
+                            .filter(
+                              (s) =>
+                                !(formData.items || []).some(
+                                  (i, iIndex) =>
+                                    iIndex !== index &&
+                                    i.itemCode === s.itemCode
+                                )
+                            )
+                            .map((s, i) => {
+                              const query = item.itemName?.toLowerCase() || "";
+
+                              const highlight = (text: string) => {
+                                const lower = text.toLowerCase();
+                                const start = lower.indexOf(query);
+                                if (start === -1) return text;
+                                const end = start + query.length;
+                                return (
+                                  <>
+                                    {text.substring(0, start)}
+                                    <span className="font-semibold bg-yellow-200">
+                                      {text.substring(start, end)}
+                                    </span>
+                                    {text.substring(end)}
+                                  </>
+                                );
+                              };
+
+                              return (
+                                <div
+                                  key={i}
+                                  className="p-2 cursor-pointer hover:bg-gray-100"
+                                  onMouseDown={(e) => e.preventDefault()}
+                                  onClick={() =>
+                                    handleSelectSuggestion(index, s)
+                                  }>
+                                  <div className="flex flex-col">
+                                    <span>{highlight(s.itemName)}</span>
+                                    <span className="text-xs text-gray-500">
+                                      {highlight(s.itemCode)}
+                                    </span>
+                                  </div>
+                                </div>
+                              );
+                            })}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Sales Price */}
+                    <Input
+                      type="number"
+                      placeholder="Sales Price"
+                      value={item.salesPrice}
+                      onChange={(e) => {
+                        const updated = [...(formData.items ?? [])];
+                        updated[index].salesPrice = Number(e.target.value);
+                        setFormData((prev) => ({ ...prev, items: updated }));
+                      }}
+                      className="w-28 text-sm bg-gray-50 border border-border rounded px-2 py-1 text-right"
+                    />
+
+                    {/* Remove Item */}
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="w-10 flex justify-center text-red-600 hover:text-red-700"
+                      onClick={() => {
+                        const updated = (formData.items ?? []).filter(
+                          (_, i) => i !== index
+                        );
+                        setFormData((prev) => ({ ...prev, items: updated }));
+                      }}>
+                      <Trash2 className="w-4 h-4" />
+                    </Button>
+                  </div>
+                );
+              })}
+
+              {/* Add Item Button */}
+              <Button
+                size="sm"
+                variant="outline"
+                className="w-full border-dashed border-primary text-primary hover:bg-primary/10 mt-1"
+                disabled={formData.items?.some(
+                  (item) => !item.itemName || !item.itemCode
+                )}
+                onClick={() =>
+                  setFormData((prev) => ({
+                    ...prev,
+                    items: [
+                      ...(prev.items || []),
+                      { itemCode: "", itemName: "", salesPrice: 0 },
+                    ],
+                  }))
+                }>
+                + Add Item
+              </Button>
+            </div>
+          </div>
+
+          <DialogFooter>
+            <DialogClose asChild>
+              <Button variant="outline">Cancel</Button>
+            </DialogClose>
+            <Button
+              onClick={() => handleUpdate(formData)}
+              disabled={
+                !formData.priceLevelCode?.trim() ||
+                !formData.priceLevelName?.trim() ||
+                !formData.items?.length ||
+                formData.items.some((item) => !item.itemCode || !item.itemName)
+              }>
+              Update Price List
+            </Button>
+          </DialogFooter>
+        </DialogPanel>
+      </Dialog>
+
+      {/* View Price List Dialog */}
+      <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
+        <DialogPanel className="max-w-3xl w-full p-6">
+          <DialogHeader>
+            <DialogTitle className="text-primary">View Price List</DialogTitle>
+            <DialogDescription>
+              Detailed information of the selected price list
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Price List Details */}
+          <div className="space-y-4 mt-4">
+            <div className="grid grid-cols-2 gap-4 text-sm">
+              <div>
+                <span className="font-semibold">Price List Code:</span>{" "}
+                {formData.priceLevelCode || "—"}
+              </div>
+              <div>
+                <span className="font-semibold">Price List Name:</span>{" "}
+                {formData.priceLevelName || "—"}
+              </div>
+            </div>
+
+            {/* Items Table */}
+            <div className="mt-4 border rounded-md overflow-hidden">
+              {/* Header */}
+              <div className="flex gap-2 items-center px-3 py-2 bg-primary text-white font-medium text-sm">
+                <div className="flex-1">Item Code</div>
+                <div className="flex-1">Item Name</div>
+                <div className="w-28 text-right">Sales Price</div>
+              </div>
+
+              {/* Items */}
+              {formData.items && formData.items.length > 0 ? (
+                formData.items.map((item, index) => (
+                  <div
+                    key={index}
+                    className="flex gap-2 items-center px-3 py-2 border-b text-sm">
+                    <div className="flex-1">{item.itemCode}</div>
+                    <div className="flex-1">{item.itemName}</div>
+                    <div className="w-28 text-right">
+                      {item.salesPrice.toLocaleString("en-PH", {
+                        style: "currency",
+                        currency: "PHP",
+                      })}
+                    </div>
+                  </div>
+                ))
+              ) : (
+                <div className="px-3 py-2 text-muted-foreground text-center">
+                  No items found
+                </div>
+              )}
+            </div>
+          </div>
+
+          <DialogFooter className="mt-4">
+            <Button
+              variant="outline"
+              onClick={() => setIsViewDialogOpen(false)}>
+              Close
             </Button>
           </DialogFooter>
         </DialogPanel>

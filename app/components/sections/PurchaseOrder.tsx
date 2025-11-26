@@ -1693,7 +1693,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                               )
                             }
                             onChange={(e) => {
-                              const value = e.target.value.toUpperCase().trim();
+                              const value = e.target.value; // allow spaces
 
                               setItemsData((prev) => {
                                 const updated = [...prev];
@@ -1716,7 +1716,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                               setShowItemSuggestions(index);
                             }}
                             placeholder="Search item name"
-                            className="text-sm uppercase w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8"
+                            className="text-sm w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8"
                           />
 
                           {/* Magnifying Glass Icon */}
@@ -1742,21 +1742,28 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                               {items
                                 .filter((option) =>
                                   option.itemName
-                                    ?.trim()
-                                    .toUpperCase()
+                                    ?.toLowerCase()
                                     .includes(
-                                      item.itemName?.toUpperCase() || ""
+                                      item.itemName?.toLowerCase() || ""
                                     )
                                 )
                                 .map((option) => {
-                                  const normalized = option.itemName
-                                    ?.trim()
-                                    .toUpperCase();
+                                  const query = item.itemName || "";
+                                  const name = option.itemName || "";
+
+                                  // Highlight matched part
+                                  const parts = name.split(
+                                    new RegExp(`(${query})`, "gi")
+                                  );
+
                                   return (
                                     <li
-                                      key={option._id || normalized}
+                                      key={option._id || name}
                                       className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                                      onMouseDown={(e) => e.preventDefault()} // prevent blur
                                       onClick={() => {
+                                        const normalized = name;
+
                                         setItemsData((prev) => {
                                           const updated = [...prev];
                                           updated[index] = {
@@ -1791,15 +1798,25 @@ export default function PurchaseOrder({ onSuccess }: Props) {
 
                                         setShowItemSuggestions(null);
                                       }}>
-                                      {normalized}
+                                      {parts.map((part, i) => (
+                                        <span
+                                          key={i}
+                                          className={
+                                            part.toLowerCase() ===
+                                            query.toLowerCase()
+                                              ? "font-semibold bg-yellow-200"
+                                              : ""
+                                          }>
+                                          {part}
+                                        </span>
+                                      ))}
                                     </li>
                                   );
                                 })}
                               {items.filter((option) =>
                                 option.itemName
-                                  ?.trim()
-                                  .toUpperCase()
-                                  .includes(item.itemName?.toUpperCase() || "")
+                                  ?.toLowerCase()
+                                  .includes(item.itemName?.toLowerCase() || "")
                               ).length === 0 && (
                                 <li className="px-3 py-2 text-muted-foreground">
                                   No matching items found
@@ -2680,7 +2697,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       setTimeout(() => setShowItemSuggestions(null), 200)
                     }
                     onChange={(e) => {
-                      const value = e.target.value.toUpperCase().trim();
+                      const value = e.target.value; // allow spaces
 
                       setItemsData((prev) => {
                         const updated = [...prev];
@@ -2703,7 +2720,7 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       setShowItemSuggestions(index);
                     }}
                     placeholder="Search item name"
-                    className="text-sm uppercase w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8"
+                    className="text-sm w-full px-2 py-1 border border-border border-l-0 border-t-0 bg-white focus:outline-none focus:ring-1 focus:ring-primary pr-8"
                   />
 
                   {/* Magnifying Glass Icon */}
@@ -2729,19 +2746,26 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                       {items
                         .filter((option) =>
                           option.itemName
-                            ?.trim()
-                            .toUpperCase()
-                            .includes(item.itemName?.toUpperCase() || "")
+                            ?.toLowerCase()
+                            .includes(item.itemName?.toLowerCase() || "")
                         )
                         .map((option) => {
-                          const normalized = option.itemName
-                            ?.trim()
-                            .toUpperCase();
+                          const query = item.itemName || "";
+                          const name = option.itemName || "";
+
+                          // Highlight matched part
+                          const parts = name.split(
+                            new RegExp(`(${query})`, "gi")
+                          );
+
                           return (
                             <li
-                              key={option._id || normalized}
+                              key={option._id || name}
                               className="px-3 py-2 hover:bg-accent cursor-pointer transition-colors"
+                              onMouseDown={(e) => e.preventDefault()} // prevent blur
                               onClick={() => {
+                                const normalized = name;
+
                                 setItemsData((prev) => {
                                   const updated = [...prev];
                                   updated[index] = {
@@ -2765,23 +2789,29 @@ export default function PurchaseOrder({ onSuccess }: Props) {
                                     quantity:
                                       updatedItems[index]?.quantity || 1,
                                   };
-                                  return {
-                                    ...prev,
-                                    items: updatedItems,
-                                  };
+                                  return { ...prev, items: updatedItems };
                                 });
 
                                 setShowItemSuggestions(null);
                               }}>
-                              {normalized}
+                              {parts.map((part, i) => (
+                                <span
+                                  key={i}
+                                  className={
+                                    part.toLowerCase() === query.toLowerCase()
+                                      ? "font-semibold bg-yellow-200"
+                                      : ""
+                                  }>
+                                  {part}
+                                </span>
+                              ))}
                             </li>
                           );
                         })}
                       {items.filter((option) =>
                         option.itemName
-                          ?.trim()
-                          .toUpperCase()
-                          .includes(item.itemName?.toUpperCase() || "")
+                          ?.toLowerCase()
+                          .includes(item.itemName?.toLowerCase() || "")
                       ).length === 0 && (
                         <li className="px-3 py-2 text-muted-foreground">
                           No matching items found

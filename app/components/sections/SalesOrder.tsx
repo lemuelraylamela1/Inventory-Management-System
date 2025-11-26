@@ -2609,7 +2609,6 @@ export default function SalesOrder({ onSuccess }: Props) {
                               readOnly
                               className="w-full px-3 py-2 border-r border-border text-sm bg-gray-50 text-gray-700 rounded-l-lg"
                             />
-
                             {/* Item Name + Suggestions */}
                             <div className="relative w-full">
                               <input
@@ -2625,9 +2624,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                                   )
                                 }
                                 onChange={(e) => {
-                                  const value = e.target.value
-                                    .toUpperCase()
-                                    .trim();
+                                  const value = e.target.value; // allow spaces, no uppercasing here
 
                                   setItemsData((prev) => {
                                     const updated = [...prev];
@@ -2650,7 +2647,7 @@ export default function SalesOrder({ onSuccess }: Props) {
                                   setShowItemSuggestions(index);
                                 }}
                                 placeholder="🔍 Search item"
-                                className="text-sm uppercase w-full px-3 py-2 border-none bg-transparent focus:ring-2 focus:ring-primary/60 focus:bg-white rounded-none transition-all"
+                                className="text-sm w-full px-3 py-2 border-none bg-transparent focus:ring-2 focus:ring-primary/60 focus:bg-white rounded-none transition-all"
                               />
 
                               {/* Stock Indicator */}
@@ -2686,25 +2683,22 @@ export default function SalesOrder({ onSuccess }: Props) {
                               {showItemSuggestions === index && (
                                 <ul className="absolute top-full left-0 w-full z-20 bg-white border border-border rounded-md shadow-lg max-h-56 overflow-y-auto text-sm mt-1 animate-in fade-in-0 zoom-in-95">
                                   {(() => {
-                                    const input =
-                                      item.itemName?.toUpperCase().trim() || "";
+                                    const input = item.itemName?.trim() || "";
                                     const selectedNames = itemsData
-                                      .map((i) =>
-                                        i.itemName?.trim().toUpperCase()
-                                      )
+                                      .map((i) => i.itemName?.trim())
                                       .filter(Boolean);
 
                                     const filtered = inventoryItems.filter(
                                       (option) => {
-                                        const normalized = option.itemName
-                                          ?.trim()
-                                          .toUpperCase();
+                                        const normalized =
+                                          option.itemName?.trim() || "";
                                         const availableQty =
                                           Number(option.availableQuantity) || 0;
-
                                         return (
                                           normalized &&
-                                          normalized.includes(input) &&
+                                          normalized
+                                            .toLowerCase()
+                                            .includes(input.toLowerCase()) &&
                                           availableQty > 0 &&
                                           !selectedNames.includes(normalized)
                                         );
@@ -2720,16 +2714,23 @@ export default function SalesOrder({ onSuccess }: Props) {
                                     }
 
                                     return filtered.map((option) => {
-                                      const normalized = option.itemName
-                                        ?.trim()
-                                        .toUpperCase();
+                                      const normalized =
+                                        option.itemName?.trim() || "";
                                       const availableQty =
                                         option.availableQuantity ?? 0;
+
+                                      // Highlight matching letters
+                                      const parts = normalized.split(
+                                        new RegExp(`(${input})`, "gi")
+                                      );
 
                                       return (
                                         <li
                                           key={option.itemCode || normalized}
                                           className="px-3 py-2 hover:bg-primary/10 cursor-pointer transition-colors flex justify-between items-center"
+                                          onMouseDown={(e) =>
+                                            e.preventDefault()
+                                          } // prevent blur
                                           onClick={() => {
                                             const enriched = {
                                               itemName: normalized,
@@ -2765,8 +2766,19 @@ export default function SalesOrder({ onSuccess }: Props) {
 
                                             setShowItemSuggestions(null);
                                           }}>
-                                          <span className="font-medium">
-                                            {normalized}
+                                          <span className="flex-1">
+                                            {parts.map((part, i) => (
+                                              <span
+                                                key={i}
+                                                className={
+                                                  part.toLowerCase() ===
+                                                  input.toLowerCase()
+                                                    ? "font-semibold bg-yellow-200"
+                                                    : ""
+                                                }>
+                                                {part}
+                                              </span>
+                                            ))}
                                           </span>
                                           <span className="text-xs text-gray-500">
                                             {availableQty} available
