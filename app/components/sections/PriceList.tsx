@@ -1,5 +1,6 @@
 import { useEffect, useState, useMemo, useRef } from "react";
 import { ScrollArea } from "../ui/scroll-area";
+import { createPortal } from "react-dom";
 import {
   Card,
   CardHeader,
@@ -489,111 +490,132 @@ export default function PriceList() {
         </div>
 
         {/* Table */}
-        <ScrollArea className="max-h-[500px] overflow-auto border rounded-lg">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead className="w-4 px-2">
-                  <Checkbox
-                    checked={paginatedPriceLists
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-4 px-2">
+                <Checkbox
+                  checked={paginatedPriceLists
+                    .map((p) => p._id)
+                    .filter((id): id is string => !!id)
+                    .every((id) => selectedIds.includes(id))}
+                  onCheckedChange={(checked) => {
+                    const visibleIds = paginatedPriceLists
                       .map((p) => p._id)
-                      .filter((id): id is string => !!id)
-                      .every((id) => selectedIds.includes(id))}
-                    onCheckedChange={(checked) => {
-                      const visibleIds = paginatedPriceLists
-                        .map((p) => p._id)
-                        .filter((id): id is string => !!id);
+                      .filter((id): id is string => !!id);
 
-                      setSelectedIds((prev) =>
-                        checked
-                          ? [...new Set([...prev, ...visibleIds])]
-                          : prev.filter((id) => !visibleIds.includes(id))
-                      );
-                    }}
-                    aria-label="Select all visible price list entries"
-                    className="ml-1"
-                  />
-                </TableHead>
-                <TableHead>Creation Date</TableHead>
-                <TableHead>Price Level Code</TableHead>
-                <TableHead>Price Level Name</TableHead>
+                    setSelectedIds((prev) =>
+                      checked
+                        ? [...new Set([...prev, ...visibleIds])]
+                        : prev.filter((id) => !visibleIds.includes(id))
+                    );
+                  }}
+                  aria-label="Select all visible price list entries"
+                  className="ml-1"
+                />
+              </TableHead>
+              <TableHead>Creation Date</TableHead>
+              <TableHead>Price Level Code</TableHead>
+              <TableHead>Price Level Name</TableHead>
 
-                <TableHead>Items</TableHead>
-                <TableHead className="text-right">Actions</TableHead>
+              <TableHead>Items</TableHead>
+              <TableHead className="text-right">Actions</TableHead>
+            </TableRow>
+          </TableHeader>
+
+          <TableBody>
+            {isLoading ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground">
+                  <div className="flex flex-col items-center gap-2">
+                    <Loader2 className="h-5 w-5 animate-spin" />
+                    <span className="text-sm">Loading price lists…</span>
+                  </div>
+                </TableCell>
               </TableRow>
-            </TableHeader>
+            ) : paginatedPriceLists.length === 0 ? (
+              <TableRow>
+                <TableCell
+                  colSpan={6}
+                  className="py-10 text-center text-muted-foreground">
+                  <div className="flex flex-col items-center gap-2">
+                    <Inbox className="h-6 w-6" />
+                    <span className="text-sm">No price lists found</span>
+                  </div>
+                </TableCell>
+              </TableRow>
+            ) : (
+              paginatedPriceLists.map((pl) => (
+                <TableRow key={pl._id}>
+                  <TableCell className="px-2">
+                    <Checkbox
+                      checked={selectedIds.includes(pl._id ?? "")}
+                      onCheckedChange={(checked) => {
+                        const id = pl._id;
+                        if (!id) return;
 
-            <TableBody>
-              {isLoading ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="py-10 text-center text-muted-foreground">
-                    <div className="flex flex-col items-center gap-2">
-                      <Loader2 className="h-5 w-5 animate-spin" />
-                      <span className="text-sm">Loading price lists…</span>
-                    </div>
+                        setSelectedIds((prev) =>
+                          checked ? [...prev, id] : prev.filter((x) => x !== id)
+                        );
+                      }}
+                      aria-label={`Select ${pl.priceLevelName || "Price List"}`}
+                      className="ml-1"
+                    />
                   </TableCell>
-                </TableRow>
-              ) : filteredPriceLists.length === 0 ? (
-                <TableRow>
-                  <TableCell
-                    colSpan={6}
-                    className="py-10 text-center text-muted-foreground">
-                    <div className="flex flex-col items-center gap-2">
-                      <Inbox className="h-6 w-6" />
-                      <span className="text-sm">No price lists found</span>
-                    </div>
+                  <TableCell>
+                    {pl.createdAt
+                      ? new Date(pl.createdAt).toLocaleDateString("en-PH", {
+                          year: "numeric",
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : "—"}
                   </TableCell>
-                </TableRow>
-              ) : (
-                filteredPriceLists.map((pl) => (
-                  <TableRow key={pl._id}>
-                    <TableCell className="px-2">
-                      <Checkbox
-                        checked={selectedIds.includes(pl._id ?? "")}
-                        onCheckedChange={(checked) => {
-                          const id = pl._id;
-                          if (!id) return;
+                  <TableCell>{pl.priceLevelCode ?? "—"}</TableCell>
+                  <TableCell>{pl.priceLevelName ?? "—"}</TableCell>
 
-                          setSelectedIds((prev) =>
-                            checked
-                              ? [...prev, id]
-                              : prev.filter((x) => x !== id)
-                          );
-                        }}
-                        aria-label={`Select ${
-                          pl.priceLevelName || "Price List"
-                        }`}
-                        className="ml-1"
-                      />
-                    </TableCell>
-                    <TableCell>
-                      {pl.createdAt
-                        ? new Date(pl.createdAt).toLocaleDateString("en-PH", {
-                            year: "numeric",
-                            month: "short",
-                            day: "numeric",
-                          })
-                        : "—"}
-                    </TableCell>
-                    <TableCell>{pl.priceLevelCode ?? "—"}</TableCell>
-                    <TableCell>{pl.priceLevelName ?? "—"}</TableCell>
-
-                    <TableCell>
-                      {pl.items && pl.items.length > 0 ? (
-                        <div className="relative flex flex-col gap-1 group">
-                          {/* Display first 3 items */}
-                          {pl.items.slice(0, 3).map((i) => (
-                            <div
-                              key={i.itemCode}
-                              className="text-sm text-gray-700 truncate"
-                              title={`${i.itemName} (${
-                                i.itemCode
-                              }): ${i.salesPrice.toLocaleString("en-PH", {
+                  <TableCell>
+                    {pl.items && pl.items.length > 0 ? (
+                      <div className="relative flex flex-col gap-1 group">
+                        {/* Display first 3 items */}
+                        {pl.items.slice(0, 3).map((i) => (
+                          <div
+                            key={i.itemCode}
+                            className="text-sm text-gray-700 truncate"
+                            title={`${i.itemName} (${
+                              i.itemCode
+                            }): ${i.salesPrice.toLocaleString("en-PH", {
+                              style: "currency",
+                              currency: "PHP",
+                            })}`}>
+                            <span className="font-medium">{i.itemName}</span>{" "}
+                            <span className="text-muted-foreground">
+                              ({i.itemCode})
+                            </span>
+                            :{" "}
+                            <span className="text-primary font-semibold">
+                              {i.salesPrice.toLocaleString("en-PH", {
                                 style: "currency",
                                 currency: "PHP",
-                              })}`}>
+                              })}
+                            </span>
+                          </div>
+                        ))}
+
+                        {pl.items.length > 3 && (
+                          <div className="text-xs text-gray-500">
+                            +{pl.items.length - 3} more
+                          </div>
+                        )}
+
+                        {/* Hover popup showing all items */}
+                        <div className="absolute top-full left-0 w-max bg-white border border-gray-300 shadow-lg rounded-md p-2 mt-1 hidden group-hover:block z-50">
+                          {pl.items.map((i) => (
+                            <div
+                              key={i.itemCode}
+                              className="text-sm text-gray-700 whitespace-nowrap">
                               <span className="font-medium">{i.itemName}</span>{" "}
                               <span className="text-muted-foreground">
                                 ({i.itemCode})
@@ -607,97 +629,106 @@ export default function PriceList() {
                               </span>
                             </div>
                           ))}
-
-                          {pl.items.length > 3 && (
-                            <div className="text-xs text-gray-500">
-                              +{pl.items.length - 3} more
-                            </div>
-                          )}
-
-                          {/* Hover popup showing all items */}
-                          <div className="absolute top-full left-0 w-max bg-white border border-gray-300 shadow-lg rounded-md p-2 mt-1 hidden group-hover:block z-50">
-                            {pl.items.map((i) => (
-                              <div
-                                key={i.itemCode}
-                                className="text-sm text-gray-700 whitespace-nowrap">
-                                <span className="font-medium">
-                                  {i.itemName}
-                                </span>{" "}
-                                <span className="text-muted-foreground">
-                                  ({i.itemCode})
-                                </span>
-                                :{" "}
-                                <span className="text-primary font-semibold">
-                                  {i.salesPrice.toLocaleString("en-PH", {
-                                    style: "currency",
-                                    currency: "PHP",
-                                  })}
-                                </span>
-                              </div>
-                            ))}
-                          </div>
                         </div>
-                      ) : (
-                        "—"
-                      )}
-                    </TableCell>
+                      </div>
+                    ) : (
+                      "—"
+                    )}
+                  </TableCell>
 
-                    <TableCell className="text-right">
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleView(pl._id!)}
-                        title="View Price List">
-                        <Eye className="w-4 h-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleEdit(pl)}
-                        title="Edit Price List">
-                        <Edit className="w-4 h-4" />
-                      </Button>
-                      <AlertDialog>
-                        <AlertDialogTrigger asChild>
-                          <Button
-                            variant="ghost"
-                            size="sm"
-                            title="Delete Price List"
-                            className="text-red-600 hover:text-red-800">
-                            <Trash2 className="w-4 h-4" />
-                          </Button>
-                        </AlertDialogTrigger>
-                        <AlertDialogContent>
-                          <AlertDialogHeader>
-                            <AlertDialogTitle>
-                              Delete Price List
-                            </AlertDialogTitle>
-                            <AlertDialogDescription>
-                              This action cannot be undone. Are you sure you
-                              want to permanently delete this price list?
-                            </AlertDialogDescription>
-                          </AlertDialogHeader>
-                          <AlertDialogFooter>
-                            <AlertDialogCancel asChild>
-                              <Button variant="outline">Cancel</Button>
-                            </AlertDialogCancel>
-                            <AlertDialogAction asChild>
-                              <Button
-                                variant="destructive"
-                                onClick={() => handleDelete(pl._id!)}>
-                                Confirm Delete
-                              </Button>
-                            </AlertDialogAction>
-                          </AlertDialogFooter>
-                        </AlertDialogContent>
-                      </AlertDialog>
-                    </TableCell>
-                  </TableRow>
-                ))
-              )}
-            </TableBody>
-          </Table>
-        </ScrollArea>
+                  <TableCell className="text-right">
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleView(pl._id!)}
+                      title="View Price List">
+                      <Eye className="w-4 h-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => handleEdit(pl)}
+                      title="Edit Price List">
+                      <Edit className="w-4 h-4" />
+                    </Button>
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          title="Delete Price List"
+                          className="text-red-600 hover:text-red-800">
+                          <Trash2 className="w-4 h-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete Price List</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This action cannot be undone. Are you sure you want
+                            to permanently delete this price list?
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel asChild>
+                            <Button variant="outline">Cancel</Button>
+                          </AlertDialogCancel>
+                          <AlertDialogAction asChild>
+                            <Button
+                              variant="destructive"
+                              onClick={() => handleDelete(pl._id!)}>
+                              Confirm Delete
+                            </Button>
+                          </AlertDialogAction>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
+                  </TableCell>
+                </TableRow>
+              ))
+            )}
+          </TableBody>
+        </Table>
+        <div className="flex items-center justify-between mt-2 px-2">
+          {/* Rows per page selector */}
+          <div className="flex items-center gap-2">
+            <span className="text-sm text-muted-foreground">
+              Rows per page:
+            </span>
+            <select
+              value={rowsPerPage}
+              onChange={(e) => {
+                setRowsPerPage(Number(e.target.value));
+                setCurrentPage(1); // reset to first page
+              }}
+              className="border rounded px-2 py-1 text-sm">
+              <option value={10}>10</option>
+              <option value={50}>50</option>
+              <option value={100}>100</option>
+            </select>
+          </div>
+
+          {/* Pagination buttons */}
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === 1}
+              onClick={() => setCurrentPage((prev) => prev - 1)}>
+              Previous
+            </Button>
+            <span className="text-sm">
+              Page {currentPage} of {totalPages || 1}
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={currentPage === totalPages || totalPages === 0}
+              onClick={() => setCurrentPage((prev) => prev + 1)}>
+              Next
+            </Button>
+          </div>
+        </div>
       </CardContent>
       <Dialog open={isCreateDialogOpen} onOpenChange={setIsCreateDialogOpen}>
         <DialogPanel className="max-w-2xl">
