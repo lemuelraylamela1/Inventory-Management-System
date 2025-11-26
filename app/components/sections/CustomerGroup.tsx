@@ -18,6 +18,7 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
 } from "../ui/dialog";
 import { Label } from "../ui/label";
 import { Badge } from "../ui/badge";
@@ -1049,52 +1050,79 @@ export default function CustomerGroup({ onSuccess }: Props) {
 
       {/* View Dialog */}
       <Dialog open={isViewDialogOpen} onOpenChange={setIsViewDialogOpen}>
-        <DialogContent className="max-w-2xl overflow-y-auto rounded-xl p-6">
+        <DialogContent className="max-w-xl rounded-xl p-6">
           <DialogHeader>
-            <DialogTitle>Customer Type Details</DialogTitle>
+            <DialogTitle className="text-xl font-semibold tracking-wide text-primary">
+              Customer Group Details
+            </DialogTitle>
+            <DialogDescription className="text-sm text-muted-foreground">
+              Review all information for this customer type.
+            </DialogDescription>
           </DialogHeader>
 
           {viewingCustomerType && (
-            <div className="grid gap-6 py-4">
-              <Card className="p-4">
+            <div className="mt-4 space-y-6">
+              {/* Section: Basic Info */}
+              <section className="space-y-4">
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                  Basic Information
+                </h3>
+
                 <div className="grid grid-cols-2 gap-4">
                   {/* Group Code */}
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs text-muted-foreground">
                       Group Code
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                    </span>
+                    <div className="rounded-md border bg-muted px-3 py-2 text-sm">
                       {viewingCustomerType.groupCode}
                     </div>
                   </div>
 
                   {/* Group Name */}
-                  <div className="flex flex-col gap-1">
-                    <Label className="text-xs text-muted-foreground">
+                  <div className="flex flex-col gap-1.5">
+                    <span className="text-xs text-muted-foreground">
                       Group Name
-                    </Label>
-                    <div className="bg-muted rounded-md px-3 py-2 text-sm border">
+                    </span>
+                    <div className="rounded-md border bg-muted px-3 py-2 text-sm">
                       {viewingCustomerType.groupName}
                     </div>
                   </div>
-
-                  {/* Discounts */}
-                  {viewingCustomerType.discounts.map((discount, index) => (
-                    <div key={index} className="flex flex-col gap-1">
-                      <Label className="text-xs text-muted-foreground">
-                        Discount {index + 1}
-                      </Label>
-                      <div className="bg-muted rounded-md px-3 py-2 text-sm border">
-                        {Number(discount).toFixed(2)}
-                      </div>
-                    </div>
-                  ))}
                 </div>
-              </Card>
+              </section>
+
+              {/* Section: Discounts */}
+              <section className="space-y-3">
+                <h3 className="text-sm font-semibold text-foreground uppercase tracking-wide">
+                  Discounts
+                </h3>
+
+                <div className="space-y-2">
+                  {viewingCustomerType.discounts.length === 0 ? (
+                    <p className="text-sm text-muted-foreground italic">
+                      No discounts assigned.
+                    </p>
+                  ) : (
+                    viewingCustomerType.discounts.map((discount, index) => (
+                      <div
+                        key={index}
+                        className="flex justify-between items-center rounded-md border bg-muted px-3 py-2 text-sm">
+                        <span className="text-muted-foreground">
+                          Discount {index + 1}
+                        </span>
+                        <span className="font-medium text-primary">
+                          {parseFloat(discount).toString().replace(/\.0+$/, "")}
+                          %
+                        </span>
+                      </div>
+                    ))
+                  )}
+                </div>
+              </section>
             </div>
           )}
 
-          <div className="flex justify-end">
+          <div className="flex justify-end mt-6">
             <Button
               variant="outline"
               onClick={() => setIsViewDialogOpen(false)}>

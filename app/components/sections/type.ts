@@ -526,3 +526,16 @@ export type DeliveryItem = {
   priceAfterDiscount?: number;
   discountBreakdown?: DiscountStep[];
 };
+
+export type PriceListType = {
+  _id?: string;
+  priceLevelCode: string;
+  priceLevelName: string;
+  items: {
+    itemCode: string;
+    itemName: string;
+    salesPrice: number;
+  }[];
+  createdAt: Date;
+  updatedAt: Date;
+};

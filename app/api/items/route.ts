@@ -104,16 +104,19 @@ export async function GET(req: NextRequest) {
 
   try {
     const { searchParams } = new URL(req.url);
-    const name = searchParams.get("name"); // query param
+    const query = searchParams.get("name")?.trim() || "";
 
     let items;
-    if (name) {
-      // Case-insensitive exact match
+
+    if (query) {
+      // Partial, case-insensitive match on itemName OR itemCode
+      const regex = new RegExp(query, "i");
       items = await Item.find({
-        itemName: { $regex: new RegExp(`^${name}$`, "i") },
-      });
+        $or: [{ itemName: regex }, { itemCode: regex }],
+      }).limit(20); // optional: limit results for performance
     } else {
-      items = await Item.find();
+      // Return all items (or limit for performance)
+      items = await Item.find().limit(50);
     }
 
     return NextResponse.json({ items }, { status: 200 });
