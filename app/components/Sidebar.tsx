@@ -4,7 +4,6 @@ import React, { useState } from "react";
 import { Button } from "./ui/button";
 import { ScrollArea } from "./ui/scroll-area";
 import { motion, AnimatePresence } from "framer-motion";
-import { Separator } from "./ui/separator";
 import {
   Collapsible,
   CollapsibleContent,
@@ -44,12 +43,20 @@ import {
 } from "lucide-react";
 
 interface SidebarProps {
-  userRole: "admin" | "user";
+  userRole: "SYSTEM_ADMIN" | "MANAGER" | "USER";
   activeSection: string;
   onSectionChange: (section: string) => void;
   onLogout: () => void;
   isOpen: boolean;
   onToggle: () => void;
+}
+
+interface MenuItem {
+  id: string;
+  label: string;
+  icon: React.ElementType;
+  roles?: ("SYSTEM_ADMIN" | "MANAGER" | "USER")[];
+  subItems?: MenuItem[];
 }
 
 export function Sidebar({
@@ -66,422 +73,348 @@ export function Sidebar({
     setOpenSubMenus((prev) => (prev.includes(menu) ? [] : [menu]));
   };
 
-  const mainMenuItems = [
-    { id: "dashboard", label: "Dashboard", icon: LayoutDashboard },
-    { id: "reports", label: "Reports", icon: BarChart3 },
-    { id: "users", label: "User Management", icon: Users, adminOnly: true },
-  ];
-  const accounting = [
-    { id: "accounts-payable", label: "Accounts Payable", icon: Banknote },
-    { id: "accounts-receivable", label: "Accounts Receivable", icon: FileText },
-  ];
-
-  const inventory = [
-    { id: "inventory-summary", label: "Inventory Summary", icon: Boxes },
+  // Define all menus with roles
+  const menuItems: MenuItem[] = [
     {
-      id: "inventory-tracker",
-      label: "Inventory Tracker",
-      icon: ClipboardList,
+      id: "dashboard",
+      label: "Dashboard",
+      icon: LayoutDashboard,
+      roles: ["SYSTEM_ADMIN", "MANAGER", "USER"],
     },
     {
-      id: "inventory-adjustment",
-      label: "Inventory Adjustment",
-      icon: FileEdit,
+      id: "reports",
+      label: "Reports",
+      icon: BarChart3,
+      roles: ["SYSTEM_ADMIN", "MANAGER"],
+    },
+    {
+      id: "users",
+      label: "User Management",
+      icon: Users,
+      roles: ["SYSTEM_ADMIN"],
+    },
+
+    {
+      id: "accounting",
+      label: "Accounting",
+      icon: Banknote,
+      roles: ["SYSTEM_ADMIN", "MANAGER"],
+      subItems: [
+        {
+          id: "accounts-payable",
+          label: "Accounts Payable",
+          icon: Banknote,
+          roles: ["SYSTEM_ADMIN", "MANAGER"],
+        },
+        {
+          id: "accounts-receivable",
+          label: "Accounts Receivable",
+          icon: FileText,
+          roles: ["SYSTEM_ADMIN", "MANAGER"],
+        },
+      ],
+    },
+
+    {
+      id: "inventory",
+      label: "Inventory",
+      icon: Package,
+      roles: ["SYSTEM_ADMIN", "MANAGER"],
+      subItems: [
+        {
+          id: "inventory-summary",
+          label: "Inventory Summary",
+          icon: Boxes,
+          roles: ["SYSTEM_ADMIN", "MANAGER"],
+        },
+        {
+          id: "inventory-tracker",
+          label: "Inventory Tracker",
+          icon: ClipboardList,
+          roles: ["SYSTEM_ADMIN", "MANAGER"],
+        },
+        {
+          id: "inventory-adjustment",
+          label: "Inventory Adjustment",
+          icon: FileEdit,
+          roles: ["SYSTEM_ADMIN"],
+        },
+      ],
+    },
+
+    {
+      id: "purchase",
+      label: "Purchase",
+      icon: Package,
+      roles: ["SYSTEM_ADMIN", "MANAGER"],
+      subItems: [
+        {
+          id: "purchase-order",
+          label: "Purchase Order",
+          icon: ShoppingCart,
+          roles: ["SYSTEM_ADMIN", "MANAGER"],
+        },
+        {
+          id: "purchase-receipt",
+          label: "Purchase Receipt",
+          icon: Receipt,
+          roles: ["SYSTEM_ADMIN", "MANAGER"],
+        },
+        {
+          id: "purchase-return",
+          label: "Purchase Return",
+          icon: Undo2,
+          roles: ["SYSTEM_ADMIN"],
+        },
+      ],
+    },
+
+    {
+      id: "sales",
+      label: "Sales",
+      icon: ShoppingCart,
+      roles: ["SYSTEM_ADMIN", "MANAGER"],
+      subItems: [
+        {
+          id: "sales-order",
+          label: "Sales Order",
+          icon: ShoppingCart,
+          roles: ["SYSTEM_ADMIN", "MANAGER"],
+        },
+        {
+          id: "delivery",
+          label: "Delivery",
+          icon: Truck,
+          roles: ["SYSTEM_ADMIN", "MANAGER"],
+        },
+        {
+          id: "sales-invoice",
+          label: "Sales Invoice",
+          icon: FileText,
+          roles: ["SYSTEM_ADMIN", "MANAGER"],
+        },
+      ],
+    },
+
+    {
+      id: "stock-transfer",
+      label: "Stock Transfer",
+      icon: Package,
+      roles: ["SYSTEM_ADMIN", "MANAGER"],
+      subItems: [
+        {
+          id: "transfer-request",
+          label: "Transfer Request",
+          icon: Truck,
+          roles: ["SYSTEM_ADMIN", "MANAGER"],
+        },
+        {
+          id: "transfer-approved",
+          label: "Transfer Approved",
+          icon: CheckCircle,
+          roles: ["SYSTEM_ADMIN", "MANAGER"],
+        },
+      ],
+    },
+
+    {
+      id: "maintenance",
+      label: "Maintenance",
+      icon: Settings,
+      roles: ["SYSTEM_ADMIN"],
+      subItems: [
+        {
+          id: "account-class",
+          label: "Account Class",
+          icon: Banknote,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "account-codes",
+          label: "Account Codes",
+          icon: Tags,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "atc-codes",
+          label: "ATC Codes",
+          icon: CodeSquare,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "bank",
+          label: "Bank",
+          icon: Building2,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "chart-of-account",
+          label: "Chart of Account",
+          icon: BarChart2,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "customer",
+          label: "Customer",
+          icon: Users,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "customer-group",
+          label: "Customer Group",
+          icon: UserCheck,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "item-class",
+          label: "Item Class",
+          icon: Shapes,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "item-master",
+          label: "Item Master",
+          icon: Package,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "price-list",
+          label: "Price List",
+          icon: DollarSign,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "production",
+          label: "Production",
+          icon: Factory,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "sales-person",
+          label: "Sales Person",
+          icon: UserCircle,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "supplier",
+          label: "Supplier",
+          icon: Truck,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        { id: "tax", label: "Tax", icon: Receipt, roles: ["SYSTEM_ADMIN"] },
+        {
+          id: "unit-measure",
+          label: "Unit of Measure",
+          icon: Ruler,
+          roles: ["SYSTEM_ADMIN"],
+        },
+        {
+          id: "warehouse",
+          label: "Warehouse",
+          icon: Warehouse,
+          roles: ["SYSTEM_ADMIN"],
+        },
+      ],
     },
   ];
 
-  const purchase = [
-    { id: "purchase-order", label: "Purchase Order", icon: ShoppingCart },
-    { id: "purchase-receipt", label: "Purchase Receipt", icon: Receipt },
-    { id: "purchase-return", label: "Purchase Return", icon: Undo2 },
-  ];
+  // Filter items by userRole
+  const visibleMenuItems = menuItems.filter((item) => {
+    // Only SYSTEM_ADMIN can see "users" (User Management)
+    if (item.id === "admin") return userRole === "SYSTEM_ADMIN";
+    // All other items are accessible by all roles
+    return true;
+  });
 
-  const sales = [
-    { id: "sales-order", label: "Sales Order", icon: ShoppingCart },
-    { id: "delivery", label: "Delivery", icon: Truck },
-    { id: "sales-invoice", label: "Sales Invoice", icon: FileText },
-  ];
+  const renderMenuItem = (item: MenuItem) => {
+    if (item.subItems) {
+      const isOpen = openSubMenus.includes(item.id);
+      return (
+        <Collapsible
+          key={item.id}
+          open={isOpen}
+          onOpenChange={() => toggleSubMenu(item.id)}>
+          <CollapsibleTrigger asChild>
+            <Button variant="ghost" className="w-full justify-start">
+              <item.icon className="mr-2 h-4 w-4" />
+              {item.label}
+              {isOpen ? (
+                <ChevronDown className="ml-auto h-4 w-4" />
+              ) : (
+                <ChevronRight className="ml-auto h-4 w-4" />
+              )}
+            </Button>
+          </CollapsibleTrigger>
+          <AnimatePresence initial={false}>
+            {isOpen && (
+              <motion.div
+                initial={{ opacity: 0, height: 0 }}
+                animate={{ opacity: 1, height: "auto" }}
+                exit={{ opacity: 0, height: 0 }}
+                transition={{ duration: 0.4, ease: "easeInOut" }}
+                className="space-y-1 ml-4 mt-1 overflow-hidden">
+                {item.subItems
+                  .filter((sub) => sub.roles?.includes(userRole))
+                  .map((sub) => (
+                    <Button
+                      key={sub.id}
+                      variant={activeSection === sub.id ? "default" : "ghost"}
+                      size="sm"
+                      className="w-full justify-start"
+                      onClick={() => onSectionChange(sub.id)}>
+                      <sub.icon className="mr-2 h-3 w-3" />
+                      {sub.label}
+                    </Button>
+                  ))}
+              </motion.div>
+            )}
+          </AnimatePresence>
+        </Collapsible>
+      );
+    }
 
-  const stockTransfer = [
-    { id: "transfer-request", label: "Transfer Request", icon: Truck },
-    { id: "transfer-approved", label: "Transfer Approved", icon: CheckCircle },
-  ];
-
-  const maintenanceItems = [
-    { id: "account-class", label: "Account Class", icon: Banknote },
-    { id: "account-codes", label: "Account Code", icon: Tags },
-    { id: "atc-codes", label: "ATC Codes", icon: CodeSquare },
-    { id: "bank", label: "Bank", icon: Building2 },
-    { id: "chart-of-account", label: "Chart of Account", icon: BarChart2 },
-    { id: "customer", label: "Customer", icon: Users },
-    { id: "customer-group", label: "Customer Group", icon: UserCheck },
-    { id: "item-class", label: "Item Class", icon: Shapes },
-    { id: "item-master", label: "Item Master", icon: Package },
-    { id: "price-list", label: "Price List", icon: DollarSign },
-    { id: "production", label: "Production", icon: Factory },
-    { id: "sales-person", label: "Sales Person", icon: UserCircle },
-    { id: "supplier", label: "Supplier", icon: Truck },
-    { id: "tax", label: "Tax", icon: Receipt },
-    { id: "unit-measure", label: "Unit of Measure", icon: Ruler },
-    { id: "warehouse", label: "Warehouse", icon: Warehouse },
-  ];
-
-  const filteredMainMenuItems = mainMenuItems.filter(
-    (item) => !item.adminOnly || userRole === "admin"
-  );
+    return (
+      <Button
+        key={item.id}
+        variant={activeSection === item.id ? "default" : "ghost"}
+        className="w-full justify-start"
+        onClick={() => onSectionChange(item.id)}>
+        <item.icon className="mr-2 h-4 w-4" />
+        {item.label}
+      </Button>
+    );
+  };
 
   return (
-    <>
-      {/* Mobile overlay */}
-      {isOpen && (
-        <div
-          className="fixed inset-0 z-40 bg-black bg-opacity-50 lg:hidden"
+    <div
+      className={`fixed left-0 top-0 z-50 h-full w-64 bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out
+        ${
+          isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"
+        } lg:static lg:z-auto`}>
+      <div className="flex items-center justify-between p-4 border-b">
+        <h2 className="text-lg font-semibold">IMS</h2>
+        <Button
+          variant="ghost"
+          size="sm"
           onClick={onToggle}
-        />
-      )}
-
-      {/* Sidebar */}
-      <div
-        className={`
-        fixed left-0 top-0 z-50 h-full w-64 bg-white border-r border-gray-200 transition-transform duration-300 ease-in-out
-        ${isOpen ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}
-        lg:static lg:z-auto
-      `}>
-        <div className="flex items-center justify-between p-4 border-b">
-          <h2 className="text-lg font-semibold">IMS</h2>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={onToggle}
-            className="lg:hidden">
-            <X className="h-4 w-4" />
-          </Button>
-        </div>
-
-        <ScrollArea className="h-[calc(100vh-140px)]">
-          <div className="p-4">
-            <nav className="space-y-2">
-              {filteredMainMenuItems.map((item) => (
-                <Button
-                  key={item.id}
-                  variant={activeSection === item.id ? "default" : "ghost"}
-                  className="w-full justify-start"
-                  onClick={() => {
-                    onSectionChange(item.id);
-                    if (window.innerWidth < 1024) onToggle();
-                  }}>
-                  <item.icon className="mr-2 h-4 w-4" />
-                  {item.label}
-                </Button>
-              ))}
-
-              <Collapsible
-                open={openSubMenus.includes("accounting")}
-                onOpenChange={() => toggleSubMenu("accounting")}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-start">
-                    <Banknote className="mr-2 h-4 w-4" />
-                    Accounting
-                    {openSubMenus.includes("accounting") ? (
-                      <ChevronDown
-                        className={`ml-auto h-4 w-4 transform transition-transform duration-300 ${
-                          openSubMenus.includes("accounting")
-                            ? "rotate-180"
-                            : "rotate-0"
-                        }`}
-                      />
-                    ) : (
-                      <ChevronRight className="ml-auto h-4 w-4" />
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <AnimatePresence initial={false}>
-                  {openSubMenus.includes("accounting") && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.4, ease: "easeInOut" }}
-                      className="space-y-1 ml-4 mt-1 overflow-hidden">
-                      {accounting.map((item) => (
-                        <Button
-                          key={item.id}
-                          variant={
-                            activeSection === item.id ? "default" : "ghost"
-                          }
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            onSectionChange(item.id);
-                            if (window.innerWidth < 1024) onToggle();
-                          }}>
-                          <item.icon className="mr-2 h-3 w-3" />
-                          {item.label}
-                        </Button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Collapsible>
-
-              <Collapsible
-                open={openSubMenus.includes("sales")}
-                onOpenChange={() => toggleSubMenu("sales")}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-start">
-                    <ShoppingCart className="mr-2 h-4 w-4" />
-                    Sales
-                    {openSubMenus.includes("sales") ? (
-                      <ChevronDown
-                        className={`ml-auto h-4 w-4 transform transition-transform duration-300 ${
-                          openSubMenus.includes("sales")
-                            ? "rotate-180"
-                            : "rotate-0"
-                        }`}
-                      />
-                    ) : (
-                      <ChevronRight className="ml-auto h-4 w-4" />
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <AnimatePresence initial={false}>
-                  {openSubMenus.includes("sales") && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.4, ease: "easeInOut" }}
-                      className="space-y-1 ml-4 mt-1 overflow-hidden">
-                      {sales.map((item) => (
-                        <Button
-                          key={item.id}
-                          variant={
-                            activeSection === item.id ? "default" : "ghost"
-                          }
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            onSectionChange(item.id);
-                            if (window.innerWidth < 1024) onToggle();
-                          }}>
-                          <item.icon className="mr-2 h-3 w-3" />
-                          {item.label}
-                        </Button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Collapsible>
-
-              <Collapsible
-                open={openSubMenus.includes("purchase")}
-                onOpenChange={() => toggleSubMenu("purchase")}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-start">
-                    <Package className="mr-2 h-4 w-4" />
-                    Purchase
-                    {openSubMenus.includes("purchase") ? (
-                      <ChevronDown
-                        className={`ml-auto h-4 w-4 transform transition-transform duration-300 ${
-                          openSubMenus.includes("purchase")
-                            ? "rotate-180"
-                            : "rotate-0"
-                        }`}
-                      />
-                    ) : (
-                      <ChevronRight className="ml-auto h-4 w-4" />
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <AnimatePresence initial={false}>
-                  {openSubMenus.includes("purchase") && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.4, ease: "easeInOut" }}
-                      className="space-y-1 ml-4 mt-1 overflow-hidden">
-                      {purchase.map((item) => (
-                        <Button
-                          key={item.id}
-                          variant={
-                            activeSection === item.id ? "default" : "ghost"
-                          }
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            onSectionChange(item.id);
-                            if (window.innerWidth < 1024) onToggle();
-                          }}>
-                          <item.icon className="mr-2 h-3 w-3" />
-                          {item.label}
-                        </Button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Collapsible>
-
-              <Collapsible
-                open={openSubMenus.includes("inventory")}
-                onOpenChange={() => toggleSubMenu("inventory")}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-start">
-                    <Package className="mr-2 h-4 w-4" />
-                    Inventory
-                    {openSubMenus.includes("inventory") ? (
-                      <ChevronDown
-                        className={`ml-auto h-4 w-4 transform transition-transform duration-300 ${
-                          openSubMenus.includes("inventory")
-                            ? "rotate-180"
-                            : "rotate-0"
-                        }`}
-                      />
-                    ) : (
-                      <ChevronRight className="ml-auto h-4 w-4" />
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <AnimatePresence initial={false}>
-                  {openSubMenus.includes("inventory") && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.4, ease: "easeInOut" }}
-                      className="space-y-1 ml-4 mt-1 overflow-hidden">
-                      {inventory.map((item) => (
-                        <Button
-                          key={item.id}
-                          variant={
-                            activeSection === item.id ? "default" : "ghost"
-                          }
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            onSectionChange(item.id);
-                            if (window.innerWidth < 1024) onToggle();
-                          }}>
-                          <item.icon className="mr-2 h-3 w-3" />
-                          {item.label}
-                        </Button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Collapsible>
-
-              <Collapsible
-                open={openSubMenus.includes("stock-transfer")}
-                onOpenChange={() => toggleSubMenu("stock-transfer")}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-start">
-                    <Package className="mr-2 h-4 w-4" />
-                    Stock Transfer
-                    {openSubMenus.includes("stock-transfer") ? (
-                      <ChevronDown
-                        className={`ml-auto h-4 w-4 transform transition-transform duration-300 ${
-                          openSubMenus.includes("stock-transfer")
-                            ? "rotate-180"
-                            : "rotate-0"
-                        }`}
-                      />
-                    ) : (
-                      <ChevronRight className="ml-auto h-4 w-4" />
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <AnimatePresence initial={false}>
-                  {openSubMenus.includes("stock-transfer") && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.4, ease: "easeInOut" }}
-                      className="space-y-1 ml-4 mt-1 overflow-hidden">
-                      {stockTransfer.map((item) => (
-                        <Button
-                          key={item.id}
-                          variant={
-                            activeSection === item.id ? "default" : "ghost"
-                          }
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            onSectionChange(item.id);
-                            if (window.innerWidth < 1024) onToggle();
-                          }}>
-                          <item.icon className="mr-2 h-3 w-3" />
-                          {item.label}
-                        </Button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Collapsible>
-
-              <Collapsible
-                open={openSubMenus.includes("maintenance")}
-                onOpenChange={() => toggleSubMenu("maintenance")}>
-                <CollapsibleTrigger asChild>
-                  <Button variant="ghost" className="w-full justify-start">
-                    <Settings className="mr-2 h-4 w-4" />
-                    Maintenance
-                    {openSubMenus.includes("maintenance") ? (
-                      <ChevronDown
-                        className={`ml-auto h-4 w-4 transform transition-transform duration-300 ${
-                          openSubMenus.includes("maintenance")
-                            ? "rotate-180"
-                            : "rotate-0"
-                        }`}
-                      />
-                    ) : (
-                      <ChevronRight className="ml-auto h-4 w-4" />
-                    )}
-                  </Button>
-                </CollapsibleTrigger>
-                <AnimatePresence initial={false}>
-                  {openSubMenus.includes("maintenance") && (
-                    <motion.div
-                      initial={{ opacity: 0, height: 0 }}
-                      animate={{ opacity: 1, height: "auto" }}
-                      exit={{ opacity: 0, height: 0 }}
-                      transition={{ duration: 0.4, ease: "easeInOut" }}
-                      className="space-y-1 ml-4 mt-1 overflow-hidden">
-                      {maintenanceItems.map((item) => (
-                        <Button
-                          key={item.id}
-                          variant={
-                            activeSection === item.id ? "default" : "ghost"
-                          }
-                          size="sm"
-                          className="w-full justify-start"
-                          onClick={() => {
-                            onSectionChange(item.id);
-                            if (window.innerWidth < 1024) onToggle();
-                          }}>
-                          <item.icon className="mr-2 h-3 w-3" />
-                          {item.label}
-                        </Button>
-                      ))}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </Collapsible>
-            </nav>
-          </div>
-        </ScrollArea>
-
-        <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
-          <Button
-            variant="ghost"
-            className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
-            onClick={onLogout}>
-            <LogOut className="mr-2 h-4 w-4" />
-            Logout
-          </Button>
-        </div>
+          className="lg:hidden">
+          <X className="h-4 w-4" />
+        </Button>
       </div>
-    </>
+
+      <ScrollArea className="h-[calc(100vh-140px)] p-4">
+        <nav className="space-y-2">{visibleMenuItems.map(renderMenuItem)}</nav>
+      </ScrollArea>
+
+      <div className="absolute bottom-0 left-0 right-0 p-4 border-t">
+        <Button
+          variant="ghost"
+          className="w-full justify-start text-red-600 hover:text-red-700 hover:bg-red-50"
+          onClick={onLogout}>
+          <LogOut className="mr-2 h-4 w-4" />
+          Logout
+        </Button>
+      </div>
+    </div>
   );
 }

@@ -6,7 +6,7 @@ import { Menu, Bell } from "lucide-react";
 
 interface HeaderProps {
   userEmail: string;
-  userRole: "admin" | "user";
+  userRole: "SYSTEM_ADMIN" | "MANAGER" | "USER";
   activeSection: string;
   onToggleSidebar: () => void;
 }
@@ -18,9 +18,13 @@ export function Header({
   onToggleSidebar,
 }: HeaderProps) {
   const getSectionTitle = (section: string) => {
+    if (section === "users" && userRole !== "SYSTEM_ADMIN") {
+      return "Dashboard"; // redirect non-admins to a default title
+    }
+
     const titles: Record<string, string> = {
       dashboard: "Dashboard",
-      sales: "Sales ",
+      sales: "Sales",
       purchase: "Purchase",
       "purchase-request": "Purchase Request",
       "purchase-order": "Purchase Order",
@@ -40,7 +44,7 @@ export function Header({
       supplier: "Supplier",
       tax: "Tax",
       "unit-measure": "Unit of Measure",
-      users: "User",
+      users: "User Management",
       warehouse: "Warehouse",
     };
     return titles[section] || "Inventory Management System";
@@ -76,7 +80,7 @@ export function Header({
             <div className="text-right hidden sm:block">
               <p className="text-sm font-medium text-gray-900">{userEmail}</p>
               <Badge
-                variant={userRole === "admin" ? "default" : "secondary"}
+                variant={userRole === "SYSTEM_ADMIN" ? "default" : "secondary"}
                 className="text-xs">
                 {userRole.toUpperCase()}
               </Badge>

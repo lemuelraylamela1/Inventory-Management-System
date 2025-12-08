@@ -1,5 +1,10 @@
-import { useState } from "react";
-import { Search, Users, Filter, Plus } from "lucide-react";
+"use client";
+
+import { useEffect, useState } from "react";
+import { Users, Plus } from "lucide-react";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
 import {
   Table,
   TableBody,
@@ -8,317 +13,205 @@ import {
   TableHeader,
   TableRow,
 } from "../ui/table";
-import { Input } from "../ui/input";
-import { Button } from "../ui/button";
-import { Badge } from "../ui/badge";
-import { Card, CardContent, CardHeader, CardTitle } from "../ui/card";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "../ui/dialog";
+import { toast } from "react-hot-toast";
 
 interface User {
-  id: string;
-  name: string;
-  mobileNumber: string;
+  _id: string;
+  fullName: string;
   email: string;
-  position: string;
-  taskRole: string;
-  menuModules: string[];
-  department: string;
+  password: string;
+  role: "SYSTEM_ADMIN" | "MANAGER" | "USER";
   status: "active" | "inactive";
+  createdAt: string;
+  updatedAt: string;
 }
 
-const mockUsers: User[] = [
-  {
-    id: "1",
-    name: "John Smith",
-    mobileNumber: "+1 (555) 123-4567",
-    email: "john.smith@company.com",
-    position: "Senior Developer",
-    taskRole: "Full Stack Development",
-    menuModules: ["Dashboard", "Projects", "Analytics", "Settings"],
-    department: "Engineering",
-    status: "active",
-  },
-  {
-    id: "2",
-    name: "Sarah Johnson",
-    mobileNumber: "+1 (555) 987-6543",
-    email: "sarah.johnson@company.com",
-    position: "Product Manager",
-    taskRole: "Product Strategy & Planning",
-    menuModules: ["Dashboard", "Products", "Analytics", "Reports"],
-    department: "Product",
-    status: "active",
-  },
-  {
-    id: "3",
-    name: "Michael Davis",
-    mobileNumber: "+1 (555) 456-7890",
-    email: "michael.davis@company.com",
-    position: "UX Designer",
-    taskRole: "User Experience Design",
-    menuModules: ["Dashboard", "Design", "Prototypes"],
-    department: "Design",
-    status: "active",
-  },
-  {
-    id: "4",
-    name: "Emily Wilson",
-    mobileNumber: "+1 (555) 234-5678",
-    email: "emily.wilson@company.com",
-    position: "Marketing Specialist",
-    taskRole: "Digital Marketing & Campaigns",
-    menuModules: ["Dashboard", "Campaigns", "Analytics", "Social Media"],
-    department: "Marketing",
-    status: "active",
-  },
-  {
-    id: "5",
-    name: "David Brown",
-    mobileNumber: "+1 (555) 345-6789",
-    email: "david.brown@company.com",
-    position: "Data Analyst",
-    taskRole: "Business Intelligence & Reporting",
-    menuModules: ["Dashboard", "Analytics", "Reports", "Data Tools"],
-    department: "Analytics",
-    status: "inactive",
-  },
-  {
-    id: "6",
-    name: "Lisa Garcia",
-    mobileNumber: "+1 (555) 567-8901",
-    email: "lisa.garcia@company.com",
-    position: "HR Manager",
-    taskRole: "Human Resources Management",
-    menuModules: ["Dashboard", "Employees", "Payroll", "Benefits"],
-    department: "Human Resources",
-    status: "active",
-  },
-  {
-    id: "7",
-    name: "James Taylor",
-    mobileNumber: "+1 (555) 678-9012",
-    email: "james.taylor@company.com",
-    position: "DevOps Engineer",
-    taskRole: "Infrastructure & Deployment",
-    menuModules: ["Dashboard", "Infrastructure", "Monitoring", "Deployments"],
-    department: "Engineering",
-    status: "active",
-  },
-  {
-    id: "8",
-    name: "Anna Martinez",
-    mobileNumber: "+1 (555) 789-0123",
-    email: "anna.martinez@company.com",
-    position: "Quality Assurance Lead",
-    taskRole: "Testing & Quality Control",
-    menuModules: ["Dashboard", "Testing", "Reports", "Automation"],
-    department: "Quality Assurance",
-    status: "active",
-  },
-];
+// ... imports remain the same
 
-const departments = [
-  "All",
-  "Engineering",
-  "Product",
-  "Design",
-  "Marketing",
-  "Analytics",
-  "Human Resources",
-  "Quality Assurance",
-];
+export default function UserManagement() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
 
-export function UserManagement() {
-  const [searchTerm, setSearchTerm] = useState("");
-  const [selectedDepartment, setSelectedDepartment] = useState("All");
+  // Create user form state
+  const [fullName, setFullName] = useState("");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [role, setRole] = useState<"SYSTEM_ADMIN" | "MANAGER" | "USER">("USER");
+  const [status, setStatus] = useState<"active" | "inactive">("active");
+  const [creating, setCreating] = useState(false);
 
-  const filteredUsers = mockUsers.filter((user) => {
-    const matchesSearch =
-      user.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.position.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      user.department.toLowerCase().includes(searchTerm.toLowerCase());
+  // Edit user state
+  const [editingUser, setEditingUser] = useState<User | null>(null);
+  const [editRole, setEditRole] = useState<"SYSTEM_ADMIN" | "MANAGER" | "USER">(
+    "USER"
+  );
+  const [editPassword, setEditPassword] = useState("");
+  const [updating, setUpdating] = useState(false);
 
-    const matchesDepartment =
-      selectedDepartment === "All" || user.department === selectedDepartment;
+  const fetchUsers = async () => {
+    try {
+      const res = await fetch("/api/users", { cache: "no-store" });
+      const data = await res.json();
+      setUsers(data.users);
+    } catch (err) {
+      console.error(err);
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    return matchesSearch && matchesDepartment;
-  });
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const handleCreateUser = async () => {
+    if (!fullName || !email || !password) {
+      toast.error("Please fill all required fields");
+      return;
+    }
+    setCreating(true);
+    try {
+      const res = await fetch("/api/users/create", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ fullName, email, password, role, status }),
+      });
+      if (!res.ok) throw new Error("Failed to create user");
+      toast.success("User created successfully!");
+      setFullName("");
+      setEmail("");
+      setPassword("");
+      setRole("USER");
+      setStatus("active");
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to create user");
+    } finally {
+      setCreating(false);
+    }
+  };
+
+  const handleUpdateUser = async () => {
+    if (!editingUser) return;
+    setUpdating(true);
+    try {
+      const res = await fetch(`/api/users/${editingUser._id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          role: editRole,
+          password: editPassword || undefined, // only update if changed
+        }),
+      });
+      if (!res.ok) throw new Error("Failed to update user");
+      toast.success("User updated successfully!");
+      setEditingUser(null);
+      setEditPassword("");
+      fetchUsers();
+    } catch (err) {
+      console.error(err);
+      toast.error("Failed to update user");
+    } finally {
+      setUpdating(false);
+    }
+  };
+
+  if (loading) return <p className="p-6">Loading users...</p>;
 
   return (
     <div className="p-6 space-y-6">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Users className="h-8 w-8 text-primary" />
-          <div>
-            <h1 className="text-2xl font-semibold">User Management</h1>
-            <p className="text-muted-foreground">
-              Manage all user accounts and permissions
-            </p>
-          </div>
-        </div>
-        <Button className="flex items-center gap-2">
-          <Plus className="h-4 w-4" />
-          Add New User
-        </Button>
-      </div>
-
-      {/* Stats Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Total Users</p>
-                <p className="text-2xl font-semibold">{mockUsers.length}</p>
-              </div>
-              <Users className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Active Users</p>
-                <p className="text-2xl font-semibold text-green-600">
-                  {mockUsers.filter((user) => user.status === "active").length}
-                </p>
-              </div>
-              <div className="h-3 w-3 rounded-full bg-green-500"></div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Inactive Users</p>
-                <p className="text-2xl font-semibold text-orange-600">
-                  {
-                    mockUsers.filter((user) => user.status === "inactive")
-                      .length
-                  }
-                </p>
-              </div>
-              <div className="h-3 w-3 rounded-full bg-orange-500"></div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-muted-foreground">Departments</p>
-                <p className="text-2xl font-semibold">
-                  {departments.length - 1}
-                </p>
-              </div>
-              <Filter className="h-8 w-8 text-muted-foreground" />
-            </div>
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Filters */}
-      <Card>
-        <CardContent className="p-4">
-          <div className="flex flex-col sm:flex-row gap-4">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
-              <Input
-                placeholder="Search users by name, email, position, or department..."
-                className="pl-10"
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-              />
-            </div>
-            <div className="flex gap-2 flex-wrap">
-              {departments.map((dept) => (
-                <Button
-                  key={dept}
-                  variant={selectedDepartment === dept ? "default" : "outline"}
-                  size="sm"
-                  onClick={() => setSelectedDepartment(dept)}>
-                  {dept}
-                </Button>
-              ))}
-            </div>
-          </div>
-        </CardContent>
-      </Card>
+      {/* Create User Dialog (same as before) */}
+      {/* ... */}
 
       {/* Users Table */}
       <Card>
         <CardHeader>
-          <CardTitle>Users ({filteredUsers.length})</CardTitle>
+          <CardTitle>All Users ({users.length})</CardTitle>
         </CardHeader>
         <CardContent>
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead>Name</TableHead>
-                  <TableHead>Mobile Number</TableHead>
+                  <TableHead>Full Name</TableHead>
                   <TableHead>Email</TableHead>
-                  <TableHead>Position</TableHead>
-                  <TableHead>Task/Role</TableHead>
-                  <TableHead>Menu/Modules</TableHead>
-                  <TableHead>Department</TableHead>
+                  <TableHead>Role</TableHead>
                   <TableHead>Status</TableHead>
+                  <TableHead>Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredUsers.map((user) => (
-                  <TableRow key={user.id}>
-                    <TableCell className="font-medium">{user.name}</TableCell>
-                    <TableCell>{user.mobileNumber}</TableCell>
-                    <TableCell>{user.email}</TableCell>
-                    <TableCell>{user.position}</TableCell>
-                    <TableCell>{user.taskRole}</TableCell>
+                {users.map((u) => (
+                  <TableRow key={u._id}>
+                    <TableCell>{u.fullName}</TableCell>
+                    <TableCell>{u.email}</TableCell>
+                    <TableCell>{u.role}</TableCell>
+                    <TableCell>{u.status}</TableCell>
                     <TableCell>
-                      <div className="flex flex-wrap gap-1">
-                        {user.menuModules.map((module, index) => (
-                          <Badge
-                            key={index}
-                            variant="secondary"
-                            className="text-xs">
-                            {module}
-                          </Badge>
-                        ))}
-                      </div>
-                    </TableCell>
-                    <TableCell>
-                      <Badge variant="outline">{user.department}</Badge>
-                    </TableCell>
-                    <TableCell>
-                      <Badge
-                        variant={
-                          user.status === "active" ? "default" : "secondary"
-                        }
-                        className={
-                          user.status === "active"
-                            ? "bg-green-500 hover:bg-green-600"
-                            : "bg-orange-500 hover:bg-orange-600"
-                        }>
-                        {user.status}
-                      </Badge>
+                      <Dialog
+                        open={editingUser?._id === u._id}
+                        onOpenChange={(open) => {
+                          if (!open) setEditingUser(null);
+                        }}>
+                        <DialogTrigger asChild>
+                          <Button
+                            size="sm"
+                            onClick={() => {
+                              setEditingUser(u);
+                              setEditRole(u.role);
+                            }}>
+                            Edit
+                          </Button>
+                        </DialogTrigger>
+                        <DialogContent className="sm:max-w-[400px]">
+                          <DialogHeader>
+                            <DialogTitle>Edit User</DialogTitle>
+                          </DialogHeader>
+                          <div className="space-y-4">
+                            <select
+                              value={editRole}
+                              onChange={(e) =>
+                                setEditRole(
+                                  e.target.value as
+                                    | "SYSTEM_ADMIN"
+                                    | "MANAGER"
+                                    | "USER"
+                                )
+                              }
+                              className="w-full border p-2 rounded">
+                              <option value="USER">USER</option>
+                              <option value="MANAGER">MANAGER</option>
+                              <option value="SYSTEM_ADMIN">SYSTEM_ADMIN</option>
+                            </select>
+                            <Input
+                              type="password"
+                              placeholder="New Password (leave blank to keep)"
+                              value={editPassword}
+                              onChange={(e) => setEditPassword(e.target.value)}
+                            />
+                            <Button
+                              onClick={handleUpdateUser}
+                              disabled={updating}
+                              className="w-full">
+                              {updating ? "Updating..." : "Update User"}
+                            </Button>
+                          </div>
+                        </DialogContent>
+                      </Dialog>
                     </TableCell>
                   </TableRow>
                 ))}
               </TableBody>
             </Table>
           </div>
-
-          {filteredUsers.length === 0 && (
-            <div className="text-center py-8">
-              <Users className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-              <h3>No users found</h3>
-              <p className="text-muted-foreground">
-                Try adjusting your search criteria or filters.
-              </p>
-            </div>
-          )}
         </CardContent>
       </Card>
     </div>

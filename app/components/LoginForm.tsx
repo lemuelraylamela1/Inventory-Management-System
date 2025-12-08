@@ -13,9 +13,10 @@ import {
 } from "./ui/card";
 import { Alert, AlertDescription } from "./ui/alert";
 import { Eye, EyeOff } from "lucide-react";
+import { toast } from "react-hot-toast";
 
 interface LoginFormProps {
-  onLogin: (email: string, role: "admin" | "user") => void;
+  onLogin: (email: string, role: "ADMINISTRATOR" | "MANAGER" | "USER") => void;
 }
 
 export function LoginForm({ onLogin }: LoginFormProps) {
@@ -25,40 +26,33 @@ export function LoginForm({ onLogin }: LoginFormProps) {
   const [error, setError] = useState("");
   const [loading, setLoading] = useState(false);
 
-  // Mock user data - replace with MongoDB integration
-  const mockUsers = [
-    {
-      email: "lemuellamela123@gmail.com",
-      password: " ",
-      role: "admin" as const,
-    },
-    {
-      email: "joy@gmail.com",
-      password: "joypanget",
-      role: "admin" as const,
-    },
-  ];
-
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setLoading(true);
 
-    // Mock authentication - replace with MongoDB authentication
-    const user = mockUsers.find(
-      (u) => u.email === email && u.password === password
-    );
+    try {
+      const res = await fetch("/api/auth/login", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
 
-    if (user) {
-      setTimeout(() => {
-        onLogin(email, user.role);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.message || "Login failed");
         setLoading(false);
-      }, 1000);
-    } else {
-      setTimeout(() => {
-        setError("Invalid email or password");
-        setLoading(false);
-      }, 1000);
+        return;
+      }
+
+      toast.success("Login successful");
+      onLogin(data.user.email, data.user.role);
+    } catch (err) {
+      console.error(err);
+      setError("Something went wrong");
+    } finally {
+      setLoading(false);
     }
   };
 

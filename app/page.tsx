@@ -7,7 +7,7 @@ import { Header } from "./components/Header";
 import { Dashboard } from "./components/sections/Dashboard";
 import SalesInvoice from "./components/sections/SalesInvoice";
 import SalesOrder from "./components/sections/SalesOrder";
-import { UserManagement } from "./components/sections/UserManagement";
+import UserManagement from "./components/sections/UserManagement";
 import { GenericSection } from "./components/sections/GenericSection";
 import { Toaster } from "./components/ui/sonner";
 import ItemMaster from "./components/sections/ItemMaster";
@@ -41,12 +41,18 @@ import Delivery from "./components/sections/Delivery";
 export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [userEmail, setUserEmail] = useState("");
-  const [userRole, setUserRole] = useState<"admin" | "user">("user");
+  const [userRole, setUserRole] = useState<
+    "SYSTEM_ADMIN" | "MANAGER" | "USER"
+  >();
+
   const [activeSection, setActiveSection] = useState("dashboard");
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [warehouseFilter, setWarehouseFilter] = useState<string>("all");
 
-  const handleLogin = (email: string, role: "admin" | "user") => {
+  const handleLogin = (
+    email: string,
+    role: "SYSTEM_ADMIN" | "MANAGER" | "USER"
+  ) => {
     setIsAuthenticated(true);
     setUserEmail(email);
     setUserRole(role);
@@ -55,7 +61,7 @@ export default function App() {
   const handleLogout = () => {
     setIsAuthenticated(false);
     setUserEmail("");
-    setUserRole("user");
+    setUserRole("USER");
     setActiveSection("dashboard");
   };
 
@@ -155,7 +161,7 @@ export default function App() {
     <>
       <div className="flex h-screen bg-gray-50">
         <Sidebar
-          userRole={userRole}
+          userRole={userRole || "USER"}
           activeSection={activeSection}
           onSectionChange={setActiveSection}
           onLogout={handleLogout}
@@ -166,7 +172,7 @@ export default function App() {
         <div className="flex-1 flex flex-col overflow-hidden lg:ml-0">
           <Header
             userEmail={userEmail}
-            userRole={userRole}
+            userRole={userRole || "USER"}
             activeSection={activeSection}
             onToggleSidebar={() => setSidebarOpen(!sidebarOpen)}
           />
