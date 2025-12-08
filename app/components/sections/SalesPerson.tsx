@@ -798,15 +798,13 @@ export default function SalesPerson() {
                         {salesPerson.salesPersonName || "—"}
                       </TableCell>
                       <TableCell>{salesPerson.emailAddress}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            salesPerson.status === "active"
-                              ? "default"
-                              : "secondary"
-                          }>
-                          {salesPerson.status}
-                        </Badge>
+                      <TableCell
+                        className={
+                          salesPerson.status === "ACTIVE"
+                            ? "text-green-600 font-semibold"
+                            : "text-red-600 font-semibold"
+                        }>
+                        {salesPerson.status}
                       </TableCell>
                       <TableCell>
                         <div className="flex gap-2">

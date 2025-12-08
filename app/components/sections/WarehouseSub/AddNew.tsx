@@ -126,7 +126,7 @@ export default function AddNew({
         warehouse_location: formData.warehouse_location,
       };
 
-      const res = await fetch("http://localhost:3000/api/warehouses", {
+      const res = await fetch("/api/warehouses", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -286,7 +286,7 @@ export default function AddNew({
               type="submit"
               disabled={isSubmitting}
               className="min-w-[100px]">
-              {isSubmitting ? "Submitting..." : "Submit"}
+              {isSubmitting ? "Creating..." : "Create"}
             </Button>
             {error && <p className="text-red-500 text-sm">{error}</p>}
           </div>

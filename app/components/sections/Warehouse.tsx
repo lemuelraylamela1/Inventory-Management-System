@@ -56,9 +56,7 @@ export default function WarehouseList() {
 
     try {
       const res = await fetch("/api/warehouses", { cache: "no-store" });
-      // const res = await fetch("http://localhost:3000/api/warehouses", {
-      //   cache: "no-store",
-      // });
+
       if (!res.ok) throw new Error("Failed to fetch warehouses");
 
       const data = await res.json();
@@ -128,7 +126,7 @@ export default function WarehouseList() {
             <div className="flex flex-col sm:flex-row sm:justify-end gap-2">
               <Button onClick={() => setDialogOpen(true)} className="gap-2">
                 <Plus className="h-4 w-4" />
-                Add New
+                Add New Warehouse
               </Button>
               <AddNew
                 isOpen={dialogOpen}
@@ -155,12 +153,9 @@ export default function WarehouseList() {
                       try {
                         await Promise.all(
                           selectedWarehouses.map((warehouse) =>
-                            fetch(
-                              `http://localhost:3000/api/warehouses/${warehouse._id}`,
-                              {
-                                method: "DELETE",
-                              }
-                            )
+                            fetch(`/api/warehouses/${warehouse._id}`, {
+                              method: "DELETE",
+                            })
                           )
                         );
                         setSelectedWarehouses([]);
@@ -246,69 +241,74 @@ export default function WarehouseList() {
                     </TableCell>
                   </TableRow>
                 ) : paginatedItems.length > 0 ? (
-                  paginatedItems.map((warehouse: WarehouseType) => (
-                    <TableRow key={warehouse._id}>
-                      <TableCell>
-                        <Checkbox
-                          checked={selectedWarehouses.some(
-                            (i) => i._id === warehouse._id
-                          )}
-                          onCheckedChange={(checked: boolean) => {
-                            if (checked) {
-                              setSelectedWarehouses((prev) =>
-                                prev.some((p) => p._id === warehouse._id)
-                                  ? prev
-                                  : [...prev, warehouse]
-                              );
-                            } else {
-                              setSelectedWarehouses((prev) =>
-                                prev.filter((i) => i._id !== warehouse._id)
-                              );
-                            }
-                          }}
-                          className="mr-2"
-                        />
-
-                        {new Date(warehouse.createdDT).toLocaleDateString(
-                          "en-US",
-                          {
-                            year: "numeric",
-                            month: "long",
-                            day: "numeric",
-                          }
-                        )}
-                      </TableCell>
-                      <TableCell>
-                        {(warehouse?.warehouse_code || "").toUpperCase()}
-                      </TableCell>
-                      <TableCell>
-                        {(warehouse?.warehouse_name || "").toUpperCase()}
-                      </TableCell>
-                      <TableCell>
-                        {(warehouse?.warehouse_location || "").toUpperCase()}
-                      </TableCell>
-
-                      <TableCell className="text-right">
-                        <div className="flex justify-end space-x-2">
-                          <Button
-                            variant="ghost"
-                            onClick={() => {
-                              setEditingWarehouse(warehouse); // ✅ Set warehouse to edit
-                              setIsEditWarehouseOpen(true); // ✅ Open edit dialog/modal
+                  [...paginatedItems]
+                    .sort(
+                      (a, b) =>
+                        new Date(b.createdDT).getTime() -
+                        new Date(a.createdDT).getTime()
+                    )
+                    .map((warehouse: WarehouseType) => (
+                      <TableRow key={warehouse._id}>
+                        <TableCell>
+                          <Checkbox
+                            checked={selectedWarehouses.some(
+                              (i) => i._id === warehouse._id
+                            )}
+                            onCheckedChange={(checked: boolean) => {
+                              if (checked) {
+                                setSelectedWarehouses((prev) =>
+                                  prev.some((p) => p._id === warehouse._id)
+                                    ? prev
+                                    : [...prev, warehouse]
+                                );
+                              } else {
+                                setSelectedWarehouses((prev) =>
+                                  prev.filter((i) => i._id !== warehouse._id)
+                                );
+                              }
                             }}
-                            className="gap-2">
-                            <Edit className="h-4 w-4" />
-                            {/* Or use Pencil for edit */}
-                          </Button>
-
-                          <ConfirmDeleteButton
-                            warehouse={warehouse}
-                            fetchWarehouse={fetchWarehouse}
+                            className="mr-2"
                           />
-                        </div>
-                      </TableCell>
-                    </TableRow>
-                  ))
+
+                          {new Date(warehouse.createdDT).toLocaleDateString(
+                            "en-US",
+                            {
+                              year: "numeric",
+                              month: "long",
+                              day: "numeric",
+                            }
+                          )}
+                        </TableCell>
+                        <TableCell>
+                          {(warehouse?.warehouse_code || "").toUpperCase()}
+                        </TableCell>
+                        <TableCell>
+                          {(warehouse?.warehouse_name || "").toUpperCase()}
+                        </TableCell>
+                        <TableCell>
+                          {(warehouse?.warehouse_location || "").toUpperCase()}
+                        </TableCell>
+
+                        <TableCell className="text-right">
+                          <div className="flex justify-end space-x-2">
+                            <Button
+                              variant="ghost"
+                              onClick={() => {
+                                setEditingWarehouse(warehouse);
+                                setIsEditWarehouseOpen(true);
+                              }}
+                              className="gap-2">
+                              <Edit className="h-4 w-4" />
+                            </Button>
+
+                            <ConfirmDeleteButton
+                              warehouse={warehouse}
+                              fetchWarehouse={fetchWarehouse}
+                            />
+                          </div>
+                        </TableCell>
+                      </TableRow>
+                    ))
                 ) : (
                   <TableRow>
                     <TableCell

@@ -1402,14 +1402,15 @@ export default function ItemMaster({ onSuccess }: Props) {
                         </div>
                       </TableCell>
                       <TableCell>{item.category}</TableCell>
-                      <TableCell>
-                        <Badge
-                          variant={
-                            item.status === "ACTIVE" ? "default" : "secondary"
-                          }>
-                          {item.status}
-                        </Badge>
+                      <TableCell
+                        className={
+                          item.status === "ACTIVE"
+                            ? "text-green-600 font-semibold"
+                            : "text-red-600 font-semibold"
+                        }>
+                        {item.status}
                       </TableCell>
+
                       <TableCell>
                         <div className="flex gap-1">
                           <Button
